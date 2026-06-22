@@ -74,12 +74,17 @@ discharge a goal — Trocq's predicate already does (`param … X' XR`). Build t
 the tactic is just one consumer (points it at the goal *type*, discharges via `comap`), and a
 `transfer%` term-elaborator / `#transfer` command is another consumer (keeps `t_B` as a definition).
 
-**Open scope decisions (pending):**
-1. **Relation strength at first cut** — iso/equiv-only (fix class `(4,4)` everywhere, *no class solver
-   needed*) vs the **full graded lattice** (sections/retractions/quotients/refinements — the novel
-   capability nothing else in Lean has). This is the main remaining fork; it determines whether the
-   constraint solver (§6) is in or out of the first build.
-2. *(resolved)* "functions vs lemmas" is **not** a fork — unified by the bullet above.
+**Scope (DECIDED): the full graded lattice is the destination. The `(4,4)` prototype is a
+forward-compatible first rung, not an iso-only tool.** Staging, not a fork. Hard constraints on the
+prototype so the lattice slots in *additively* (no rewrite):
+- Use the real `MapClass`/`ParamClass` + the six-structure `MapHas` **everywhere**; never special-case
+  "iso" as a bespoke path.
+- The `param` driver takes a **target class as a parameter** even while we only ever pass `(4,4)`; the
+  solver (§6) later just changes *who supplies the class*, not the traversal.
+- Registration **stores classes** from day one (all `(4,4)` now, arbitrary later).
+- **No `(4,4)`-only shortcuts** that assume both directions exist / totality / symmetry — those break
+  at sections/retractions.
+- "functions vs lemmas" is **not** a fork — unified by the bullet above.
 
 ---
 
@@ -404,9 +409,9 @@ elab_rules : tactic | `(tactic| trocq $[to $g]? $[using $rs*]?) => ...
    proto Minimal.lean's manual term into an automated one.)
 5. **Tactic on top** — point the driver at a goal *type*, discharge via `comap`; `transfer%` term
    elaborator keeps `t_B` as a def. Reproduce the `Nat`-induction transfer with the tactic.
-6. **Solver** (§6) + Π/→/universe at general classes — *only if* the full graded lattice is chosen
-   (open decision §◆.1). Then **registration** `@[trocq]` + `using`/`with` (§7) and the retraction
-   `(4,2a)` / section `(4,2b)` examples (modular arithmetic, summable sequences) — the novel cases.
+6. **Solver** (§6) + Π/→/universe at general classes — the full graded lattice (the destination, §◆).
+   Then **registration** `@[trocq]` + `using`/`with` (§7) and the retraction `(4,2a)` / section
+   `(4,2b)` examples (modular arithmetic, summable sequences) — the novel cases.
 7. Ergonomics: coercion hook, error messages, `Prop` fast-path (§2a).
 
 Milestone 4 is the first *generated* artefact (function transport, fixed-(4,4), no solver); the solver
