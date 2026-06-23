@@ -77,7 +77,7 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 `Nat→Nat` and nested `Nat→Nat→Nat` at `(1,0)` (computing witnesses); and the **paper flagship
 `∀ A : Type, A → A` at `(0,1)`** — now *assembled* into `Param (0,1) (∀A,A→A) (∀A,A→A)`, not just inferred.
 
-**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators{.Arrow,.Forall,.Universe} → Trocq.Solver`
+**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators{.Arrow,.Forall,.Universe} → Trocq.Solver → Trocq.Tactic`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
 
 ### Boundary facts now *mechanically verified*
@@ -104,9 +104,12 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    *Open extension (not a combinator limit):* the driver's `gen` doesn't yet handle `∀ (n : Base), …`
    (dependent Π over a registered base), so Π's `(4,4)` reach is only exercised via direct combinator use.
 
-2. **User surface** — merge the `Solver` front half with a real `trocq` tactic **and** a `transfer%`
-   term elaborator, on top of the graded combinators. Generalises `Tactic.lean` (single `∀` over a
-   registered base) to arbitrary goals at *minimal* classes (weakest new goal).
+2. **User surface** — ✅ **done** (`Trocq/Tactic.lean`): `transfer% T` elaborates to the witness
+   `Param (4,4) T T'` (so `(transfer% (Nat→Nat)).cov.map` *is* the transported function, and it
+   computes); `trocq` transfers the current goal to its counterpart (seeded at (0,1) via `Param.sym`)
+   and refines by the backward map, leaving the easier goal. Both drive the real graded pipeline.
+   *Open:* still hard-wired to `Nat ≃ Unary` (needs item 3), and limited to types the driver's `gen`
+   handles (arrows / `∀ Type` / registered atoms — not yet applied predicates `P x` or `∀ (n:Base), …`).
 
 3. **Registration** — `@[trocq]` attribute + environment extension, replacing the hardcoded
    `demoAtoms` / `buildCtx`. Stores `(B-type, witness, class)` per registered base/op.

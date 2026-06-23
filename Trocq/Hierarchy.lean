@@ -59,6 +59,12 @@ theorem Map4Has.subsingleton {A B : Type u} {R : A → B → Type v} (m : Map4Ha
     Subsingleton (R a b) :=
   ⟨fun r₁ r₂ => by rw [← m.R_in_mapK a b r₁, ← m.R_in_mapK a b r₂]⟩
 
+/-- symmetry: a `Param m n A B` is a `Param n m B A` on the reversed relation (swap cov/contra). -/
+def Param.sym {A B : Type u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.{u,v} n m B A where
+  R := fun b a => p.R a b
+  cov := p.contra
+  contra := p.cov
+
 /- ===================== the six covering-edge forgets (bare records) ===================== -/
 namespace MapClass
 variable {A B : Type u} {R : A → B → Type v}

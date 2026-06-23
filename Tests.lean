@@ -11,5 +11,6 @@ import Tests.Combinators.Arrow
 import Tests.Combinators.Forall
 import Tests.Combinators.Universe
 import Tests.Solver
+import Tests.Tactic
 
 def main : IO Unit := IO.println "✓ All Trocq tests passed."
