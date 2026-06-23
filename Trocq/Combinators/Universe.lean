@@ -3,7 +3,7 @@ The UNIVERSE construction: relating `Type` to `Type`.
 
 The no-univalence ceiling is class (2a,2a): `map_in_R : A = A' → Param A A'` is `Eq.rec` (free), but the
 completeness field `R_in_map : Param A A' → A = A'` would need univalence — so `Type` is BLOCKED above 2a,
-exactly what Layer 1's `requiresAxiom`/`depType` encode.
+exactly what `Lattice`'s `requiresAxiom`/`depType` encode.
 
 The relation a `Param_Type` *carries* between `A` and `A'` is itself a `Param p q A A'` — and that INNER
 class `(p,q)` is **independent** of the (capped) outer class: it just records how strongly the bound type

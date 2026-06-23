@@ -1,4 +1,4 @@
-/- Layer 1 — the class lattice, dependency tables, and the solver (validated against the paper). -/
+/- The class lattice, dependency tables, and the solver (validated against the paper). -/
 import Lean
 import Trocq.Lattice
 open Lean Lean.Elab Lean.Elab.Command

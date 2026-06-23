@@ -1,30 +1,24 @@
 /-
-MILESTONE 6, layer 4: WIRE THE DRIVER — solver-directed witness assembly.
+THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
 
-Layers 1–3 gave the spine (lattice + solver), the hierarchy + weakening, and the combinators.
-Here the metaprogram finally *uses* them end-to-end, replacing the per-shape hardcoding of
-`Driver.lean`/`Tactic.lean` (which baked in class (4,4)). Two passes:
-
-  FRONT HALF (the genuinely new integration):
-    walk a type `Expr`, assign a class `Var` to every node, emit the Layer-1 `Cstr` edges
-    (`depArrow`/`depPi`/`depType`/`gev`), seed the root, and run the real `Trocq.solve`.
+  FRONT HALF (`gen` + `runSolve`):
+    walk the type, assign a class `Var` to every node, emit the `Cstr` edges
+    (`depArrow`/`depPi`/`depType`/`gev` from `Lattice`), seed the root, and run `Trocq.solve`.
     Output: the MINIMAL class each occurrence needs. Reproduces the paper's `∀A:Type, A→A`
     inference *from the actual Expr* (domain `Type` → (2a,0), bound `A` → (1,1)).
 
-  BACK HALF (assembly):
-    rebuild the witness by dispatching each former to its combinator (`paramArrow33` for `→`)
-    and `weaken`-ing the registered base leaves to fit, then weaken the root to the target class.
+  BACK HALF (`assemble`):
+    rebuild the witness by dispatching each node to its graded combinator (`paramArrow`, `paramForall`,
+    the universe combinator), asking each part only at the `dep*`-minimal class it needs, and weakening
+    the registered base leaves to fit. Handles arrows, polymorphic `∀ A : Type`, dependent Π over a
+    registered base, and the generic application node (the abstraction theorem `⟦head x⟧ = ⟦head⟧ x x' xR`).
 
-Scope: assembly handles arrows over registered base atoms (the non-polymorphic family) and builds
-at (3,3) then weakens — enough to drive a real transfer. Consuming the per-node *minimal* classes in
-assembly (cheapest combinator per node) + polymorphic binders is what the full graded combinator
-family (the deferred 6×6 generalization of layer 3) unlocks; the front half already computes them.
+The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
 import Trocq.Combinators
 import Trocq.Attr
 import Lean
-open Lean Lean.Meta Lean.Elab Lean.Elab.Command
-universe u v
+open Lean Lean.Meta
 namespace Trocq.Solver
 open Trocq MapClass
 
@@ -98,14 +92,30 @@ where
   fresh : MetaM Nat := do let s ← st.get; st.set { s with next := s.next + 1 }; return s.next
   emit (c : Cstr) : MetaM Unit := st.modify fun s => { s with cstrs := s.cstrs.push c }
 
-/-- run the front half: returns the shape tree and the solved (minimal) class per `Var`. -/
-def runSolve (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
-    (e : Expr) (root : ParamClass) : MetaM (Shape × Array ParamClass) := do
+/- ===================== registries from the `@[trocq]` extension ===================== -/
+/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`), so a
+    type built over either side of an equivalence resolves by head match. -/
+def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
+  let mut m := mkNameMap _
+  for e in trocqEntries (← getEnv) do
+    if let .base hA hB tyA tyB wit cls := e then
+      m := m.insert hA (tyB, wit, cls)
+      m := m.insert hB (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1))
+  return m
+
+/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). -/
+def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
+  let mut m := mkNameMap _
+  for e in trocqEntries (← getEnv) do
+    if let .relator hA wit cls := e then m := m.insert hA (wit, cls)
+  return m
+
+/-- run the front half (build registries, generate constraints, solve): shape + minimal class per `Var`. -/
+def runSolve (e : Expr) (root : ParamClass) : MetaM (Shape × Array ParamClass) := do
   let st ← IO.mkRef {}
-  let shape ← gen atoms consts st e
+  let shape ← gen (← buildAtoms) (← buildConsts) st e
   let s ← st.get
-  let sol := Trocq.solve s.next [(shape.var, root)] s.cstrs.toList
-  return (shape, sol)
+  return (shape, Trocq.solve s.next [(shape.var, root)] s.cstrs.toList)
 
 /- ===================== back half: assemble the witness from combinators + weakening ===================== -/
 def classToExpr : MapClass → Expr
@@ -113,18 +123,15 @@ def classToExpr : MapClass → Expr
   | .map2a => mkConst ``MapClass.map2a | .map2b => mkConst ``MapClass.map2b
   | .map3 => mkConst ``MapClass.map3 | .map4 => mkConst ``MapClass.map4
 
+/-- proof of `MapClass.le t s = true` (used for weakening and for a combinator's class cap), via `decide`. -/
+def leProof (t s : MapClass) : MetaM Expr := do
+  mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (classToExpr s))
+                        (mkConst ``Bool.true))
+
 /-- `Param.weaken` applied to coerce a witness `p : Param src.1 src.2 _ _` down to `tgt`. -/
 def weakenTo (tgt src : ParamClass) (p : Expr) : MetaM Expr := do
   if tgt == src then return p
-  let proof (t s : MapClass) : MetaM Expr := do
-    mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (classToExpr s))
-                          (mkConst ``Bool.true))
-  mkAppM ``Param.weaken #[← proof tgt.1 src.1, ← proof tgt.2 src.2, p]
-
-/-- proof of `MapClass.le t bound = true` (a combinator's class cap), via `decide`. -/
-def leProof (t bound : MapClass) : MetaM Expr := do
-  mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (classToExpr bound))
-                        (mkConst ``Bool.true))
+  mkAppM ``Param.weaken #[← leProof tgt.1 src.1, ← leProof tgt.2 src.2, p]
 
 /-- the universe combinator at outer class `req`, carrying inner relation class `inner`. -/
 def mkUniv (req inner : ParamClass) : MetaM Expr := do
@@ -189,40 +196,9 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
-def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
-    (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
-  let (shape, sol) ← runSolve atoms consts e root
-  let wit ← assemble atoms consts sol [] [] root shape
+def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
+  let (shape, sol) ← runSolve e root
+  let wit ← assemble (← buildAtoms) (← buildConsts) sol [] [] root shape
   return (← instantiateMVars wit, shape, sol)
-
-/- ===================== registries built from the `@[trocq]` extension + pretty-printer ===================== -/
-/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`), so a
-    type built over either side of an equivalence resolves by head match. -/
-def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
-  let mut m := mkNameMap _
-  for e in trocqEntries (← getEnv) do
-    if let .base hA hB tyA tyB wit cls := e then
-      m := m.insert hA (tyB, wit, cls)
-      m := m.insert hB (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1))
-  return m
-
-/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). -/
-def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
-  let mut m := mkNameMap _
-  for e in trocqEntries (← getEnv) do
-    if let .relator hA wit cls := e then m := m.insert hA (wit, cls)
-  return m
-
-/-- print the solved class of every named node in the shape tree. -/
-partial def report (sol : Array ParamClass) : Shape → MetaM Unit
-  | .atom v n      => logInfo m!"  atom {n} : {repr sol[v]!}"
-  | .arrow v d c   => do logInfo m!"  → node : {repr sol[v]!}"; report sol d; report sol c
-  | .sort v rV     => logInfo m!"  Type : {repr sol[v]!}   (relation-field {repr sol[rV]!})"
-  | .pi v dV rV b  => do
-      logInfo m!"  ∀ node : {repr sol[v]!}   (domain {repr sol[dV]!}, bound-var class {repr sol[rV]!})"
-      report sol b
-  | .usevar v _    => logInfo m!"  use : {repr sol[v]!}"
-  | .piBase v _ base b => do logInfo m!"  ∀ {base}, … : {repr sol[v]!}"; report sol b
-  | .app v _ head  => logInfo m!"  {head} · : {repr sol[v]!}"
 
 end Trocq.Solver

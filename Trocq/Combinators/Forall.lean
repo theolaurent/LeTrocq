@@ -1,5 +1,5 @@
 /-
-Graded combinator family, stage 2: the dependent Π combinator `paramForall` — at EVERY output class.
+The dependent Π combinator `paramForall` — at EVERY output class.
 
 The dependent generalization of `paramArrow`: the codomain is a FAMILY `B : A → Sort w`, and the
 relation between codomains is itself indexed by the domain relatedness,

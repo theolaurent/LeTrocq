@@ -1,17 +1,15 @@
 /-
-MILESTONE 6, layer 2: the graded hierarchy + WEAKENING (the ⇓ forget maps).
+The graded hierarchy + WEAKENING (the ⇓ forget maps).
 
-Layer 1 (`Lattice.lean`) gave the class algebra. Here we give the *witness* side: the six
-`MapKHas` records, the indexed `MapHas`/`Param`, and — the new content — the **forgetful coercions**
-`MapHas src R → MapHas tgt R` whenever `tgt ≤ src`. A user registers a base at a STRONG class
-(typically the equivalence `(4,4)`); the solver picks the MINIMAL class each occurrence needs; the
-weakening map bridges the two by dropping fields. Proof-light: every forget is just record projection.
+`Lattice` gave the class algebra; this is the *witness* side: the six `MapKHas` records, the indexed
+`MapHas`/`Param`, and the **forgetful coercions** `MapHas src R → MapHas tgt R` whenever `tgt ≤ src`.
+A user registers a base at a STRONG class (typically the equivalence `(4,4)`); the solver picks the
+MINIMAL class each occurrence needs; the weakening map bridges the two by dropping fields. Proof-light:
+every forget is just record projection.
 
 The whole diamond `0 < 1 < {2a,2b} < 3 < 4` is generated from six covering edges
   4 ⟶ 3 ⟶ 2a ⟶ 1 ⟶ 0   and   3 ⟶ 2b ⟶ 1
 so `weaken` is their composition along the (unique-up-to-confluence) path.
-
-Imports Layer 1 (`Lattice.lean`) for the single source of `MapClass`/`le`/`ParamClass`.
 -/
 import Trocq.Lattice
 universe u v

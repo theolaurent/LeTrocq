@@ -1,10 +1,10 @@
 /-
-MILESTONE 6, layer 1: the lattice algebra + dependency tables + class solver.
+The lattice algebra + dependency tables + class solver.
 
-This is the computational spine of the graded system (the port of Trocq's `elpi/class.elpi` +
+The computational spine of the graded system (the port of Trocq's `elpi/class.elpi` +
 `elpi/constraints/constraint-graph.elpi`). Pure, finite, no proofs/metaprogramming — validated
-against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators and the driver wiring
-are built on top of this in later layers.
+against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators (`Combinators`) and
+the driver (`Solver`) build on top of this.
 -/
 namespace Trocq
 

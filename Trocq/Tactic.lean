@@ -22,14 +22,14 @@ open MapClass
 /-- `transfer% T` ⤳ the relatedness witness `Param (4,4) T T'` (`T` a type over a registered base). -/
 elab "transfer% " t:term : term => do
   let tE ← elabType t
-  let (wit, _, _) ← Solver.transfer (← Solver.buildAtoms) (← Solver.buildConsts) tE (map4, map4)
+  let (wit, _, _) ← Solver.transfer tE (map4, map4)
   return (← instantiateMVars wit)
 
 /-- `trocq` transfers the goal across the registered base and leaves you the (easier) counterpart. -/
 elab "trocq" : tactic => do
   let g ← getMainGoal
   let goalTy ← g.getType
-  let (wit, _, _) ← Solver.transfer (← Solver.buildAtoms) (← Solver.buildConsts) goalTy (map0, map1)
+  let (wit, _, _) ← Solver.transfer goalTy (map0, map1)
   let goalTy' := (← instantiateMVars (← inferType wit)).getAppArgs[3]!
   -- backward transport `G' → G` = the contra map at class (0,1) (`MapHas map1` is `Map1Has`).
   let backMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.contra #[wit]]

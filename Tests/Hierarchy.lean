@@ -1,4 +1,4 @@
-/- Layer 2 — the graded hierarchy + weakening (the ⇓ forget maps) over the `Nat ≃ Unary` base. -/
+/- The graded hierarchy + weakening (the ⇓ forget maps) over the `Nat ≃ Unary` base. -/
 import Lean
 import Trocq.Hierarchy
 import Examples.NatUnary

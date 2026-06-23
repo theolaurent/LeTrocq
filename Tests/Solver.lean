@@ -1,4 +1,4 @@
-/- Layer 4 — the driver: Expr → constraints → solve → assembled witness, end to end. -/
+/- The driver: Expr → constraints → solve → assembled witness, end to end. -/
 import Lean
 import Trocq
 import Examples.NatUnary
@@ -12,12 +12,12 @@ def flagshipTy := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
   -- `Nat → Nat` at (0,1): the two occurrences get DIFFERENT minimal classes.
   let e1 ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (_, sol1) ← runSolve (← buildAtoms) (← buildConsts) e1 (map0, map1)
+  let (_, sol1) ← runSolve e1 (map0, map1)
   if sol1 = #[(map0,map1),(map1,map0),(map0,map1)] then pure ()
   else throwError "front-half regressed (Nat→Nat): {repr sol1}"
   -- the flagship `∀ A : Type, A → A` at (0,1): vars [Π, Type, A, →, use, use].
   let e2 := (← getConstInfo ``flagshipTy).value!
-  let (_, sol2) ← runSolve (← buildAtoms) (← buildConsts) e2 (map0, map1)
+  let (_, sol2) ← runSolve e2 (map0, map1)
   if sol2 = #[(map0,map1),(map2a,map0),(map1,map1),(map0,map1),(map1,map0),(map0,map1)] then pure ()
   else throwError "flagship inference regressed (∀A:Type,A→A): {repr sol2}"
 
@@ -26,7 +26,7 @@ run_cmd Command.liftTermElabM do
    (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map1, map0)
+  let (wit, _, _) ← transfer e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `Trocq.Tests.transferred, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -34,7 +34,7 @@ run_cmd Command.liftTermElabM do
 /- a NESTED arrow `Nat → Nat → Nat` at root (1,0): multi-level assembly, each node at its own class. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (← mkArrow (mkConst ``Nat) (mkConst ``Nat))
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map1, map0)
+  let (wit, _, _) ← transfer e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `Trocq.Tests.transferred2, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -57,7 +57,7 @@ example : True := by
 def flagshipTy2 := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map0, map1)
+  let (wit, _, _) ← transfer e (map0, map1)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `Trocq.Tests.flagshipWit, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -75,7 +75,7 @@ example : True := by
    (`paramTypeAtInner`), so it assembles; under the old (1,1)-only `paramType` this would have failed. -/
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map2b, map0)
+  let (wit, _, _) ← transfer e (map2b, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `Trocq.Tests.flagshipWit2b, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -87,7 +87,7 @@ example : True := by
    the full equivalence (the `(4,4)` coherence `R_in_mapK` holds by subsingleton). -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map4, map4)
+  let (wit, _, _) ← transfer e (map4, map4)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `Trocq.Tests.transferred44, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -99,11 +99,11 @@ example : True := by
 /- `Nat → Nat` transferred at several intermediate root classes — each generated witness computes. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (w3, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map3, map3)
+  let (w3, _, _) ← transfer e (map3, map3)
   addDecl (.defnDecl { name := `Trocq.Tests.tr33, levelParams := [],
                        type := ← instantiateMVars (← inferType w3), value := ← instantiateMVars w3,
                        hints := .opaque, safety := .safe })
-  let (w2a, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map2a, map0)
+  let (w2a, _, _) ← transfer e (map2a, map0)
   addDecl (.defnDecl { name := `Trocq.Tests.tr2a, levelParams := [],
                        type := ← instantiateMVars (← inferType w2a), value := ← instantiateMVars w2a,
                        hints := .opaque, safety := .safe })
@@ -113,7 +113,7 @@ example : Trocq.Tests.tr2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /- a HIGHER-ORDER domain `(Nat → Nat) → Nat` transfers at (1,0): assembly nests through the arrow domain. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (← mkArrow (mkConst ``Nat) (mkConst ``Nat)) (mkConst ``Nat)
-  let (wit, _, _) ← transfer (← buildAtoms) (← buildConsts) e (map1, map0)
+  let (wit, _, _) ← transfer e (map1, map0)
   addDecl (.defnDecl { name := `Trocq.Tests.trHO, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
