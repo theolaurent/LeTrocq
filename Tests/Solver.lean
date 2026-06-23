@@ -20,7 +20,9 @@ run_cmd Command.liftTermElabM do
   if sol2 = #[(map0,map1),(map2a,map0),(map1,map1),(map0,map1),(map1,map0),(map0,map1)] then pure ()
   else throwError "flagship inference regressed (∀A:Type,A→A): {repr sol2}"
 
-/- BACK HALF: generate the witness for `Nat → Nat` at root (1,0), then hard-check it. -/
+/- BACK HALF: generate the witness for `Nat → Nat` at root (1,0), then hard-check it.
+   With the rewired driver this is built by the GRADED `paramArrow` at the per-node minimal class
+   (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
   let (wit, _, _) ← transfer demoAtoms e (map1, map0)
@@ -28,10 +30,22 @@ run_cmd Command.liftTermElabM do
   addDecl (.defnDecl { name := `Trocq.Tests.transferred, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
 
+/- a NESTED arrow `Nat → Nat → Nat` at root (1,0): multi-level assembly, each node at its own class. -/
+run_cmd Command.liftTermElabM do
+  let e ← mkArrow (mkConst ``Nat) (← mkArrow (mkConst ``Nat) (mkConst ``Nat))
+  let (wit, _, _) ← transfer demoAtoms e (map1, map0)
+  let ty ← instantiateMVars (← inferType wit)
+  addDecl (.defnDecl { name := `Trocq.Tests.transferred2, levelParams := [], type := ty, value := wit,
+                       hints := .opaque, safety := .safe })
+
 /- the generated witness is a real `Param (1,0) (Nat→Nat) (Unary→Unary)` whose forward map is
    native function transport — and it COMPUTES: -/
 example : Trocq.Tests.transferred.cov.down.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /-- info: 'Trocq.Tests.transferred' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms Trocq.Tests.transferred
+
+/- the nested witness is a real `Param (1,0) (Nat→Nat→Nat) (Unary→Unary→Unary)` and computes: -/
+example : Trocq.Tests.transferred2.cov.down.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
+#check (Trocq.Tests.transferred2 : Param.{0,0} .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary))
 
 end Trocq.Tests

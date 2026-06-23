@@ -67,7 +67,13 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 |---|---|---|---|
 | `paramArrow (m n)` | ✅ | The **arrow at every output class** `≤ (3,3)`: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts required only at the `depArrow`-**minimal** classes (a bound var at `(1,1)` is enough — no over-provisioning). `map4` deferred (the (3→4) adjoint coherence). | `[Quot.sound]` |
 | `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Capped at `2b` because output cov `2a`/`3` need the domain at `map4` *with* `R_in_mapK` — Π hits the adjoint-coherence wall earlier than arrow. | `[Quot.sound]` |
-| `paramType (m n)` | ⏳ | universe at all classes `≤ (2a,2a)` (currently fixed at `(2a,2a)` in `Combinators`). | — |
+| `paramType` / `paramTypeAt (m n)` | ✅ | universe combinator at every class `≤ (2a,2a)` (`paramTypeAt` weakens the `(2a,2a)` ceiling). | none |
+
+**Driver rewired** (`Trocq/Solver.lean`): the back-half `assemble req` now threads the required class
+top-down via `depArrow` and dispatches each `→` node to the **graded `paramArrow`** at exactly that
+class — parts built at the `depArrow`-minimal classes, no build-`(3,3)`-then-weaken. So `transfer e root`
+produces the witness *directly* at `root`, every node at its solver-/table-minimal class. (Tested: `Nat→Nat`
+and nested `Nat→Nat→Nat` at `(1,0)` generate computing witnesses; `#check` confirms the types.)
 
 **Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators → Trocq.Arrow → Trocq.Forall → Trocq.Solver`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
@@ -83,11 +89,12 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 
 Ordered roughly by leverage. The prototype is forward-compatible: each item extends, none rewrites.
 
-1. **Full graded combinator family** *(in progress — arrow ✅ done in `Trocq/Arrow.lean`)* — next:
-   `param_forall` (dependent Π) and graded `param_Type`, then **rewire the driver's back-half** to call
-   `paramArrow` at the solved per-node class (instead of build-(3,3)+weaken-root) — that's what makes
-   the family actually *used* and unlocks polymorphic-binder transfer. Still deferred: the `(4,4)`
-   coherence field `R_in_mapK` (the
+1. **Full graded combinator family** *(arrow ✅, forall ✅, Type ✅, driver rewired ✅)* — the family is
+   in place for arrow (≤(3,3)) and dependent Π (≤(2b,2b)), the universe combinator covers ≤(2a,2a), and
+   the driver assembles at minimal per-node classes. **Remaining:** wire the driver's back-half to also
+   emit `paramForall`/`paramTypeAt` (currently only `paramArrow`), and assemble **polymorphic binders**
+   (bound type vars — the case where the solver's *join* of leaf uses genuinely matters). Still deferred:
+   the `(4,4)` coherence field `R_in_mapK` (the
    adjoint-equivalence triangle — Trocq's `Param44`, via half-adjoint machinery). This is what lets the
    driver's **back half consume the per-node minimal classes** (cheapest combinator per node) and handle
    **polymorphic binders**. *The front half (`Solver.lean`) already computes those classes correctly.*

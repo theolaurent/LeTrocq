@@ -20,7 +20,7 @@ at (3,3) then weakens — enough to drive a real transfer. Consuming the per-nod
 assembly (cheapest combinator per node) + polymorphic binders is what the full graded combinator
 family (the deferred 6×6 generalization of layer 3) unlocks; the front half already computes them.
 -/
-import Trocq.Combinators
+import Trocq.Arrow
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 universe u v
@@ -104,21 +104,33 @@ def weakenTo (tgt src : ParamClass) (p : Expr) : MetaM Expr := do
                           (mkConst ``Bool.true))
   mkAppM ``Param.weaken #[← proof tgt.1 src.1, ← proof tgt.2 src.2, p]
 
-/-- build the witness at the uniform class (3,3), dispatching `→` to `paramArrow33`. -/
-partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) : Shape → MetaM Expr
+/-- proof of `MapClass.le t map3 = true` (the arrow combinator's cap), via `decide`. -/
+def leMap3Proof (t : MapClass) : MetaM Expr := do
+  mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (mkConst ``MapClass.map3))
+                        (mkConst ``Bool.true))
+
+/-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
+    and asking each part only at the `depArrow`-minimal class it needs — no over-provisioning. -/
+partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (req : ParamClass) :
+    Shape → MetaM Expr
   | .atom _ name => do
       let some (_, wit, reg) := atoms.find? name | throwError "assemble: atom {name} not registered"
-      weakenTo (map3, map3) reg wit
+      weakenTo req reg wit
   | .arrow _ sd sc => do
-      mkAppM ``paramArrow33 #[← assemble atoms sd, ← assemble atoms sc]
+      unless MapClass.le req.1 map3 && MapClass.le req.2 map3 do
+        throwError "assemble: arrow at {repr req} needs the deferred (4)-coherence"
+      let (da, dc) := depArrow req            -- the minimal domain/codomain classes for this output
+      mkAppM ``paramArrow
+        #[classToExpr req.1, classToExpr req.2, ← leMap3Proof req.1, ← leMap3Proof req.2,
+          ← assemble atoms da sd, ← assemble atoms dc sc]
   | _ => throwError "assemble: only arrows over registered atoms (prototype)"
 
-/-- full pipeline: solve for minimal classes, assemble at (3,3), weaken the root to `root`. -/
+/-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
+    built by the graded combinator at the class `depArrow` dictates (parts never over-provisioned). -/
 def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (e : Expr) (root : ParamClass) :
     MetaM (Expr × Shape × Array ParamClass) := do
   let (shape, sol) ← runSolve atoms e root
-  let wit33 ← assemble atoms shape
-  let wit ← weakenTo root (map3, map3) wit33
+  let wit ← assemble atoms root shape
   return (← instantiateMVars wit, shape, sol)
 
 /- ===================== the registered base + pretty-printer ===================== -/

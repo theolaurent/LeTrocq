@@ -96,6 +96,12 @@ def paramType : Param.{1,1} map2a map2a (Type 0) (Type 0) where
     { map := id
       map_in_R := fun A' A h => by subst h; exact paramId A' }
 
+/-- the universe combinator at ANY class `≤ (2a,2a)`, by weakening `paramType` (the ceiling). -/
+def paramTypeAt (m n : MapClass)
+    (hm : MapClass.le m map2a = true) (hn : MapClass.le n map2a = true) :
+    Param.{1,1} m n (Type 0) (Type 0) :=
+  paramType.weaken hm hn
+
 /- ===================== assembled witnesses over `Nat ≃ Unary` (used by tests + the driver) ===================== -/
 -- the arrow witness `Nat→Nat ~ Unary→Unary` at (3,3), built by weakening RN (4,4) into the parts:
 def RN33 : Param.{0,0} map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
