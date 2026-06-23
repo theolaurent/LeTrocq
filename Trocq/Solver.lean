@@ -137,8 +137,8 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array
         #[classToExpr req.1, classToExpr req.2,
           ← assemble atoms sol env da sd, ← assemble atoms sol env dc sc]
   | .pi _ _ rV body => do
-      unless MapClass.le req.1 map2b && MapClass.le req.2 map2b do
-        throwError "assemble: ∀ at {repr req} exceeds the dependent-Π cap (2b)"
+      -- `paramForall` is fully graded; for `∀ A : Type` the effective cap is enforced by `mkUniv` below
+      -- (the universe domain `Type` is capped at `2a` by univalence — see the `dPi` build).
       let (dPi, cPi) := depPi req              -- domain (`Type`) class, codomain (body) class
       -- the domain `Type` carries the bound variable at its solved class `sol[rV]` (the `Map_Type` inner).
       let domWit ← mkUniv dPi sol[rV]!
@@ -149,7 +149,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array
           withLocalDeclD `aR raaTy fun aR => do
             mkLambdaFVars #[A, A', aR] (← assemble atoms sol ((rV, aR) :: env) cPi body)
       mkAppM ``paramForall
-        #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map2b, ← leProof req.2 map2b, domWit, pb]
+        #[classToExpr req.1, classToExpr req.2, domWit, pb]
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/

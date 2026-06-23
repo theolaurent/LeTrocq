@@ -66,7 +66,7 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 | Combinator | Status | What it adds | Axioms |
 |---|---|---|---|
 | `paramArrow (m n)` | ✅ | The **arrow at EVERY output class, incl. `(4,4)`**: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts at the `depArrow`-**minimal** classes. The `(4,4)` coherence `R_in_mapK` is **free** — class-4 parts have subsingleton relations (`Map4Has.subsingleton`), so the arrow relation is a subsingleton and any two proofs are equal. | `[Quot.sound]` |
-| `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Still capped at `2b` — but the wall here is the *soundness* field `map_in_R` (output cov `2a`+ needs to transport along the domain equivalence), a **separate** obstacle from the `(4,4)` coherence, not removed by the subsingleton trick. | `[Quot.sound]` |
+| `paramForall (m n)` | ✅ | The **dependent Π at EVERY output class, incl. `(4,4)`**: codomain is a *family* `pb a a' raa`. At cov `2a`+ the soundness field `map_in_R` is built by transporting the codomain fiber along the domain equivalence — `R_in_map` gives `bwd a' = a` (`subst`) and `Map4Has.subsingleton` identifies the two relatedness proofs; the `(4,4)` coherence is then free. (Caveat: a Π *over `Type`* is still capped at `(2b,2b)` by the **driver**, since there the domain witness is the universe combinator — capped at `2a` by univalence. The combinator itself is fully graded; Π over a *registered* base reaches `(4,4)`.) | `[Quot.sound]` |
 | `paramTypeAtInner (m n p q)` | ✅ | universe combinator at outer class `≤ (2a,2a)` carrying **inner relation class `(p,q)`** (the `Map_Type` table — inner is free, built by weakening the reflexive identity `paramRefl`). Lets a bound type variable be supplied at *any* class, not a fixed `(1,1)`. (`paramType`/`paramTypeAt` are the `(1,1)`-inner specializations.) | none |
 
 **Driver fully wired** (`Trocq/Solver.lean`): the back-half `assemble req` threads the required class
@@ -95,14 +95,14 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 
 Ordered roughly by leverage. The prototype is forward-compatible: each item extends, none rewrites.
 
-1. **Full graded combinator family** *(arrow ✅ incl. (4,4), forall ✅ ≤(2b,2b), Type ✅ ≤(2a,2a), driver
-   fully wired ✅, polymorphic binders ✅, `Map_Type` ✅, `(4,4)` coherence ✅)* — essentially complete.
-   The driver assembles every former at its minimal per-node class, under `∀ A:Type` binders, with the
-   bound variable at its solved class (inner up to `(4,4)`), and arrows now propagate the full `(4,4)`
-   equivalence end-to-end. **Only remaining frontier:** lift dependent Π past `(2b,2b)` — blocked by the
-   *soundness* transport (output cov `2a`+ must transport `RB` along the domain equivalence), a separate
-   obstacle from the now-resolved `(4,4)` coherence. Tractable but real; needs `Eq.rec` over the domain
-   completeness + the `RA`-subsingleton coherence for the indexed fiber.
+1. **Full graded combinator family** — ✅ **COMPLETE.** Arrow, dependent Π, and the universe are all
+   built at *every* class up to their true Lean boundary: arrow `(4,4)`, Π `(4,4)` (combinator;
+   `(2b,2b)` when over `Type` via the driver, by univalence), universe `(2a,2a)` with `Map_Type` inner up
+   to `(4,4)`. The driver assembles every former at its minimal per-node class, under binders, with
+   bound variables at their solved class, and propagates full `(4,4)` equivalences end-to-end. The `(4,4)`
+   coherence and the dependent-Π soundness transport are both done (free via subsingleton + `subst`).
+   *Open extension (not a combinator limit):* the driver's `gen` doesn't yet handle `∀ (n : Base), …`
+   (dependent Π over a registered base), so Π's `(4,4)` reach is only exercised via direct combinator use.
 
 2. **User surface** — merge the `Solver` front half with a real `trocq` tactic **and** a `transfer%`
    term elaborator, on top of the graded combinators. Generalises `Tactic.lean` (single `∀` over a
