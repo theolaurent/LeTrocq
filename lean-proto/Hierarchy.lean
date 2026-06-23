@@ -10,27 +10,12 @@ weakening map bridges the two by dropping fields. Proof-light: every forget is j
 The whole diamond `0 < 1 < {2a,2b} < 3 < 4` is generated from six covering edges
   4 ⟶ 3 ⟶ 2a ⟶ 1 ⟶ 0   and   3 ⟶ 2b ⟶ 1
 so `weaken` is their composition along the (unique-up-to-confluence) path.
+
+Imports Layer 1 (`Lattice.lean`) for the single source of `MapClass`/`le`/`ParamClass`.
 -/
+import «Lattice»
 universe u v
 namespace Trocq
-
-/- ===================== the class lattice (naming aligned with Lattice.lean) ===================== -/
-inductive MapClass | map0 | map1 | map2a | map2b | map3 | map4
-deriving DecidableEq, Repr, Inhabited
-
-namespace MapClass
-/-- partial order `a ≤ b` on the diamond (same table as Lattice.lean). -/
-def le : MapClass → MapClass → Bool
-  | map0,  _     => true
-  | map1,  map1  => true | map1, map2a => true | map1, map2b => true
-  | map1,  map3  => true | map1, map4  => true | map1, _ => false
-  | map2a, map2a => true | map2a, map3 => true | map2a, map4 => true | map2a, _ => false
-  | map2b, map2b => true | map2b, map3 => true | map2b, map4 => true | map2b, _ => false
-  | map3,  map3  => true | map3, map4  => true | map3, _ => false
-  | map4,  map4  => true | map4, _ => false
-end MapClass
-
-abbrev ParamClass := MapClass × MapClass
 
 /- ===================== the six graded records ===================== -/
 structure Map0Has {A B : Type u} (_R : A → B → Type v) : Type u where
