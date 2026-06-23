@@ -8,6 +8,7 @@ regression fails the build and hence `lake test`. `main` only runs if everything
 import Tests.Lattice
 import Tests.Hierarchy
 import Tests.Combinators
+import Tests.Arrow
 import Tests.Solver
 
 def main : IO Unit := IO.println "✓ All Trocq tests passed."
