@@ -15,6 +15,7 @@ any other constant's definition. `translate% e` elaborates to the native term `t
   ⟦A → B⟧    = (A'→B', RArrow R_A R_B)                  -- as a TYPE: returns the relation
 -/
 import Trocq.Combinators
+import Trocq.Registry
 import Lean
 open Lean Lean.Meta
 namespace Trocq.Translate
@@ -95,30 +96,37 @@ partial def param (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | e => throwError "param: unsupported term {e}"
 end
 
-/- ===================== the registered base + primitives (demo: `Nat ≃ Unary`) ===================== -/
-/-- relatedness of the base constructors (the leaves the recursion bottoms at). -/
-def R0 : RNU Nat.zero Unary.z := PLift.up rfl
-def Rsucc (n : Nat) (u : Unary) (h : RNU n u) : RNU (Nat.succ n) (Unary.s u) :=
+/- ===================== the registered base primitives (demo: `Nat ≃ Unary` constructors) ===================== -/
+/-- relatedness of the base constructors (the leaves the recursion bottoms at), registered via `@[trocq]`:
+    their types (`R (c …) (c' …)`) tell the parser `Nat.zero ↦ Unary.z`, `Nat.succ ↦ Unary.s`. -/
+@[trocq] def R0 : RNU Nat.zero Unary.z := PLift.up rfl
+@[trocq] def Rsucc (n : Nat) (u : Unary) (h : RNU n u) : RNU (Nat.succ n) (Unary.s u) :=
   PLift.up (by show toNat u + 1 = Nat.succ n; rw [h.down])
 
-/-- the default translation context: `Nat ↦ Unary` (relation `RNU`) + `Nat.zero`/`Nat.succ`. -/
-def defaultCtx : Ctx where
-  types := (mkNameMap _).insert ``Nat (mkConst ``Unary, mkConst ``RNU)
-  terms := (((mkNameMap _).insert ``Nat.zero (mkConst ``Unary.z, mkConst ``R0)).insert
-            ``Nat.succ (mkConst ``Unary.s, mkConst ``Rsucc))
+/-- the translation context assembled from the `@[trocq]` extension: BASES give type relations (`Param.R`),
+    TERM primitives give the `c ↦ c'` term map + its relatedness. -/
+def buildCtx : MetaM Ctx := do
+  let mut types := mkNameMap _
+  let mut terms := mkNameMap _
+  for w in trocqEntries (← getEnv) do
+    match ← parseEntry w with
+    | .base hA _ _ tyB wit _ => types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
+    | .term hA bTerm wit     => terms := terms.insert hA (bTerm, wit)
+    | .relator ..            => pure ()
+  return { types, terms }
 
 /-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/
 elab "translate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
-  let (e', _) ← param defaultCtx [] (← instantiateMVars e)
+  let (e', _) ← param (← buildCtx) [] (← instantiateMVars e)
   instantiateMVars e'
 
 /-- `relate% t` ⤳ the relatedness `tR : ⟦T⟧ t t'` — the proof the native counterpart is correct. -/
 elab "relate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
-  let (_, eR) ← param defaultCtx [] (← instantiateMVars e)
+  let (_, eR) ← param (← buildCtx) [] (← instantiateMVars e)
   instantiateMVars eR
 
 end Trocq.Translate

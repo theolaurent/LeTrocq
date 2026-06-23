@@ -9,8 +9,8 @@ See `lean-port-design.md` for the full design rationale. This file is the live s
 
 - **Toolchain:** `leanprover/lean4:v4.26.0-rc2` (elan).
 - **Lake project** (`lakefile.toml`, no external deps). Layout:
-  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`; plus `Translate`,
-    the native term-level parametricity translation), via `Trocq.lean`.
+  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`; plus `Attr`+`Registry`,
+    the `@[trocq]` registration, and `Translate`, the native term-level translation), via `Trocq.lean`.
   - `Tests/` — the `lake test` suite (mirrors `Trocq/`); hard assertions, fails on regression.
   - `lean-port-design.md`, `STATUS.md` — docs. `arXiv-2310.14022v2/`, `trocq/` — local reference (gitignored).
 - **Everything compiles** (`lake build`) **and `lake test` is green.** Axiom footprints are *pinned* by
@@ -116,8 +116,14 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    *Open:* still hard-wired to `Nat ≃ Unary` + the demo constant `Pos` (needs item 3, `@[trocq]`);
    `app`'s argument is currently a bound base variable (nested apps / `app`-of-`app` not yet).
 
-3. **Registration** — `@[trocq]` attribute + environment extension, replacing the hardcoded
-   `demoAtoms` / `buildCtx`. Stores `(B-type, witness, class)` per registered base/op.
+3. **Registration** — ✅ **done** (`Trocq/Attr.lean` + `Trocq/Registry.lean`): `@[trocq]` attribute +
+   env extension. Tagging a witness records its name; `parseEntry` classifies it from its type into
+   **base** (`Param m n A B`, both directions auto via `Param.sym`), **relator** (`∀…, Param … (P …)(P' …)`,
+   keyed by head `P`), or **term primitive** (`∀…, R … (c …)(c' …)`, `c ↦ c'`). Per-surface builders
+   (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) assemble the registries; `transfer%`/`trocq`/
+   `translate%` read them — nothing hardcoded. A predicate `@[trocq]`-registered in a *user* file is picked
+   up by `trocq` with no library change (`Tests/Tactic.lean`). *Open:* universe-polymorphic witnesses
+   (parser uses `mkConst` with no levels); registering from a Mathlib `Equiv` (item 4).
 
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.

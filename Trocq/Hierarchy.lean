@@ -14,6 +14,7 @@ so `weaken` is their composition along the (unique-up-to-confluence) path.
 Imports Layer 1 (`Lattice.lean`) for the single source of `MapClass`/`le`/`ParamClass`.
 -/
 import Trocq.Lattice
+import Trocq.Attr
 universe u v
 namespace Trocq
 
@@ -157,7 +158,7 @@ theorem ofNat_toNat : ∀ u, ofNat (toNat u) = u
   | .s n => by show Unary.s (ofNat (toNat n)) = Unary.s n; rw [ofNat_toNat n]
 
 def RNU : Nat → Unary → Type := fun n u => PLift (toNat u = n)
-def RN : Param .map4 .map4 Nat Unary where
+@[trocq] def RN : Param .map4 .map4 Nat Unary where
   R := RNU
   cov := { map := ofNat, map_in_R := fun n u h => PLift.up (by subst h; exact toNat_ofNat n),
            R_in_map := fun n u r => by have h := r.down; rw [← h, ofNat_toNat],

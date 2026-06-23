@@ -2,7 +2,7 @@
 import Lean
 import Trocq.Tactic
 namespace Trocq.Tests
-open Trocq
+open Trocq MapClass
 
 /- `transfer%` exposes the relatedness witness; its forward map is native function transport over the
    registered `Nat ≃ Unary` base — and it COMPUTES: -/
@@ -26,5 +26,18 @@ example : Unary → Unary → Unary := by
 example : ∀ u : Unary, Pos u := by
   trocq                       -- ⊢ ∀ n : Nat, Pos' n
   exact fun n => Nat.zero_le n
+
+/- NO HARDCODING: a predicate registered with `@[trocq]` RIGHT HERE (not in the library) is picked up by
+   `trocq` automatically — the driver reads its registries from the `@[trocq]` env extension. -/
+def Triv  (u : Unary) : Prop := u = u
+def Triv' (n : Nat)   : Prop := n = n
+@[trocq] def TrivR (u : Unary) (n : Nat) (_ : RNsym.R u n) : Param map1 map1 (Triv u) (Triv' n) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => rfl }
+  contra := { map := fun _ => rfl }
+
+example : ∀ u : Unary, Triv u := by
+  trocq                       -- ⊢ ∀ n : Nat, Triv' n   (resolved via the just-registered `TrivR`)
+  exact fun n => rfl
 
 end Trocq.Tests

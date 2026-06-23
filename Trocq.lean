@@ -13,8 +13,10 @@ Library layers (each builds on the previous):
 See `STATUS.md` for current progress and `lean-port-design.md` for the design rationale.
 -/
 import Trocq.Lattice
+import Trocq.Attr
 import Trocq.Hierarchy
 import Trocq.Combinators
+import Trocq.Registry
 import Trocq.Solver
 import Trocq.Tactic
 import Trocq.Translate

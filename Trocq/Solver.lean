@@ -21,6 +21,7 @@ assembly (cheapest combinator per node) + polymorphic binders is what the full g
 family (the deferred 6×6 generalization of layer 3) unlocks; the front half already computes them.
 -/
 import Trocq.Combinators
+import Trocq.Registry
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 universe u v
@@ -194,12 +195,23 @@ def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (E
   let wit ← assemble atoms consts sol [] [] root shape
   return (← instantiateMVars wit, shape, sol)
 
-/- ===================== the registered base + pretty-printer ===================== -/
-def demoAtoms : NameMap (Expr × Expr × ParamClass) :=
-  (mkNameMap _).insert ``Nat (mkConst ``Unary, mkConst ``RN, (map4, map4))
+/- ===================== registries built from the `@[trocq]` extension + pretty-printer ===================== -/
+/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`), so a
+    type built over either side of an equivalence resolves by head match. -/
+def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
+  let mut m := mkNameMap _
+  for w in trocqEntries (← getEnv) do
+    if let .base hA hB tyA tyB wit cls ← parseEntry w then
+      m := m.insert hA (tyB, wit, cls)
+      m := m.insert hB (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1))
+  return m
 
-/-- no registered constants (the default for `transfer%`, which transfers types/functions). -/
-def noConsts : NameMap (Expr × ParamClass) := mkNameMap _
+/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). -/
+def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
+  let mut m := mkNameMap _
+  for w in trocqEntries (← getEnv) do
+    if let .relator hA wit cls ← parseEntry w then m := m.insert hA (wit, cls)
+  return m
 
 /-- print the solved class of every named node in the shape tree. -/
 partial def report (sol : Array ParamClass) : Shape → MetaM Unit
