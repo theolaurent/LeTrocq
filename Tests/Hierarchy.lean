@@ -7,7 +7,7 @@ open Trocq MapClass
 /- the forgets COMPUTE: the forward map survives every downgrade, by `rfl`. -/
 example : (RN.toRetraction.cov).map = ofNat := rfl
 example : (RN.toSection.cov).map = ofNat := rfl
-example : (RN.toFunction.cov).down.map = ofNat := rfl          -- map1 cov is ULift-wrapped
+example : (RN.toFunction.cov).map = ofNat := rfl               -- map1 cov: the forward map
 example : (RN.toRetraction.contra).map = toNat := rfl          -- map2a contra: the backward map
 /- the soundness field also survives where it should (retraction keeps cov's map_in_R): -/
 example : ∀ n u, ofNat n = u → RNU n u := (RN.toRetraction.cov).map_in_R
@@ -16,12 +16,12 @@ example : (RN.toRel).R = RNU := rfl
 
 /- the section keeps cov's map AND the backward map (contra is map2b = ULift here). -/
 example : (RN.toSection.cov).map = ofNat := rfl
-example : (RN.toSection.contra).down.map = toNat := rfl
+example : (RN.toSection.contra).map = toNat := rfl
 
 /- the GENERAL `weaken` to arbitrary class pairs preserves the relation + forward map (by `rfl`). -/
-def rn_2a2b : Param.{0,0} map2a map2b Nat Unary := RN.weaken rfl rfl
-def rn_33   : Param.{0,0} map3 map3   Nat Unary := RN.weaken rfl rfl
-def rn_00   : Param.{0,0} map0 map0   Nat Unary := RN.weaken rfl rfl
+def rn_2a2b : Param map2a map2b Nat Unary := RN.weaken rfl rfl
+def rn_33   : Param map3 map3   Nat Unary := RN.weaken rfl rfl
+def rn_00   : Param map0 map0   Nat Unary := RN.weaken rfl rfl
 example : rn_2a2b.cov.map = ofNat := rfl
 example : rn_33.cov.map = ofNat := rfl
 example : rn_00.R = RNU := rfl

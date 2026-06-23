@@ -87,11 +87,14 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
   exactly as `requiresAxiom`/`depType` predict.
 - **`Prop` universe reaches `(4,4)`** — completeness is `propext` (Lean has it), coherence is free by
   proof irrelevance. So `paramProp : Param (4,4) Prop Prop` (`[propext]`), vs `paramType` stuck at `2a`.
-- **The `Type`/`Sort` boundary** — `Param A B` requires `A B : Type u`; a *specific* prop `P : Prop = Sort 0`
-  is not a `Type u`, so it can't (yet) be a `Param` argument. Transferring a `Prop` *goal* (`∀ u, Q u`)
-  needs the hierarchy generalized from `Type u` to `Sort u` (feasible — probed — but a finicky
-  universe-arithmetic refactor across all six structures + combinators; proof irrelevance then gives the
-  `(4,4)` combinators for free via `Map4Has.subsingleton`).
+- **The hierarchy is over `Sort u`** (was `Type u`) — so a *specific* prop `P : Prop = Sort 0` *is* a
+  valid `Param` argument, and **`Prop` goals transfer**: `∀ u : Unary, 0 ≤ toNat u` is proved from
+  `∀ n, 0 ≤ n` via `paramForall` (`Tests/Combinators/Forall.lean`, `pfProp`). Proof irrelevance makes
+  those `Prop` combinators reach `(4,4)` for free (`Map4Has.subsingleton`). Encoding consequence: `MapHas`
+  is now bare (no `ULift` — every `MapKHas` annotated at the uniform `Sort (max u (v+1))`); the universe
+  *numbering* shifted (`Type 0` is now `u=1`), so explicit `Param.{…}` annotations were dropped in favour
+  of inference. `Forall` keeps its domain at `Type u` but its codomain at `Sort w` (so `Prop` bodies fit);
+  `Arrow` stays over `Type u` (relating `Prop` bodies routes through `Forall`/the universe combinators).
 - **Class 4 = class 3 + the relation is a subsingleton** — `Map4Has R` *implies* `Subsingleton (R a b)`
   (both related elements give equal proofs of `map a = b`, equal by Lean's proof irrelevance). So the
   `(4,4)` coherence `R_in_mapK` is free wherever the relation comes from class-4 data. This is the precise

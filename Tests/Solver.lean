@@ -40,14 +40,14 @@ run_cmd Command.liftTermElabM do
 
 /- the generated witness is a real `Param (1,0) (Nat→Nat) (Unary→Unary)` whose forward map is
    native function transport — and it COMPUTES: -/
-example : Trocq.Tests.transferred.cov.down.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+example : Trocq.Tests.transferred.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /-- info: 'Trocq.Tests.transferred' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms Trocq.Tests.transferred
 
 /- the nested witness is a real `Param (1,0) (Nat→Nat→Nat) (Unary→Unary→Unary)` and computes: -/
-example : Trocq.Tests.transferred2.cov.down.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
+example : Trocq.Tests.transferred2.cov.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
 example : True := by
-  have : Param.{0,0} .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary) := Trocq.Tests.transferred2
+  have : Param .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary) := Trocq.Tests.transferred2
   trivial
 
 /- FORALL + TYPE end-to-end: transfer the POLYMORPHIC `∀ A : Type, A → A` at (0,1) — the driver builds
@@ -64,7 +64,7 @@ run_cmd Command.liftTermElabM do
 /- the generated witness relates the polymorphic type to itself at class (0,1) (asserted via a
    proof term to avoid codegen, since the witness is noncomputable — it uses funext): -/
 example : True := by
-  have : Param.{1, 1} .map0 .map1 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit
+  have : Param .map0 .map1 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit
   trivial
 /-- info: 'Trocq.Tests.flagshipWit' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms Trocq.Tests.flagshipWit
@@ -79,7 +79,7 @@ run_cmd Command.liftTermElabM do
   addDecl (.defnDecl { name := `Trocq.Tests.flagshipWit2b, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
 example : True := by
-  have : Param.{1, 1} .map2b .map0 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit2b
+  have : Param .map2b .map0 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit2b
   trivial
 
 /- (4,4) end-to-end: `Nat → Nat` transferred at the TOP class — now possible since the arrow propagates
@@ -92,7 +92,7 @@ run_cmd Command.liftTermElabM do
                        hints := .opaque, safety := .safe })
 example : Trocq.Tests.transferred44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 example : True := by
-  have : Param.{0,0} .map4 .map4 (Nat → Nat) (Unary → Unary) := Trocq.Tests.transferred44
+  have : Param .map4 .map4 (Nat → Nat) (Unary → Unary) := Trocq.Tests.transferred44
   trivial
 
 /- `Nat → Nat` transferred at several intermediate root classes — each generated witness computes. -/
@@ -117,7 +117,7 @@ run_cmd Command.liftTermElabM do
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
 example : True := by
-  have : Param.{0,0} .map1 .map0 ((Nat → Nat) → Nat) ((Unary → Unary) → Unary) := Trocq.Tests.trHO
+  have : Param .map1 .map0 ((Nat → Nat) → Nat) ((Unary → Unary) → Unary) := Trocq.Tests.trHO
   trivial
 
 end Trocq.Tests

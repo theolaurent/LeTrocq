@@ -17,36 +17,38 @@ import Trocq.Lattice
 universe u v
 namespace Trocq
 
-/- ===================== the six graded records ===================== -/
-structure Map0Has {A B : Type u} (_R : A → B → Type v) : Type u where
-structure Map1Has {A B : Type u} (_R : A → B → Type v) : Type u where
+/- ===================== the six graded records (over `Sort u`, so `Prop` fits too) ===================== -/
+-- All six are annotated at the UNIFORM universe `Sort (max u (v+1))`, so `MapHas` is bare (no `ULift`).
+-- `A B : Sort u` ⇒ a `Prop` (Sort 0) or a `Type` both work as the related objects (`R` lands in `Type v`).
+structure Map0Has {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
+structure Map1Has {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
-structure Map2aHas {A B : Type u} (R : A → B → Type v) where
-  map : A → B
-  map_in_R : ∀ a b, map a = b → R a b
-structure Map2bHas {A B : Type u} (R : A → B → Type v) : Type u where
-  map : A → B
-  R_in_map : ∀ a b, R a b → map a = b
-structure Map3Has {A B : Type u} (R : A → B → Type v) where
+structure Map2aHas {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
   map_in_R : ∀ a b, map a = b → R a b
+structure Map2bHas {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
+  map : A → B
   R_in_map : ∀ a b, R a b → map a = b
-structure Map4Has {A B : Type u} (R : A → B → Type v) where
+structure Map3Has {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
+  map : A → B
+  map_in_R : ∀ a b, map a = b → R a b
+  R_in_map : ∀ a b, R a b → map a = b
+structure Map4Has {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
   map_in_R : ∀ a b, map a = b → R a b
   R_in_map : ∀ a b, R a b → map a = b
   R_in_mapK : ∀ a b r, map_in_R a b (R_in_map a b r) = r
 
-/-- the structure a relation carries at a given map-class (ULift on the small-universe levels). -/
-def MapHas : MapClass → {A B : Type u} → (A → B → Type v) → Type (max u v)
-  | .map0,  _, _, R => ULift.{v} (Map0Has R)
-  | .map1,  _, _, R => ULift.{v} (Map1Has R)
+/-- the structure a relation carries at a given map-class — all at the uniform `Sort (max u (v+1))`. -/
+def MapHas : MapClass → {A B : Sort u} → (A → B → Type v) → Sort (max u (v+1))
+  | .map0,  _, _, R => Map0Has R
+  | .map1,  _, _, R => Map1Has R
   | .map2a, _, _, R => Map2aHas R
-  | .map2b, _, _, R => ULift.{v} (Map2bHas R)
+  | .map2b, _, _, R => Map2bHas R
   | .map3,  _, _, R => Map3Has R
   | .map4,  _, _, R => Map4Has R
 
-structure Param (m n : MapClass) (A B : Type u) where
+structure Param (m n : MapClass) (A B : Sort u) where
   R      : A → B → Type v
   cov    : MapHas m R
   contra : MapHas n (fun b a => R a b)
@@ -55,19 +57,19 @@ structure Param (m n : MapClass) (A B : Type u) where
     (via `R_in_map`) to proofs of `map a = b`, which are equal by Lean's proof irrelevance, so `R_in_mapK`
     forces them equal. This is exactly "no univalence ⇒ class 4 = class 3 on h-props" — and it makes the
     `(4,4)` coherence FREE on any relation reachable from class-4 data. -/
-theorem Map4Has.subsingleton {A B : Type u} {R : A → B → Type v} (m : Map4Has R) (a : A) (b : B) :
+theorem Map4Has.subsingleton {A B : Sort u} {R : A → B → Type v} (m : Map4Has R) (a : A) (b : B) :
     Subsingleton (R a b) :=
   ⟨fun r₁ r₂ => by rw [← m.R_in_mapK a b r₁, ← m.R_in_mapK a b r₂]⟩
 
 /-- symmetry: a `Param m n A B` is a `Param n m B A` on the reversed relation (swap cov/contra). -/
-def Param.sym {A B : Type u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.{u,v} n m B A where
+def Param.sym {A B : Sort u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.{u,v} n m B A where
   R := fun b a => p.R a b
   cov := p.contra
   contra := p.cov
 
 /- ===================== the six covering-edge forgets (bare records) ===================== -/
 namespace MapClass
-variable {A B : Type u} {R : A → B → Type v}
+variable {A B : Sort u} {R : A → B → Type v}
 
 def e43  (h : Map4Has R)  : Map3Has R  := { map := h.map, map_in_R := h.map_in_R, R_in_map := h.R_in_map }
 def e32a (h : Map3Has R)  : Map2aHas R := { map := h.map, map_in_R := h.map_in_R }
@@ -83,33 +85,33 @@ def weaken : (src tgt : MapClass) → MapClass.le tgt src = true → MapHas src 
   | .map4, .map4, _, m => m
   | .map4, .map3, _, m => e43 m
   | .map4, .map2a, _, m => e32a (e43 m)
-  | .map4, .map2b, _, m => ULift.up (e32b (e43 m))
-  | .map4, .map1, _, m => ULift.up (e2a1 (e32a (e43 m)))
-  | .map4, .map0, _, m => ULift.up (e10 (e2a1 (e32a (e43 m))))
+  | .map4, .map2b, _, m => e32b (e43 m)
+  | .map4, .map1, _, m => e2a1 (e32a (e43 m))
+  | .map4, .map0, _, m => e10 (e2a1 (e32a (e43 m)))
   -- src = map3  (m : Map3Has R)
   | .map3, .map3, _, m => m
   | .map3, .map2a, _, m => e32a m
-  | .map3, .map2b, _, m => ULift.up (e32b m)
-  | .map3, .map1, _, m => ULift.up (e2a1 (e32a m))
-  | .map3, .map0, _, m => ULift.up (e10 (e2a1 (e32a m)))
+  | .map3, .map2b, _, m => e32b m
+  | .map3, .map1, _, m => e2a1 (e32a m)
+  | .map3, .map0, _, m => e10 (e2a1 (e32a m))
   | .map3, .map4, h, _ => nomatch h
   -- src = map2a  (m : Map2aHas R)
   | .map2a, .map2a, _, m => m
-  | .map2a, .map1, _, m => ULift.up (e2a1 m)
-  | .map2a, .map0, _, m => ULift.up (e10 (e2a1 m))
+  | .map2a, .map1, _, m => e2a1 m
+  | .map2a, .map0, _, m => e10 (e2a1 m)
   | .map2a, .map4, h, _ => nomatch h
   | .map2a, .map3, h, _ => nomatch h
   | .map2a, .map2b, h, _ => nomatch h
-  -- src = map2b  (m : ULift (Map2bHas R))
+  -- src = map2b  (m : Map2bHas R)
   | .map2b, .map2b, _, m => m
-  | .map2b, .map1, _, m => ULift.up (e2b1 m.down)
-  | .map2b, .map0, _, m => ULift.up (e10 (e2b1 m.down))
+  | .map2b, .map1, _, m => e2b1 m
+  | .map2b, .map0, _, m => e10 (e2b1 m)
   | .map2b, .map4, h, _ => nomatch h
   | .map2b, .map3, h, _ => nomatch h
   | .map2b, .map2a, h, _ => nomatch h
-  -- src = map1  (m : ULift (Map1Has R))
+  -- src = map1  (m : Map1Has R)
   | .map1, .map1, _, m => m
-  | .map1, .map0, _, m => ULift.up (e10 m.down)
+  | .map1, .map0, _, m => e10 m
   | .map1, .map4, h, _ => nomatch h
   | .map1, .map3, h, _ => nomatch h
   | .map1, .map2a, h, _ => nomatch h
@@ -125,7 +127,7 @@ end MapClass
 
 /- ===================== weakening lifted to `Param` (componentwise) ===================== -/
 namespace Param
-variable {A B : Type u}
+variable {A B : Sort u}
 
 /-- forget a `Param` down to any componentwise-smaller class pair. -/
 def weaken {sm sn tm tn : MapClass}
@@ -155,7 +157,7 @@ theorem ofNat_toNat : ∀ u, ofNat (toNat u) = u
   | .s n => by show Unary.s (ofNat (toNat n)) = Unary.s n; rw [ofNat_toNat n]
 
 def RNU : Nat → Unary → Type := fun n u => PLift (toNat u = n)
-def RN : Param.{0,0} .map4 .map4 Nat Unary where
+def RN : Param .map4 .map4 Nat Unary where
   R := RNU
   cov := { map := ofNat, map_in_R := fun n u h => PLift.up (by subst h; exact toNat_ofNat n),
            R_in_map := fun n u r => by have h := r.down; rw [← h, ofNat_toNat],

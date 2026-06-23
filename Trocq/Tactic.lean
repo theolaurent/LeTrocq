@@ -18,7 +18,7 @@ open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 namespace Trocq
 
 /-- the registered base read backward, `Unary ≃ Nat`, for goal transfer. -/
-def RNsym : Param.{0,0} MapClass.map4 MapClass.map4 Unary Nat := RN.sym
+def RNsym : Param MapClass.map4 MapClass.map4 Unary Nat := RN.sym
 
 namespace Solver
 /-- atoms registering `Unary ↦ Nat` (the goal side) for the `trocq` tactic. -/
@@ -38,8 +38,8 @@ elab "trocq" : tactic => do
   let goalTy ← g.getType
   let (wit, _, _) ← Solver.transfer Solver.symAtoms goalTy (MapClass.map0, MapClass.map1)
   let goalTy' := (← instantiateMVars (← inferType wit)).getAppArgs[3]!
-  -- backward transport `G' → G` = the contra map at class (0,1) (`MapHas map1` is `ULift Map1Has`).
-  let backMap ← mkAppM ``Map1Has.map #[← mkAppM ``ULift.down #[← mkAppM ``Param.contra #[wit]]]
+  -- backward transport `G' → G` = the contra map at class (0,1) (`MapHas map1` is `Map1Has`).
+  let backMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.contra #[wit]]
   let newGoal ← mkFreshExprMVar goalTy'
   g.assign (.app backMap newGoal)
   replaceMainGoal [newGoal.mvarId!]
