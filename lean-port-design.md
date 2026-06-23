@@ -1,5 +1,16 @@
 # Trocq → Lean 4: a Lean-native reformulation (design exploration)
 
+> **HISTORICAL — this is the original pre-implementation design exploration (kept for the *rationale*).**
+> For the live state of the actual implementation see **`STATUS.md`**. The high-level analysis here held
+> up well (§2 on proof-irrelevance `4≃3`, funext-free / univalence-absent; §◆ "register a base, transport
+> everything"). The concrete proposals were superseded as the code was built:
+> - **Encoding (§4):** the indexed `MapHas` is real, but over **`Sort u`** (not `Type u`) with all six
+>   `MapKHas` annotated at a uniform universe (no `ULift`) — so `Prop` is a first-class argument.
+> - **Assembly (§5):** done by a **metaprogram driver** (`Trocq/Solver.lean`), not typeclass resolution.
+> - **Universe (§2b):** the `Type` universe is capped at `2a` as predicted, but the **`Prop` universe
+>   reaches `(4,4)`** via `propext` (`paramProp`) — a refinement of "≥2b is impossible, full stop".
+> - **§10 plan / §11 open questions** are largely done (see `STATUS.md`).
+
 Status: design / research note. Goal is to explore what Trocq *should* look like reborn in
 Lean 4 — leaning on Lean idioms (typeclasses, `Quot`, proof irrelevance, `MetaM`) rather than
 transliterating the Coq + coq-elpi implementation. Code blocks are **sketches** meant to pin
