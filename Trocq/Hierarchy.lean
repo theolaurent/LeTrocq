@@ -128,7 +128,8 @@ def toFunction   (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map1 .map0  A 
 def toRel        (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map0 .map0  A B := p.weaken rfl rfl
 end Param
 
-/- ===================== demo: weaken the registered Nat ≃ Unary witness ===================== -/
+/- ===================== the registered base fixture: `Nat ≃ Unary` at (4,4) ===================== -/
+-- (a library fixture: the running example base that `Combinators`/`Solver` build on; tested in `Tests/`.)
 inductive Unary | z | s (n : Unary) deriving Repr
 def toNat : Unary → Nat | .z => 0 | .s n => toNat n + 1
 def ofNat : Nat → Unary | 0 => .z | n+1 => .s (ofNat n)
@@ -148,17 +149,4 @@ def RN : Param.{0,0} .map4 .map4 Nat Unary where
   contra := { map := toNat, map_in_R := fun u n h => PLift.up h,
               R_in_map := fun u n r => r.down, R_in_mapK := fun _ _ _ => rfl }
 
-section Tests
--- the forgets COMPUTE: the forward map survives every downgrade, by `rfl`.
-example : (RN.toRetraction.cov).map = ofNat := rfl
-example : (RN.toSection.cov).map = ofNat := rfl
-example : (RN.toFunction.cov).down.map = ofNat := rfl          -- map1 cov is ULift-wrapped
-example : (RN.toRetraction.contra).map = toNat := rfl          -- map2a contra: the backward map
--- the soundness field also survives where it should (retraction keeps cov's map_in_R):
-example : ∀ n u, ofNat n = u → RNU n u := (RN.toRetraction.cov).map_in_R
--- bottom is the bare relation, with no maps at all:
-example : (RN.toRel).R = RNU := rfl
-end Tests
-
-#print axioms RN
 end Trocq

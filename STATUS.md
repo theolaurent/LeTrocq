@@ -10,10 +10,12 @@ See `lean-port-design.md` for the full design rationale. This file is the live s
 - **Toolchain:** `leanprover/lean4:v4.26.0-rc2` (elan).
 - **Lake project** (`lakefile.toml`, no external deps). Layout:
   - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver`), exposed via `Trocq.lean`.
-  - `Examples/` — standalone fixed-`(4,4)` demos (not part of the library target; run individually).
+  - `Tests/` — the `lake test` suite (one module per layer); hard assertions, fails on regression.
+  - `Examples/` — standalone fixed-`(4,4)` demos (not part of any target; run individually).
   - `lean-port-design.md`, `STATUS.md` — docs. `arXiv-2310.14022v2/`, `trocq/` — local reference (gitignored).
-- **Everything compiles** (`lake build`); axiom footprint is tracked per file (goal: nothing beyond
-  `Quot.sound`, which underlies `funext` and is a kernel rule, not an added axiom).
+- **Everything compiles** (`lake build`) **and `lake test` is green.** Axiom footprints are *pinned* by
+  the test suite via `#guard_msgs in #print axioms …` (goal: nothing beyond `Quot.sound`, which
+  underlies `funext` and is a kernel rule, not an added axiom).
 
 ---
 
@@ -90,9 +92,9 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.
 
-5. **Packaging** — ✅ done: lake project, `Trocq/` library, `Examples/` demos. Still open: a proper
-   test target (turn the inline `#print axioms` / `example … := rfl` checks into `lake test`), and
-   eventually folding the `Examples/` encodings onto the library so they stop duplicating it.
+5. **Packaging** — ✅ done: lake project, `Trocq/` library, `Tests/` (`lake test`, green), `Examples/`
+   demos. Still open: eventually fold the `Examples/` encodings onto the library so they stop
+   duplicating it (they keep their own `mZero…` copies for now).
 
 See `lean-port-design.md` §10 for the original phased plan.
 
@@ -101,7 +103,8 @@ See `lean-port-design.md` §10 for the original phased plan.
 ## Quick build reference
 
 ```sh
-lake build                              # builds the whole Trocq library (runs Solver's demos)
+lake build                              # build the whole Trocq library
+lake test                               # run the test suite (fails on any regression)
 
 lake env lean Examples/Driver.lean      # run a standalone (4,4) demo (Defeq/Minimal/Driver/Induction/Tactic)
 ```

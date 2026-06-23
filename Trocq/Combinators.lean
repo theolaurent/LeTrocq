@@ -96,32 +96,18 @@ def paramType : Param.{1,1} map2a map2a (Type 0) (Type 0) where
     { map := id
       map_in_R := fun A' A h => by subst h; exact paramId A' }
 
-/- ===================== demo: assemble + weaken, over the registered Nat ≃ Unary ===================== -/
-section Demo
--- build the arrow witness `Nat→Nat ~ Unary→Unary` at (3,3) by weakening RN (4,4) into the parts:
+/- ===================== assembled witnesses over `Nat ≃ Unary` (used by tests + the driver) ===================== -/
+-- the arrow witness `Nat→Nat ~ Unary→Unary` at (3,3), built by weakening RN (4,4) into the parts:
 def RN33 : Param.{0,0} map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
 def arrowNU : Param.{0,0} map3 map3 (Nat → Nat) (Unary → Unary) := paramArrow33 RN33 RN33
 
--- the induced forward map is native function transport (B.fwd ∘ f ∘ A.bwd); it COMPUTES:
-example : arrowNU.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
-example : arrowNU.cov.map (fun n => n + 2) Unary.z = Unary.s (Unary.s Unary.z) := rfl
-
--- weaken the arrow witness down to (1,0): "just the transported function", still computing:
+-- weakened to (1,0): "just the transported function".
 def arrowNU_fun : Param.{0,0} map1 map0 (Nat → Nat) (Unary → Unary) :=
   arrowNU.weaken (sm := map3) (sn := map3) rfl rfl
-example : arrowNU_fun.cov.down.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 
--- the universe combinator computes its forward map to `id`, and `map_in_R` produces a real Param:
-example : paramType.cov.map = id := rfl
-example : (paramType.cov.map_in_R Nat Nat rfl).cov.down.map = id := rfl
-
--- the minimal-class arrow needs only sub-(4,4) parts — here the cheap (1,0)/(0,1) split of RN:
+-- the minimal-class arrow, built from the cheap (1,0)/(0,1) splits of RN.
 def RN10 : Param.{0,0} map1 map0 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
 def RN01 : Param.{0,0} map0 map1 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
 def arrowNU_low : Param.{0,0} map0 map1 (Nat → Nat) (Unary → Unary) := paramArrowLow RN10 RN01
-example : arrowNU_low.contra.down.map (fun u => u) 5 = 5 := rfl   -- backward transport of id
-end Demo
 
-#print axioms paramArrow33
-#print axioms paramType
 end Trocq

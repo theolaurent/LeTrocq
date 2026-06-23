@@ -136,38 +136,3 @@ partial def report (sol : Array ParamClass) : Shape → MetaM Unit
   | .usevar v      => logInfo m!"  use : {repr sol[v]!}"
 
 end Trocq.Solver
-
-/- ============================== FRONT-HALF demos ============================== -/
-open Trocq Trocq.Solver MapClass in
-run_cmd Command.liftTermElabM do
-  -- (1) `Nat → Nat` at the comap/goal class (0,1): each occurrence gets its minimal class.
-  let e1 ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (sh1, sol1) ← runSolve demoAtoms e1 (map0, map1)
-  logInfo m!"`Nat → Nat`  seeded (0,1):"; report sol1 sh1
-
--- (2) the flagship `∀ A : Type, A → A` at (0,1) — reproduced FROM the Expr.
-def flagshipTy := ∀ A : Type, A → A
-open Trocq Trocq.Solver MapClass in
-run_cmd Command.liftTermElabM do
-  let e2 := (← getConstInfo ``flagshipTy).value!
-  let (sh2, sol2) ← runSolve demoAtoms e2 (map0, map1)
-  logInfo m!"`∀ A : Type, A → A`  seeded (0,1):  (expect Type→(2a,_), bound A→(1,1))"
-  report sol2 sh2
-
-/- ============================== BACK-HALF demo: generate a real witness ============================== -/
-open Trocq Trocq.Solver MapClass in
-run_cmd Command.liftTermElabM do
-  -- transfer `Nat → Nat`, asking for the (1,0) "just the function" class at the root.
-  let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (wit, _, _) ← transfer demoAtoms e (map1, map0)
-  let ty ← instantiateMVars (← inferType wit)
-  addDecl (.defnDecl { name := `Trocq.transferred, levelParams := [], type := ty, value := wit,
-                       hints := .opaque, safety := .safe })
-  logInfo m!"generated  Trocq.transferred : {ty}"
-
-open Trocq
-#check @Trocq.transferred
--- the assembled witness is a real `Param (1,0) (Nat→Nat) (Unary→Unary)`; its forward map is native
--- function transport and it COMPUTES:
-example : Trocq.transferred.cov.down.map Nat.succ Unary.z = Unary.s Unary.z := rfl
-#print axioms Trocq.transferred

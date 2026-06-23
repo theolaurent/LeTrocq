@@ -119,41 +119,4 @@ def solve (nVars : Nat) (seeds : List (Var × ParamClass)) (cs : List Cstr) : Ar
     a := a'
   return a
 
-/- ===================== validation against the paper's tables ===================== -/
-section Tests
-open MapClass ParamClass
-
--- lattice: 2a and 2b are incomparable; join = 3, meet = 1
-example : MapClass.join map2a map2b = map3 := rfl
-example : MapClass.meet map2a map2b = map1 := rfl
-example : MapClass.le map2a map2b = false := rfl
-example : MapClass.le map2b map2a = false := rfl
-
--- the axiom boundary {0,1,2a}²
-example : ParamClass.requiresAxiom (map2a, map2a) = false := rfl
-example : ParamClass.requiresAxiom (map0, map2b) = true  := rfl
-example : ParamClass.requiresAxiom (map3, map0)  = true  := rfl
-
--- dependency tables (paper Fig. dep-pi), via the symmetry-combining formula
-example : depPi   (map1, map0) = ((map0,map2a),(map1,map0)) := rfl
-example : depArrow (map1, map0) = ((map0,map1), (map1,map0)) := rfl
-example : depArrow (map0, map1) = ((map1,map0), (map0,map1)) := rfl   -- symmetric
-example : depPi   (map4, map0) = ((map0,map4), (map4,map0)) := rfl
-
--- SOLVER demo 1: goal `A → B` at class (0,1).  vars: 0=arrow, 1=dom, 2=cod.
--- expect dom=(1,0), cod=(0,1) — the minimal classes the arrow needs.
-#eval solve 3 [(0, (map0,map1))] [.depArrow 0 1 2]     -- ⇒ #[(0,1),(1,0),(0,1)]
-
--- SOLVER demo 2: the paper's tricky case `∀ A : Type, A → A` at (0,1).
--- vars: 0=Π, 1=Type(domain sort), 2=body(A→A), 3=Type's relation-field, 4=A→A's dom, 5=A→A's cod.
--- the inner A→A forces the bound A's relation class up; the solver finds the least solution.
-#eval
-  let cs : List Cstr := [
-    .depPi 0 1 2,        -- Π drives domain sort (var 1) and codomain (var 2)
-    .depType 1 3,        -- the domain `Type` drives its relation-field class (var 3)
-    .depArrow 2 4 5,     -- the body A→A drives its own dom/cod
-    .gev 3 4, .gev 3 5 ] -- the bound A is used in both arrow positions ⇒ raises A's class (var 3)
-  solve 6 [(0, (map0,map1))] cs
-
-end Tests
 end Trocq

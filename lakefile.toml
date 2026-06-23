@@ -1,11 +1,23 @@
 name = "trocq"
 defaultTargets = ["Trocq"]
+testDriver = "test"
 
 # A Lean-native reformulation of Trocq (modular parametricity / proof transfer).
 # Self-contained — no external dependencies (only the Lean core `Lean` library).
-# The `Examples/` directory holds standalone fixed-(4,4) demos; run them directly with
+#
+#   lake build   — build the library (Trocq/)
+#   lake test    — run the test suite (Tests/) ; fails on any regression
+#
+# `Examples/` holds standalone fixed-(4,4) demos, NOT part of any target; run with
 #   lake env lean Examples/<File>.lean
-# (they are intentionally NOT part of this library target).
 
 [[lean_lib]]
 name = "Trocq"
+
+[[lean_lib]]
+name = "Tests"
+globs = ["Tests.*"]
+
+[[lean_exe]]
+name = "test"
+root = "Tests"
