@@ -1,8 +1,9 @@
 /- The user surface: the `transfer%` term elaborator and the `trocq` tactic. -/
 import Lean
 import Trocq.Tactic
+import Examples.NatUnary
 namespace Trocq.Tests
-open Trocq MapClass
+open Trocq MapClass Trocq.Examples
 
 /- `transfer%` exposes the relatedness witness; its forward map is native function transport over the
    registered `Nat ≃ Unary` base — and it COMPUTES: -/

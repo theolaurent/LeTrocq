@@ -1,9 +1,10 @@
 /- Layer 4 — the driver: Expr → constraints → solve → assembled witness, end to end. -/
 import Lean
 import Trocq
+import Examples.NatUnary
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 namespace Trocq.Tests
-open Trocq Trocq.Solver MapClass
+open Trocq Trocq.Solver MapClass Trocq.Examples
 
 def flagshipTy := ∀ A : Type, A → A
 

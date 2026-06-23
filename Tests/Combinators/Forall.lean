@@ -1,8 +1,9 @@
 /- Graded dependent-Π family — `paramForall` over the `Nat ≃ Unary` base, now at every output class. -/
 import Lean
 import Trocq.Combinators.Forall
+import Examples.NatUnary
 namespace Trocq.Tests
-open Trocq MapClass
+open Trocq MapClass Trocq.Examples
 
 /- A constant codomain family exercises the Π plumbing (the relatedness `raa` is still threaded
    through `pb`); the result is the (degenerate-dependent) function space. Forward map at (1,0): -/
@@ -38,16 +39,16 @@ example : ∀ f f' r, pf44.cov.map_in_R f f' (pf44.cov.R_in_map f f' r) = r := p
 
 /- ===================== THE PAYOFF: a genuine `Prop`-valued dependent goal ===================== -/
 /- the codomain is now a `Prop` family (`0 ≤ ·`), which only fits because the hierarchy is over `Sort`.
-   The per-pair relator just shuttles the proof across `toNat u = n`. -/
-def propPb (n : Nat) (u : Unary) (raa : RNU n u) : Param map1 map1 (0 ≤ n) (0 ≤ toNat u) where
+   The per-pair relator just shuttles the proof across `Unary.toNat u = n`. -/
+def propPb (n : Nat) (u : Unary) (raa : RNU n u) : Param map1 map1 (0 ≤ n) (0 ≤ Unary.toNat u) where
   R := fun _ _ => PLift True
   cov := { map := fun h => raa.down.symm ▸ h }
   contra := { map := fun h => raa.down ▸ h }
 
-def pfProp : Param map1 map0 (∀ n : Nat, 0 ≤ n) (∀ u : Unary, 0 ≤ toNat u) :=
+def pfProp : Param map1 map0 (∀ n : Nat, 0 ≤ n) (∀ u : Unary, 0 ≤ Unary.toNat u) :=
   paramForall map1 map0 (RN.weaken rfl rfl) (fun n u raa => (propPb n u raa).weaken rfl rfl)
 
 /- transfer an actual PROOF: the `Unary` proposition is obtained from the `Nat` one via the witness. -/
-example : (∀ u : Unary, 0 ≤ toNat u) := pfProp.cov.map (fun n => Nat.zero_le n)
+example : (∀ u : Unary, 0 ≤ Unary.toNat u) := pfProp.cov.map (fun n => Nat.zero_le n)
 
 end Trocq.Tests

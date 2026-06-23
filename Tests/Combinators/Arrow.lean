@@ -1,8 +1,9 @@
 /- The arrow construction: sample combinators + the graded `paramArrow`, over the `Nat ≃ Unary` base. -/
 import Lean
 import Trocq.Combinators.Arrow
+import Examples.NatUnary
 namespace Trocq.Tests
-open Trocq MapClass
+open Trocq MapClass Trocq.Examples
 
 /- ===================== sample combinators (fixed classes) ===================== -/
 def RN33 : Param map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl

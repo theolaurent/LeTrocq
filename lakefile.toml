@@ -11,6 +11,12 @@ testDriver = "test"
 [[lean_lib]]
 name = "Trocq"
 
+# `Examples/` — worked examples of USING the library (e.g. registering the `Nat ≃ Unary` base).
+# Not part of the library; the tests import it to exercise the driver against a real registered base.
+[[lean_lib]]
+name = "Examples"
+globs = ["Examples.*"]
+
 [[lean_lib]]
 name = "Tests"
 globs = ["Tests.*"]

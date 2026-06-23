@@ -14,7 +14,6 @@ so `weaken` is their composition along the (unique-up-to-confluence) path.
 Imports Layer 1 (`Lattice.lean`) for the single source of `MapClass`/`le`/`ParamClass`.
 -/
 import Trocq.Lattice
-import Trocq.Attr
 universe u v
 namespace Trocq
 
@@ -144,26 +143,5 @@ def toSection    (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map4 .map2b A 
 def toFunction   (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map1 .map0  A B := p.weaken rfl rfl
 def toRel        (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map0 .map0  A B := p.weaken rfl rfl
 end Param
-
-/- ===================== the registered base fixture: `Nat ≃ Unary` at (4,4) ===================== -/
--- (a library fixture: the running example base that `Combinators`/`Solver` build on; tested in `Tests/`.)
-inductive Unary | z | s (n : Unary) deriving Repr
-def toNat : Unary → Nat | .z => 0 | .s n => toNat n + 1
-def ofNat : Nat → Unary | 0 => .z | n+1 => .s (ofNat n)
-theorem toNat_ofNat : ∀ n, toNat (ofNat n) = n
-  | 0 => rfl
-  | n+1 => by show toNat (ofNat n) + 1 = n + 1; rw [toNat_ofNat n]
-theorem ofNat_toNat : ∀ u, ofNat (toNat u) = u
-  | .z => rfl
-  | .s n => by show Unary.s (ofNat (toNat n)) = Unary.s n; rw [ofNat_toNat n]
-
-def RNU : Nat → Unary → Type := fun n u => PLift (toNat u = n)
-@[trocq] def RN : Param .map4 .map4 Nat Unary where
-  R := RNU
-  cov := { map := ofNat, map_in_R := fun n u h => PLift.up (by subst h; exact toNat_ofNat n),
-           R_in_map := fun n u r => by have h := r.down; rw [← h, ofNat_toNat],
-           R_in_mapK := fun _ _ _ => rfl }
-  contra := { map := toNat, map_in_R := fun u n h => PLift.up h,
-              R_in_map := fun u n r => r.down, R_in_mapK := fun _ _ _ => rfl }
 
 end Trocq

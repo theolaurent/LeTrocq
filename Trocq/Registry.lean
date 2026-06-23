@@ -6,10 +6,10 @@ A tagged constant `w` is one of three kinds, read off the conclusion of its (tel
   • RELATOR  `w : ∀ …, Param m n (P …) (P' …)`                          — relates an applied head `P`.
   • TERM     `w : ∀ …, R … (c …) (c' …)`  (R a bare relation, not Param) — relates a term head `c↦c'`.
 
-The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these.
+The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The
+`@[trocq]` attribute (`Attr.lean`) runs `parseEntry` eagerly and stores the resulting `RegKind`.
 -/
 import Trocq.Combinators
-import Trocq.Attr
 import Lean
 open Lean Lean.Meta
 namespace Trocq
@@ -25,11 +25,12 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
   | some ``MapClass.map4  => return .map4
   | _ => throwError "trocq: cannot read a map class from {e}"
 
-/-- the classification of a `@[trocq]` witness. -/
+/-- the classification of a `@[trocq]` witness (stored in the env extension, so it is `Expr`-only data). -/
 inductive RegKind
   | base    (headA headB : Name) (tyA tyB wit : Expr) (cls : ParamClass)
   | relator (headA : Name) (wit : Expr) (cls : ParamClass)
   | term    (headA : Name) (bTerm wit : Expr)
+  deriving Inhabited
 
 /-- classify a tagged constant `w` from its type (see the kinds above). -/
 def parseEntry (w : Name) : MetaM RegKind := do

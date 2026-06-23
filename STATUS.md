@@ -11,7 +11,10 @@ See `lean-port-design.md` for the full design rationale. This file is the live s
 - **Lake project** (`lakefile.toml`, no external deps). Layout:
   - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`; plus `Attr`+`Registry`,
     the `@[trocq]` registration, and `Translate`, the native term-level translation), via `Trocq.lean`.
-  - `Tests/` — the `lake test` suite (mirrors `Trocq/`); hard assertions, fails on regression.
+    **Base-agnostic**: it registers no equivalence itself; `Trocq` builds with zero `@[trocq]` entries.
+  - `Examples/` — worked examples of *using* the library: `Examples/NatUnary.lean` registers the
+    `Nat ≃ Unary` base + its operations with `@[trocq]`. Not part of the library; the tests import it.
+  - `Tests/` — the `lake test` suite (mirrors `Trocq/`); imports `Examples.NatUnary` for a real base.
   - `lean-port-design.md`, `STATUS.md` — docs. `arXiv-2310.14022v2/`, `trocq/` — local reference (gitignored).
 - **Everything compiles** (`lake build`) **and `lake test` is green.** Axiom footprints are *pinned* by
   the test suite via `#guard_msgs in #print axioms …` (goal: nothing beyond `Quot.sound`, which
@@ -116,14 +119,16 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    *Open:* still hard-wired to `Nat ≃ Unary` + the demo constant `Pos` (needs item 3, `@[trocq]`);
    `app`'s argument is currently a bound base variable (nested apps / `app`-of-`app` not yet).
 
-3. **Registration** — ✅ **done** (`Trocq/Attr.lean` + `Trocq/Registry.lean`): `@[trocq]` attribute +
-   env extension. Tagging a witness records its name; `parseEntry` classifies it from its type into
-   **base** (`Param m n A B`, both directions auto via `Param.sym`), **relator** (`∀…, Param … (P …)(P' …)`,
-   keyed by head `P`), or **term primitive** (`∀…, R … (c …)(c' …)`, `c ↦ c'`). Per-surface builders
-   (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) assemble the registries; `transfer%`/`trocq`/
-   `translate%` read them — nothing hardcoded. A predicate `@[trocq]`-registered in a *user* file is picked
-   up by `trocq` with no library change (`Tests/Tactic.lean`). *Open:* universe-polymorphic witnesses
-   (parser uses `mkConst` with no levels); registering from a Mathlib `Equiv` (item 4).
+3. **Registration** — ✅ **done** (`Trocq/Registry.lean` + `Trocq/Attr.lean`): `@[trocq]` attribute +
+   env extension. Tagging a witness classifies it **eagerly** (`parseEntry`, run in the attribute's `add`)
+   from its type into **base** (`Param m n A B`, both directions auto via `Param.sym`), **relator**
+   (`∀…, Param … (P …)(P' …)`, keyed by head `P`), or **term primitive** (`∀…, R … (c …)(c' …)`, `c ↦ c'`),
+   and stores the parsed `RegKind`. So a malformed witness is rejected right at the tag site
+   (`@[trocq] def bogus : Nat := 5` ⤳ error there). Per-surface builders (`Solver.buildAtoms`/`buildConsts`,
+   `Translate.buildCtx`) just read the stored entries; `transfer%`/`trocq`/`translate%` use them — nothing
+   hardcoded. A predicate `@[trocq]`-registered in a *user* file is picked up by `trocq` with no library
+   change (`Tests/Tactic.lean`). *Open:* universe-polymorphic witnesses (parser uses `mkConst`, no levels);
+   registering from a Mathlib `Equiv` (item 4).
 
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.

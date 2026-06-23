@@ -2,15 +2,15 @@
 The USER SURFACE: the `transfer%` term elaborator and the `trocq` tactic, on top of the driver.
 
   • `transfer% T`  elaborates to the relatedness witness `Param (4,4) T T'` for a type `T` built over
-    the registered base — exposing the generated counterpart `T'` and its transport maps
+    a registered base — exposing the generated counterpart `T'` and its transport maps
     (`(transfer% (Nat → Nat)).cov.map` is the transported function `(Nat→Nat) → (Unary→Unary)`).
 
   • `trocq`  transfers the current goal `G` to its counterpart `G'` (seeded at the comap class (0,1))
     and refines `G` by the backward transport `G' → G`, leaving you to prove `G'`.
 
-The registered base is still hard-wired to `Nat ≃ Unary` (the `@[trocq]` attribute that lets users
-register their own bases is the next milestone). `transfer%` reads it forward (`Nat ↦ Unary`); `trocq`
-reads it backward (`Unary ↦ Nat`, via `Param.sym`) so a `Unary` goal reduces to the easier `Nat` one.
+Both read their registries from the `@[trocq]` environment extension (`Solver.buildAtoms`/`buildConsts`):
+every registered base is available in both directions (forward, and backward via `Param.sym`), so a goal
+over either side of an equivalence resolves by head match. Nothing here is tied to a particular base.
 -/
 import Trocq.Solver
 import Lean
@@ -18,18 +18,6 @@ open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 namespace Trocq
 
 open MapClass
-
-/-- the registered base read backward, `Unary ≃ Nat`, for goal transfer. -/
-def RNsym : Param map4 map4 Unary Nat := RN.sym
-
-/-- a demo registered PREDICATE constant (`Unary`-side and its `Nat`-side counterpart) + how they relate,
-    registered with `@[trocq]`: the driver's generic `app` rule bottoms out at this leaf. -/
-def Pos  (u : Unary) : Prop := 0 ≤ toNat u
-def Pos' (n : Nat)   : Prop := 0 ≤ n
-@[trocq] def PosR (u : Unary) (n : Nat) (uR : RNsym.R u n) : Param map1 map1 (Pos u) (Pos' n) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun h => by unfold Pos at h; unfold Pos'; have := uR.down; omega }
-  contra := { map := fun h => by unfold Pos' at h; unfold Pos;  have := uR.down; omega }
 
 /-- `transfer% T` ⤳ the relatedness witness `Param (4,4) T T'` (`T` a type over a registered base). -/
 elab "transfer% " t:term : term => do

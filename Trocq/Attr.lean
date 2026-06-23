@@ -1,29 +1,30 @@
 /-
 The `@[trocq]` attribute + its environment extension.
 
-Tagging a constant `w` with `@[trocq]` records its NAME; the witness is classified (base / relator /
-term-primitive) lazily by `Trocq.parseEntry` (in `Registry.lean`) from `w`'s type, at the point a
-surface (`transfer%` / `trocq` / `translate%`) builds its registries. Keeping parsing out of the
-attribute keeps this file dependency-free (it cannot mention `Param`, which is defined downstream).
+Tagging a constant `w` with `@[trocq]` classifies it immediately (via `Trocq.parseEntry`, reading `w`'s
+type) and stores the resulting `RegKind` in the extension. So a malformed witness is rejected right at
+the tag site, and the surfaces (`transfer%` / `trocq` / `translate%`) just read pre-parsed entries.
 -/
-import Lean
-open Lean
+import Trocq.Registry
+open Lean Lean.Meta
 namespace Trocq
 
-/-- the set of constants tagged `@[trocq]`. -/
-initialize trocqExt : SimplePersistentEnvExtension Name (Array Name) ←
+/-- the classified `@[trocq]` witnesses (bases / relators / term primitives). -/
+initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
   registerSimplePersistentEnvExtension {
-    addEntryFn   := Array.push
+    addEntryFn    := Array.push
     addImportedFn := fun arrs => arrs.foldl (· ++ ·) #[]
   }
 
 initialize registerBuiltinAttribute {
   name  := `trocq
   descr := "register a Trocq relatedness witness (base equivalence / relator / term primitive)"
-  add   := fun decl _stx _kind => modifyEnv (trocqExt.addEntry · decl)
+  add   := fun decl _stx _kind => do
+    let entry ← (parseEntry decl).run'
+    modifyEnv (trocqExt.addEntry · entry)
 }
 
-/-- the names tagged `@[trocq]` in the given environment. -/
-def trocqEntries (env : Environment) : Array Name := trocqExt.getState env
+/-- the classified witnesses registered in the given environment. -/
+def trocqEntries (env : Environment) : Array RegKind := trocqExt.getState env
 
 end Trocq
