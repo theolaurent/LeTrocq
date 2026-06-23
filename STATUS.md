@@ -9,9 +9,8 @@ See `lean-port-design.md` for the full design rationale. This file is the live s
 
 - **Toolchain:** `leanprover/lean4:v4.26.0-rc2` (elan).
 - **Lake project** (`lakefile.toml`, no external deps). Layout:
-  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver`), exposed via `Trocq.lean`.
-  - `Tests/` — the `lake test` suite (one module per layer); hard assertions, fails on regression.
-  - `Examples/` — standalone fixed-`(4,4)` demos (not part of any target; run individually).
+  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`), via `Trocq.lean`.
+  - `Tests/` — the `lake test` suite (mirrors `Trocq/`); hard assertions, fails on regression.
   - `lean-port-design.md`, `STATUS.md` — docs. `arXiv-2310.14022v2/`, `trocq/` — local reference (gitignored).
 - **Everything compiles** (`lake build`) **and `lake test` is green.** Axiom footprints are *pinned* by
   the test suite via `#guard_msgs in #print axioms …` (goal: nothing beyond `Quot.sound`, which
@@ -38,19 +37,10 @@ proof irrelevance, which collapses `4→3`.) This boundary is `requiresAxiom (m,
 
 ## What's done (Milestones 1–6, all compiling)
 
-### Foundations — `Examples/` (standalone fixed-class `(4,4)` artifacts)
-
-These predate the layered library and each carry their own copy of the encoding (old `mZero…` naming).
-They are kept as demos because several show capabilities the library doesn't expose yet (lambda→native-term
-translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
-
-| File | What it establishes | Axioms |
-|---|---|---|
-| `Examples/Defeq.lean` | The **encoding**: 6 graded `MapKHas` structs + indexed `MapHas` (ULift on small levels) + `Param m n A B`. Answers open-q #4: abstraction-theorem defeq holds by `rfl`; projections compute. | — |
-| `Examples/Minimal.lean` | Hand-written transfer: registers `Nat ≃ Unary` as a `(4,4)` witness `RN`; a generic `transfer_induction` derives `Unary.induction` **for free** from `Nat.rec`. | none |
-| `Examples/Driver.lean` | Term-first **parametricity-translation driver** (metaprogram over `Expr`). Generates native `f.B := fun u => u.s.s` + `Param` proof from `f := fun n => n.succ.succ`. | none |
-| `Examples/Induction.lean` | Driver extended to **higher-order / dependent** terms (sorts, dependent `Π`, applied predicates). Generates the `Unary` induction principle. | none |
-| `Examples/Tactic.lean` | The first **`trocq` tactic**: `by trocq` transfers a `Unary` goal to the (easier) `Nat` goal via the comap direction. | none |
+(The earlier exploratory `Examples/` prototypes — the fixed-`(4,4)` encoding probe, hand-derived
+`Unary.induction`, a lambda→native-term driver, and the first hardcoded tactic — have been removed:
+they're subsumed by the library + `Tests/`, except *native term translation* which is noted below as
+future work. They remain in git history.)
 
 ### Milestone 6 — the full graded lattice (4 layers)
 
@@ -131,9 +121,10 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.
 
-5. **Packaging** — ✅ done: lake project, `Trocq/` library, `Tests/` (`lake test`, green), `Examples/`
-   demos. Still open: eventually fold the `Examples/` encodings onto the library so they stop
-   duplicating it (they keep their own `mZero…` copies for now).
+5. **Native term/program transport** — the driver builds a `Param` *witness* for a TYPE; a separate
+   pass that rebuilds a *term* over `B` leaf-by-leaf (`fun n => n.succ.succ` ⤳ `fun u => u.s.s`, native,
+   not iso-conjugation) is a distinct capability. It was prototyped early (removed `Examples/Driver.lean`,
+   fixed-`(4,4)`); rebuild it on the current graded library.
 
 See `lean-port-design.md` §10 for the original phased plan.
 
@@ -142,8 +133,6 @@ See `lean-port-design.md` §10 for the original phased plan.
 ## Quick build reference
 
 ```sh
-lake build                              # build the whole Trocq library
-lake test                               # run the test suite (fails on any regression)
-
-lake env lean Examples/Driver.lean      # run a standalone (4,4) demo (Defeq/Minimal/Driver/Induction/Tactic)
+lake build    # build the whole Trocq library
+lake test     # run the test suite (fails on any regression)
 ```

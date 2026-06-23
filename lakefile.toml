@@ -7,9 +7,6 @@ testDriver = "test"
 #
 #   lake build   — build the library (Trocq/)
 #   lake test    — run the test suite (Tests/) ; fails on any regression
-#
-# `Examples/` holds standalone fixed-(4,4) demos, NOT part of any target; run with
-#   lake env lean Examples/<File>.lean
 
 [[lean_lib]]
 name = "Trocq"
