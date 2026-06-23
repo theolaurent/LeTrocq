@@ -51,6 +51,14 @@ structure Param (m n : MapClass) (A B : Type u) where
   cov    : MapHas m R
   contra : MapHas n (fun b a => R a b)
 
+/-- KEY (Lean-specific): a class-4 relation is necessarily a SUBSINGLETON. Two related elements both map
+    (via `R_in_map`) to proofs of `map a = b`, which are equal by Lean's proof irrelevance, so `R_in_mapK`
+    forces them equal. This is exactly "no univalence ⇒ class 4 = class 3 on h-props" — and it makes the
+    `(4,4)` coherence FREE on any relation reachable from class-4 data. -/
+theorem Map4Has.subsingleton {A B : Type u} {R : A → B → Type v} (m : Map4Has R) (a : A) (b : B) :
+    Subsingleton (R a b) :=
+  ⟨fun r₁ r₂ => by rw [← m.R_in_mapK a b r₁, ← m.R_in_mapK a b r₂]⟩
+
 /- ===================== the six covering-edge forgets (bare records) ===================== -/
 namespace MapClass
 variable {A B : Type u} {R : A → B → Type v}

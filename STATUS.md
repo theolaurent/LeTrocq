@@ -65,8 +65,8 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 
 | Combinator | Status | What it adds | Axioms |
 |---|---|---|---|
-| `paramArrow (m n)` | ✅ | The **arrow at every output class** `≤ (3,3)`: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts required only at the `depArrow`-**minimal** classes (a bound var at `(1,1)` is enough — no over-provisioning). `map4` deferred (the (3→4) adjoint coherence). | `[Quot.sound]` |
-| `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Capped at `2b` because output cov `2a`/`3` need the domain at `map4` *with* `R_in_mapK` — Π hits the adjoint-coherence wall earlier than arrow. | `[Quot.sound]` |
+| `paramArrow (m n)` | ✅ | The **arrow at EVERY output class, incl. `(4,4)`**: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts at the `depArrow`-**minimal** classes. The `(4,4)` coherence `R_in_mapK` is **free** — class-4 parts have subsingleton relations (`Map4Has.subsingleton`), so the arrow relation is a subsingleton and any two proofs are equal. | `[Quot.sound]` |
+| `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Still capped at `2b` — but the wall here is the *soundness* field `map_in_R` (output cov `2a`+ needs to transport along the domain equivalence), a **separate** obstacle from the `(4,4)` coherence, not removed by the subsingleton trick. | `[Quot.sound]` |
 | `paramTypeAtInner (m n p q)` | ✅ | universe combinator at outer class `≤ (2a,2a)` carrying **inner relation class `(p,q)`** (the `Map_Type` table — inner is free, built by weakening the reflexive identity `paramRefl`). Lets a bound type variable be supplied at *any* class, not a fixed `(1,1)`. (`paramType`/`paramTypeAt` are the `(1,1)`-inner specializations.) | none |
 
 **Driver fully wired** (`Trocq/Solver.lean`): the back-half `assemble req` threads the required class
@@ -80,10 +80,14 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 **Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators{.Arrow,.Forall,.Universe} → Trocq.Solver`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
 
-### Two boundary facts now *mechanically verified*
+### Boundary facts now *mechanically verified*
 - Arrow/∀ at `≥2b` cost only **funext** (`[Quot.sound]`) — Lean has it → free.
 - `Type` at `≥2b` costs **univalence** — Lean lacks it → universe combinator capped at `2a`,
   exactly as `requiresAxiom`/`depType` predict.
+- **Class 4 = class 3 + the relation is a subsingleton** — `Map4Has R` *implies* `Subsingleton (R a b)`
+  (both related elements give equal proofs of `map a = b`, equal by Lean's proof irrelevance). So the
+  `(4,4)` coherence `R_in_mapK` is free wherever the relation comes from class-4 data. This is the precise
+  Lean form of "no univalence ⇒ 4 collapses to 3 (on h-props)".
 
 ---
 
@@ -91,13 +95,14 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 
 Ordered roughly by leverage. The prototype is forward-compatible: each item extends, none rewrites.
 
-1. **Full graded combinator family** *(arrow ✅, forall ✅, Type ✅, driver fully wired ✅, polymorphic
-   binders ✅, `Map_Type` ✅)* — arrow (≤(3,3)), dependent Π (≤(2b,2b)), universe (≤(2a,2a)) all in place;
-   the driver assembles every former at its minimal per-node class, including under `∀ A:Type` binders,
-   with the bound variable supplied at *its* solved class via `paramTypeAtInner` (no fixed `(1,1)` —
-   tested up to `(2b,2a)`). **Remaining:** the deferred `(4,4)` coherence field `R_in_mapK` (the
-   adjoint-equivalence triangle — Trocq's `Param44`, via half-adjoint machinery), which would lift arrow
-   to `4` and Π past `2b` (and would also let the inner bound-var class reach `4`).
+1. **Full graded combinator family** *(arrow ✅ incl. (4,4), forall ✅ ≤(2b,2b), Type ✅ ≤(2a,2a), driver
+   fully wired ✅, polymorphic binders ✅, `Map_Type` ✅, `(4,4)` coherence ✅)* — essentially complete.
+   The driver assembles every former at its minimal per-node class, under `∀ A:Type` binders, with the
+   bound variable at its solved class (inner up to `(4,4)`), and arrows now propagate the full `(4,4)`
+   equivalence end-to-end. **Only remaining frontier:** lift dependent Π past `(2b,2b)` — blocked by the
+   *soundness* transport (output cov `2a`+ must transport `RB` along the domain equivalence), a separate
+   obstacle from the now-resolved `(4,4)` coherence. Tractable but real; needs `Eq.rec` over the domain
+   completeness + the `RA`-subsingleton coherence for the indexed fiber.
 
 2. **User surface** — merge the `Solver` front half with a real `trocq` tactic **and** a `transfer%`
    term elaborator, on top of the graded combinators. Generalises `Tactic.lean` (single `∀` over a

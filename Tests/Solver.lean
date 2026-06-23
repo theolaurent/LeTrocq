@@ -80,4 +80,17 @@ example : True := by
   have : Param.{1, 1} .map2b .map0 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit2b
   trivial
 
+/- (4,4) end-to-end: `Nat → Nat` transferred at the TOP class — now possible since the arrow propagates
+   the full equivalence (the `(4,4)` coherence `R_in_mapK` holds by subsingleton). -/
+run_cmd Command.liftTermElabM do
+  let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
+  let (wit, _, _) ← transfer demoAtoms e (map4, map4)
+  let ty ← instantiateMVars (← inferType wit)
+  addDecl (.defnDecl { name := `Trocq.Tests.transferred44, levelParams := [], type := ty, value := wit,
+                       hints := .opaque, safety := .safe })
+example : Trocq.Tests.transferred44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+example : True := by
+  have : Param.{0,0} .map4 .map4 (Nat → Nat) (Unary → Unary) := Trocq.Tests.transferred44
+  trivial
+
 end Trocq.Tests

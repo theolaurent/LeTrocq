@@ -132,11 +132,9 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array
       weakenTo req sol[rV]! aR
   | .sort _ rV => mkUniv req sol[rV]!
   | .arrow _ sd sc => do
-      unless MapClass.le req.1 map3 && MapClass.le req.2 map3 do
-        throwError "assemble: arrow at {repr req} needs the deferred (4)-coherence"
       let (da, dc) := depArrow req            -- the minimal domain/codomain classes for this output
       mkAppM ``paramArrow
-        #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map3, ← leProof req.2 map3,
+        #[classToExpr req.1, classToExpr req.2,
           ← assemble atoms sol env da sd, ← assemble atoms sol env dc sc]
   | .pi _ _ rV body => do
       unless MapClass.le req.1 map2b && MapClass.le req.2 map2b do
