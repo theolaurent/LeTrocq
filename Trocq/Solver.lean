@@ -109,44 +109,47 @@ def leProof (t bound : MapClass) : MetaM Expr := do
   mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (classToExpr bound))
                         (mkConst ``Bool.true))
 
+/-- the universe combinator at outer class `req`, carrying inner relation class `inner`. -/
+def mkUniv (req inner : ParamClass) : MetaM Expr := do
+  unless MapClass.le req.1 map2a && MapClass.le req.2 map2a do
+    throwError "assemble: `Type` at {repr req} exceeds the universe ceiling (2a) — needs univalence"
+  mkAppM ``paramTypeAtInner #[classToExpr req.1, classToExpr req.2, classToExpr inner.1,
+    classToExpr inner.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
+
 /-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
     and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
-    `env` maps a Π-binder's class var to the in-scope relatedness witness for that bound type variable. -/
-partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (env : List (Nat × Expr))
-    (req : ParamClass) : Shape → MetaM Expr
+    `env` maps a Π-binder's class var to the in-scope relatedness witness for that bound type variable;
+    `sol` supplies each binder's solved (`Map_Type`-inner) class. -/
+partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array ParamClass)
+    (env : List (Nat × Expr)) (req : ParamClass) : Shape → MetaM Expr
   | .atom _ name => do
       let some (_, wit, reg) := atoms.find? name | throwError "assemble: atom {name} not registered"
       weakenTo req reg wit
   | .usevar _ rV => do
       let some (_, aR) := env.find? (·.1 == rV)
         | throwError "assemble: bound type variable (var {rV}) not in scope"
-      -- the universe combinator supplies bound-var relatedness at class (1,1); weaken to the use site.
-      weakenTo req (map1, map1) aR
-  | .sort _ _ => do
-      unless MapClass.le req.1 map2a && MapClass.le req.2 map2a do
-        throwError "assemble: `Type` at {repr req} exceeds the universe ceiling (2a) — needs univalence"
-      mkAppM ``paramTypeAt #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
+      -- the universe combinator supplies the bound var at its solved class `sol[rV]`; weaken to the use.
+      weakenTo req sol[rV]! aR
+  | .sort _ rV => mkUniv req sol[rV]!
   | .arrow _ sd sc => do
       unless MapClass.le req.1 map3 && MapClass.le req.2 map3 do
         throwError "assemble: arrow at {repr req} needs the deferred (4)-coherence"
       let (da, dc) := depArrow req            -- the minimal domain/codomain classes for this output
       mkAppM ``paramArrow
         #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map3, ← leProof req.2 map3,
-          ← assemble atoms env da sd, ← assemble atoms env dc sc]
+          ← assemble atoms sol env da sd, ← assemble atoms sol env dc sc]
   | .pi _ _ rV body => do
       unless MapClass.le req.1 map2b && MapClass.le req.2 map2b do
         throwError "assemble: ∀ at {repr req} exceeds the dependent-Π cap (2b)"
       let (dPi, cPi) := depPi req              -- domain (`Type`) class, codomain (body) class
-      unless MapClass.le dPi.1 map2a && MapClass.le dPi.2 map2a do
-        throwError "assemble: ∀-domain `Type` at {repr dPi} exceeds the universe ceiling (2a)"
-      let domWit ← mkAppM ``paramTypeAt
-        #[classToExpr dPi.1, classToExpr dPi.2, ← leProof dPi.1 map2a, ← leProof dPi.2 map2a]
+      -- the domain `Type` carries the bound variable at its solved class `sol[rV]` (the `Map_Type` inner).
+      let domWit ← mkUniv dPi sol[rV]!
       -- codomain FAMILY: fun (A A' : Type) (aR : domWit.R A A') => ⟨body witness at cPi, with A↦aR⟩
       let pb ← withLocalDeclD `A (.sort (.succ .zero)) fun A =>
         withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
           let raaTy ← mkAppM ``Param.R #[domWit, A, A']
           withLocalDeclD `aR raaTy fun aR => do
-            mkLambdaFVars #[A, A', aR] (← assemble atoms ((rV, aR) :: env) cPi body)
+            mkLambdaFVars #[A, A', aR] (← assemble atoms sol ((rV, aR) :: env) cPi body)
       mkAppM ``paramForall
         #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map2b, ← leProof req.2 map2b, domWit, pb]
 
@@ -155,7 +158,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (env : List 
 def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (e : Expr) (root : ParamClass) :
     MetaM (Expr × Shape × Array ParamClass) := do
   let (shape, sol) ← runSolve atoms e root
-  let wit ← assemble atoms [] root shape
+  let wit ← assemble atoms sol [] root shape
   return (← instantiateMVars wit, shape, sol)
 
 /- ===================== the registered base + pretty-printer ===================== -/

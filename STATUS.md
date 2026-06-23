@@ -67,7 +67,7 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 |---|---|---|---|
 | `paramArrow (m n)` | ✅ | The **arrow at every output class** `≤ (3,3)`: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts required only at the `depArrow`-**minimal** classes (a bound var at `(1,1)` is enough — no over-provisioning). `map4` deferred (the (3→4) adjoint coherence). | `[Quot.sound]` |
 | `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Capped at `2b` because output cov `2a`/`3` need the domain at `map4` *with* `R_in_mapK` — Π hits the adjoint-coherence wall earlier than arrow. | `[Quot.sound]` |
-| `paramType` / `paramTypeAt (m n)` | ✅ | universe combinator at every class `≤ (2a,2a)` (`paramTypeAt` weakens the `(2a,2a)` ceiling). | none |
+| `paramTypeAtInner (m n p q)` | ✅ | universe combinator at outer class `≤ (2a,2a)` carrying **inner relation class `(p,q)`** (the `Map_Type` table — inner is free, built by weakening the reflexive identity `paramRefl`). Lets a bound type variable be supplied at *any* class, not a fixed `(1,1)`. (`paramType`/`paramTypeAt` are the `(1,1)`-inner specializations.) | none |
 
 **Driver fully wired** (`Trocq/Solver.lean`): the back-half `assemble req` threads the required class
 top-down via `depArrow`/`depPi` and dispatches **every former to its graded combinator** at exactly that
@@ -92,13 +92,12 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 Ordered roughly by leverage. The prototype is forward-compatible: each item extends, none rewrites.
 
 1. **Full graded combinator family** *(arrow ✅, forall ✅, Type ✅, driver fully wired ✅, polymorphic
-   binders ✅)* — arrow (≤(3,3)), dependent Π (≤(2b,2b)), universe (≤(2a,2a)) are all in place, and the
-   driver assembles every former at its minimal per-node class, including under `∀ A:Type` binders.
-   **Remaining:** (i) bound vars are currently supplied at the universe combinator's fixed inner class
-   `(1,1)` (paramType's relation) — a use needing more than `(1,1)` would fail; lifting this needs the
-   `Map_Type` sub-class table so the universe combinator's inner relation tracks the outer class. (ii)
-   The deferred `(4,4)` coherence field `R_in_mapK` (the adjoint-equivalence triangle — Trocq's
-   `Param44`, via half-adjoint machinery), which would lift arrow to `4` and Π past `2b`.
+   binders ✅, `Map_Type` ✅)* — arrow (≤(3,3)), dependent Π (≤(2b,2b)), universe (≤(2a,2a)) all in place;
+   the driver assembles every former at its minimal per-node class, including under `∀ A:Type` binders,
+   with the bound variable supplied at *its* solved class via `paramTypeAtInner` (no fixed `(1,1)` —
+   tested up to `(2b,2a)`). **Remaining:** the deferred `(4,4)` coherence field `R_in_mapK` (the
+   adjoint-equivalence triangle — Trocq's `Param44`, via half-adjoint machinery), which would lift arrow
+   to `4` and Π past `2b` (and would also let the inner bound-var class reach `4`).
 
 2. **User surface** — merge the `Solver` front half with a real `trocq` tactic **and** a `transfer%`
    term elaborator, on top of the graded combinators. Generalises `Tactic.lean` (single `∀` over a

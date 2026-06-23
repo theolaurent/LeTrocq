@@ -67,4 +67,17 @@ example : True := by
 /-- info: 'Trocq.Tests.flagshipWit' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms Trocq.Tests.flagshipWit
 
+/- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0) forces the bound variable `A` to class
+   (2b,2a) — ABOVE the old fixed (1,1) ceiling. The universe combinator now carries that inner class
+   (`paramTypeAtInner`), so it assembles; under the old (1,1)-only `paramType` this would have failed. -/
+run_cmd Command.liftTermElabM do
+  let e := (← getConstInfo ``flagshipTy2).value!
+  let (wit, _, _) ← transfer demoAtoms e (map2b, map0)
+  let ty ← instantiateMVars (← inferType wit)
+  addDecl (.defnDecl { name := `Trocq.Tests.flagshipWit2b, levelParams := [], type := ty, value := wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param.{1, 1} .map2b .map0 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit2b
+  trivial
+
 end Trocq.Tests
