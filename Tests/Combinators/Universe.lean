@@ -27,4 +27,12 @@ example : (paramTypeAtInner map1 map0 map4 map4 rfl rfl).cov.down.map = id := rf
 /-- info: 'Trocq.paramRefl' does not depend on any axioms -/
 #guard_msgs in #print axioms paramRefl
 
+/- the PROP universe combinator reaches the FULL (4,4) — completeness via `propext`, coherence free by
+   proof irrelevance — where the `Type` universe stalls at 2a. -/
+example : paramProp.cov.map = id := rfl
+example : ∀ P P' r, paramProp.cov.map_in_R P P' (paramProp.cov.R_in_map P P' r) = r := paramProp.cov.R_in_mapK
+example : (paramPropAt map2a map0).cov.map = id := rfl
+/-- info: 'Trocq.paramProp' depends on axioms: [propext] -/
+#guard_msgs in #print axioms paramProp
+
 end Trocq.Tests

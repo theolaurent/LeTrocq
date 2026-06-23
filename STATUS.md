@@ -68,6 +68,7 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 | `paramArrow (m n)` | ✅ | The **arrow at EVERY output class, incl. `(4,4)`**: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts at the `depArrow`-**minimal** classes. The `(4,4)` coherence `R_in_mapK` is **free** — class-4 parts have subsingleton relations (`Map4Has.subsingleton`), so the arrow relation is a subsingleton and any two proofs are equal. | `[Quot.sound]` |
 | `paramForall (m n)` | ✅ | The **dependent Π at EVERY output class, incl. `(4,4)`**: codomain is a *family* `pb a a' raa`. At cov `2a`+ the soundness field `map_in_R` is built by transporting the codomain fiber along the domain equivalence — `R_in_map` gives `bwd a' = a` (`subst`) and `Map4Has.subsingleton` identifies the two relatedness proofs; the `(4,4)` coherence is then free. (Caveat: a Π *over `Type`* is still capped at `(2b,2b)` by the **driver**, since there the domain witness is the universe combinator — capped at `2a` by univalence. The combinator itself is fully graded; Π over a *registered* base reaches `(4,4)`.) | `[Quot.sound]` |
 | `paramTypeAtInner (m n p q)` | ✅ | universe combinator at outer class `≤ (2a,2a)` carrying **inner relation class `(p,q)`** (the `Map_Type` table — inner is free, built by weakening the reflexive identity `paramRefl`). Lets a bound type variable be supplied at *any* class, not a fixed `(1,1)`. (`paramType`/`paramTypeAt` are the `(1,1)`-inner specializations.) | none |
+| `paramProp` / `paramPropAt` | ✅ | the **`Prop` universe combinator at the full `(4,4)`**: completeness is `propext`, coherence free by proof irrelevance (`PLift (P↔P')` is a subsingleton). Reaches `(4,4)` where `Type` stalls at `2a` — the precise Prop/Type asymmetry. (Handles quantifying over `Prop`; relating a *specific* prop still needs the `Sort` generalization — see below.) | `[propext]` |
 
 **Driver fully wired** (`Trocq/Solver.lean`): the back-half `assemble req` threads the required class
 top-down via `depArrow`/`depPi` and dispatches **every former to its graded combinator** at exactly that
@@ -84,6 +85,13 @@ over-provisioning. So `transfer e root` produces the witness *directly* at `root
 - Arrow/∀ at `≥2b` cost only **funext** (`[Quot.sound]`) — Lean has it → free.
 - `Type` at `≥2b` costs **univalence** — Lean lacks it → universe combinator capped at `2a`,
   exactly as `requiresAxiom`/`depType` predict.
+- **`Prop` universe reaches `(4,4)`** — completeness is `propext` (Lean has it), coherence is free by
+  proof irrelevance. So `paramProp : Param (4,4) Prop Prop` (`[propext]`), vs `paramType` stuck at `2a`.
+- **The `Type`/`Sort` boundary** — `Param A B` requires `A B : Type u`; a *specific* prop `P : Prop = Sort 0`
+  is not a `Type u`, so it can't (yet) be a `Param` argument. Transferring a `Prop` *goal* (`∀ u, Q u`)
+  needs the hierarchy generalized from `Type u` to `Sort u` (feasible — probed — but a finicky
+  universe-arithmetic refactor across all six structures + combinators; proof irrelevance then gives the
+  `(4,4)` combinators for free via `Map4Has.subsingleton`).
 - **Class 4 = class 3 + the relation is a subsingleton** — `Map4Has R` *implies* `Subsingleton (R a b)`
   (both related elements give equal proofs of `map a = b`, equal by Lean's proof irrelevance). So the
   `(4,4)` coherence `R_in_mapK` is free wherever the relation comes from class-4 data. This is the precise

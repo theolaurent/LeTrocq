@@ -69,4 +69,26 @@ def paramTypeAt (m n : MapClass)
     Param.{1,1} m n (Type 0) (Type 0) :=
   paramTypeAtInner m n map1 map1 hm hn
 
+/-- the PROP universe combinator at the TOP class `(4,4)`. Unlike the `Type` universe (capped at `2a`
+    by the absence of univalence), `Prop` reaches the full equivalence: `map_in_R` is `Eq.rec`,
+    completeness `R_in_map` is **`propext`** (which Lean has), and the coherence `R_in_mapK` is free by
+    **proof irrelevance** (the relation `PLift (P ↔ P')` is a subsingleton). Note the relation is `Iff`,
+    not a sub-`Param` — a *specific* prop can't be a `Param` argument over the `Type`-based hierarchy. -/
+def paramProp : Param.{0,0} map4 map4 Prop Prop where
+  R := fun P P' => PLift (P ↔ P')
+  cov :=
+    { map := id
+      map_in_R := fun _ _ h => by subst h; exact PLift.up Iff.rfl
+      R_in_map := fun _ _ r => propext r.down
+      R_in_mapK := fun _ _ r => by cases r; rfl }
+  contra :=
+    { map := id
+      map_in_R := fun _ _ h => by subst h; exact PLift.up Iff.rfl
+      R_in_map := fun _ _ r => (propext r.down).symm
+      R_in_mapK := fun _ _ r => by cases r; rfl }
+
+/-- the Prop universe combinator at any class (weaken the `(4,4)` ceiling). -/
+def paramPropAt (m n : MapClass) : Param.{0,0} m n Prop Prop :=
+  paramProp.weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
+
 end Trocq
