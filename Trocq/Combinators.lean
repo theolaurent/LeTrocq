@@ -20,7 +20,7 @@ the whole Trocq story:
 
 Built on the Layer-2 file's hierarchy + weakening.
 -/
-import «Hierarchy»
+import Trocq.Hierarchy
 universe u v
 namespace Trocq
 open MapClass

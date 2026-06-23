@@ -20,7 +20,7 @@ at (3,3) then weakens — enough to drive a real transfer. Consuming the per-nod
 assembly (cheapest combinator per node) + polymorphic binders is what the full graded combinator
 family (the deferred 6×6 generalization of layer 3) unlocks; the front half already computes them.
 -/
-import «Combinators»
+import Trocq.Combinators
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 universe u v

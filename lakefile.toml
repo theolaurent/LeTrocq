@@ -1,0 +1,11 @@
+name = "trocq"
+defaultTargets = ["Trocq"]
+
+# A Lean-native reformulation of Trocq (modular parametricity / proof transfer).
+# Self-contained — no external dependencies (only the Lean core `Lean` library).
+# The `Examples/` directory holds standalone fixed-(4,4) demos; run them directly with
+#   lake env lean Examples/<File>.lean
+# (they are intentionally NOT part of this library target).
+
+[[lean_lib]]
+name = "Trocq"

@@ -13,7 +13,7 @@ so `weaken` is their composition along the (unique-up-to-confluence) path.
 
 Imports Layer 1 (`Lattice.lean`) for the single source of `MapClass`/`le`/`ParamClass`.
 -/
-import «Lattice»
+import Trocq.Lattice
 universe u v
 namespace Trocq
 
