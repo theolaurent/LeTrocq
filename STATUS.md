@@ -58,10 +58,10 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 |---|---|---|---|
 | 1 | `Trocq/Lattice.lean` | The **class algebra**: `MapClass` lattice (`le`/`join`/`meet`), `ParamClass` ops, dependency tables (`depPi`/`depArrow`/`depType`), and the **monotone least-fixpoint solver** (`Cstr` + `solve`). Validated against the paper's tables by `rfl`. | — (pure) |
 | 2 | `Trocq/Hierarchy.lean` | The witness side + **weakening** (the ⇓ forget maps): six covering-edge projections composed into `MapClass.weaken : tgt ≤ src → MapHas src → MapHas tgt`, lifted to `Param.weaken` + named downgrades (`toRetraction`/`toSection`/`toFunction`/`toRel`). | none |
-| 3 | `Trocq/Combinators.lean` | The proof-heavy **combinators**: `paramArrow33` (arrow at (3,3), completeness via funext), `paramArrowLow` (same former at minimal class (0,1) — **zero proofs**), `paramType` (universe combinator at the **no-univalence ceiling** (2a,2a)). | `paramArrow33`: `[Quot.sound]` (=funext); `paramType`: **none** |
+| 3 | `Trocq/Combinators/` | The proof-heavy **combinators** (one file per construction; `Trocq/Combinators.lean` is the umbrella): `paramArrow33` (arrow at (3,3), completeness via funext), `paramArrowLow` (same former at minimal class (0,1) — **zero proofs**), `paramType` (universe combinator at the **no-univalence ceiling** (2a,2a)). | `paramArrow33`: `[Quot.sound]` (=funext); `paramType`: **none** |
 | 4 | `Trocq/Solver.lean` | **The driver, wired.** Front half: walk an `Expr`, emit `Cstr`, run the real `solve` → minimal class per occurrence (reproduces the paper's `∀A:Type,A→A` ⇒ Type→(2a,0), A→(1,1), *from the Expr*). Back half: assemble the witness via `paramArrow33` + `weaken`. | generated witness: `[Quot.sound]` |
 
-### Graded combinator family (in progress) — `Trocq/Arrow.lean`, `Trocq/Forall.lean`
+### Graded combinator family — `Trocq/Combinators/` (one file per construction: `Arrow`/`Forall`/`Universe`)
 
 | Combinator | Status | What it adds | Axioms |
 |---|---|---|---|
@@ -75,7 +75,7 @@ class — parts built at the `depArrow`-minimal classes, no build-`(3,3)`-then-w
 produces the witness *directly* at `root`, every node at its solver-/table-minimal class. (Tested: `Nat→Nat`
 and nested `Nat→Nat→Nat` at `(1,0)` generate computing witnesses; `#check` confirms the types.)
 
-**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators → Trocq.Arrow → Trocq.Forall → Trocq.Solver`
+**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators{.Arrow,.Forall,.Universe} → Trocq.Solver`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
 
 ### Two boundary facts now *mechanically verified*

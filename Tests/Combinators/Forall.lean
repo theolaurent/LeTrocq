@@ -1,6 +1,6 @@
 /- Graded dependent-Π family — `paramForall` over the `Nat ≃ Unary` base. -/
 import Lean
-import Trocq.Forall
+import Trocq.Combinators.Forall
 namespace Trocq.Tests
 open Trocq MapClass
 

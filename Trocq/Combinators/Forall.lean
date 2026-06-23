@@ -13,7 +13,7 @@ That is exactly what `mapDepPi` encodes: its domain classes are higher than `map
 arrow's `map4`). The coherence-FREE frontier for Π is thus output components `≤ 2b`; we cap there
 (`le · map2b`), covering `{0,1,2b}²` — the function/section directions of dependent transport.
 -/
-import Trocq.Arrow
+import Trocq.Hierarchy
 universe u v
 namespace Trocq
 open MapClass
