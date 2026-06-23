@@ -21,4 +21,10 @@ example : Unary → Unary → Unary := by
   trocq          -- ⊢ Nat → Nat → Nat
   exact (· + ·)
 
+/- the PAYOFF: a `Prop`-valued dependent goal. `trocq` recognizes `∀ (x : Base), Pred x` via the generic
+   `app` rule (registered constant `Pos`), transfers it to the `Nat`-side, and leaves the easier goal. -/
+example : ∀ u : Unary, Pos u := by
+  trocq                       -- ⊢ ∀ n : Nat, Pos' n
+  exact fun n => Nat.zero_le n
+
 end Trocq.Tests

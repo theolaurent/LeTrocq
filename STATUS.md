@@ -117,10 +117,13 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
 
 2. **User surface** — ✅ **done** (`Trocq/Tactic.lean`): `transfer% T` elaborates to the witness
    `Param (4,4) T T'` (so `(transfer% (Nat→Nat)).cov.map` *is* the transported function, and it
-   computes); `trocq` transfers the current goal to its counterpart (seeded at (0,1) via `Param.sym`)
-   and refines by the backward map, leaving the easier goal. Both drive the real graded pipeline.
-   *Open:* still hard-wired to `Nat ≃ Unary` (needs item 3), and limited to types the driver's `gen`
-   handles (arrows / `∀ Type` / registered atoms — not yet applied predicates `P x` or `∀ (n:Base), …`).
+   computes); `trocq` transfers the current goal to its counterpart and refines by the backward map.
+   The driver's `gen`/`assemble` now handle **dependent Π over a registered base** (`∀ (x : Base), …`)
+   and a **generic `app` node** (the abstraction-theorem rule `⟦head x⟧ = ⟦head⟧ x x' xR` for a
+   registered constant `head`) — so `trocq` transfers real **`Prop` goals** end-to-end:
+   `example : ∀ u : Unary, Pos u := by trocq; exact fun n => Nat.zero_le n` (reduces to `∀ n, Pos' n`).
+   *Open:* still hard-wired to `Nat ≃ Unary` + the demo constant `Pos` (needs item 3, `@[trocq]`);
+   `app`'s argument is currently a bound base variable (nested apps / `app`-of-`app` not yet).
 
 3. **Registration** — `@[trocq]` attribute + environment extension, replacing the hardcoded
    `demoAtoms` / `buildCtx`. Stores `(B-type, witness, class)` per registered base/op.

@@ -29,43 +29,59 @@ open Trocq MapClass
 
 /- ===================== constraint-generation state ===================== -/
 structure GenState where
-  next    : Nat := 0
-  cstrs   : Array Cstr := #[]
-  binders : List (FVarId × Nat) := []
+  next        : Nat := 0
+  cstrs       : Array Cstr := #[]
+  binders     : List (FVarId × Nat) := []   -- type-variable binders (`∀ A : Type`) → their class var
+  termBinders : List (FVarId × Nat) := []   -- term-variable binders (`∀ x : Base`) → their binder id
 
-/-- shape tree: each node remembers its class `Var`; `usevar` also remembers its binder's class var. -/
+/-- shape tree: each node remembers its class `Var`. -/
 inductive Shape
   | atom   (v : Nat) (name : Name)
   | arrow  (v : Nat) (dom cod : Shape)
-  | pi     (v domV rV : Nat) (body : Shape)
+  | pi     (v domV rV : Nat) (body : Shape)              -- `∀ A : Type, …`
   | sort   (v rV : Nat)
-  | usevar (v rV : Nat)
+  | usevar (v rV : Nat)                                  -- use of a bound TYPE variable
+  | piBase (v bId : Nat) (base : Name) (body : Shape)    -- `∀ (x : base), …` over a registered base
+  | app    (v bId : Nat) (head : Name)                   -- `head x`, registered `head` applied to term-binder `bId`
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ => v
 
 /- ===================== front half: generate constraints from a type Expr ===================== -/
-partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (st : IO.Ref GenState) :
-    Expr → MetaM Shape
+partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
+    (st : IO.Ref GenState) : Expr → MetaM Shape
   | .forallE n A B _ => do
       if B.hasLooseBVar 0 then
-        -- dependent Π; only `∀ (x : Type), …` (a type binder) is modelled here
         match A with
-        | .sort _ =>
+        | .sort _ =>                                       -- ∀ (A : Type), … (a type binder)
             let v ← fresh; let domV ← fresh; let rV ← fresh
             emit (.depType domV rV)
             withLocalDeclD n A fun x => do
               st.modify fun s => { s with binders := (x.fvarId!, rV) :: s.binders }
-              let sb ← gen atoms st (B.instantiate1 x)
+              let sb ← gen atoms consts st (B.instantiate1 x)
               emit (.depPi v domV sb.var)
               return .pi v domV rV sb
-        | _ => throwError "gen: dependent Π over non-Type unsupported (prototype)"
+        | .const baseName _ =>                             -- ∀ (x : Base), … over a registered base
+            unless atoms.contains baseName do throwError "gen: dependent Π over unregistered base {baseName}"
+            let v ← fresh; let domV ← fresh; let bId ← fresh
+            withLocalDeclD n A fun x => do
+              st.modify fun s => { s with termBinders := (x.fvarId!, bId) :: s.termBinders }
+              let sb ← gen atoms consts st (B.instantiate1 x)
+              emit (.depPi v domV sb.var)
+              return .piBase v bId baseName sb
+        | _ => throwError "gen: dependent Π over non-Type/base unsupported"
       else
         let v ← fresh
-        let sd ← gen atoms st A
-        let sc ← gen atoms st (B.instantiate1 (mkConst ``True))
+        let sd ← gen atoms consts st A
+        let sc ← gen atoms consts st (B.instantiate1 (mkConst ``True))
         emit (.depArrow v sd.var sc.var)
         return .arrow v sd sc
+  | .app (.const head _) (.fvar x) => do                  -- `head x`: registered head on a bound term var
+      match (← st.get).termBinders.find? (·.1 == x) with
+      | some (_, bId) =>
+          unless consts.contains head do throwError "gen: unregistered constant {head}"
+          let v ← fresh; return .app v bId head
+      | none => throwError "gen: application argument is not a bound base variable"
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -82,10 +98,10 @@ where
   emit (c : Cstr) : MetaM Unit := st.modify fun s => { s with cstrs := s.cstrs.push c }
 
 /-- run the front half: returns the shape tree and the solved (minimal) class per `Var`. -/
-def runSolve (atoms : NameMap (Expr × Expr × ParamClass)) (e : Expr) (root : ParamClass) :
-    MetaM (Shape × Array ParamClass) := do
+def runSolve (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
+    (e : Expr) (root : ParamClass) : MetaM (Shape × Array ParamClass) := do
   let st ← IO.mkRef {}
-  let shape ← gen atoms st e
+  let shape ← gen atoms consts st e
   let s ← st.get
   let sol := Trocq.solve s.next [(shape.var, root)] s.cstrs.toList
   return (shape, sol)
@@ -120,8 +136,9 @@ def mkUniv (req inner : ParamClass) : MetaM Expr := do
     and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
     `env` maps a Π-binder's class var to the in-scope relatedness witness for that bound type variable;
     `sol` supplies each binder's solved (`Map_Type`-inner) class. -/
-partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array ParamClass)
-    (env : List (Nat × Expr)) (req : ParamClass) : Shape → MetaM Expr
+partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
+    (sol : Array ParamClass) (env : List (Nat × Expr)) (termEnv : List (Nat × (Expr × Expr × Expr)))
+    (req : ParamClass) : Shape → MetaM Expr
   | .atom _ name => do
       let some (_, wit, reg) := atoms.find? name | throwError "assemble: atom {name} not registered"
       weakenTo req reg wit
@@ -135,7 +152,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array
       let (da, dc) := depArrow req            -- the minimal domain/codomain classes for this output
       mkAppM ``paramArrow
         #[classToExpr req.1, classToExpr req.2,
-          ← assemble atoms sol env da sd, ← assemble atoms sol env dc sc]
+          ← assemble atoms consts sol env termEnv da sd, ← assemble atoms consts sol env termEnv dc sc]
   | .pi _ _ rV body => do
       -- `paramForall` is fully graded; for `∀ A : Type` the effective cap is enforced by `mkUniv` below
       -- (the universe domain `Type` is capped at `2a` by univalence — see the `dPi` build).
@@ -147,21 +164,42 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (sol : Array
         withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
           let raaTy ← mkAppM ``Param.R #[domWit, A, A']
           withLocalDeclD `aR raaTy fun aR => do
-            mkLambdaFVars #[A, A', aR] (← assemble atoms sol ((rV, aR) :: env) cPi body)
-      mkAppM ``paramForall
-        #[classToExpr req.1, classToExpr req.2, domWit, pb]
+            mkLambdaFVars #[A, A', aR] (← assemble atoms consts sol ((rV, aR) :: env) termEnv cPi body)
+      mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
+  | .piBase _ bId base body => do
+      -- `∀ (x : Base), …` over a registered base: `paramForall` with the base witness as the domain;
+      -- the bound term variable `(x, x', xR)` is threaded into `termEnv` for the body's `app` nodes.
+      let (dPi, cPi) := depPi req
+      let some (baseB, baseWit, baseReg) := atoms.find? base | throwError "assemble: base {base} not registered"
+      let domWit ← weakenTo dPi baseReg baseWit
+      let pb ← withLocalDeclD `x (mkConst base) fun x =>
+        withLocalDeclD `x' baseB fun x' => do
+          let xRTy ← mkAppM ``Param.R #[domWit, x, x']
+          withLocalDeclD `xR xRTy fun xR => do
+            mkLambdaFVars #[x, x', xR]
+              (← assemble atoms consts sol env ((bId, (x, x', xR)) :: termEnv) cPi body)
+      mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
+  | .app _ bId head => do
+      -- the abstraction-theorem rule: `⟦head x⟧ = ⟦head⟧ x x' xR`, weakened to the requested class.
+      let some (_, x, x', xR) := termEnv.find? (·.1 == bId)
+        | throwError "assemble: bound term variable ({bId}) not in scope"
+      let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
+      weakenTo req relClass (mkApp3 relator x x' xR)
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
-def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (e : Expr) (root : ParamClass) :
-    MetaM (Expr × Shape × Array ParamClass) := do
-  let (shape, sol) ← runSolve atoms e root
-  let wit ← assemble atoms sol [] root shape
+def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
+    (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
+  let (shape, sol) ← runSolve atoms consts e root
+  let wit ← assemble atoms consts sol [] [] root shape
   return (← instantiateMVars wit, shape, sol)
 
 /- ===================== the registered base + pretty-printer ===================== -/
 def demoAtoms : NameMap (Expr × Expr × ParamClass) :=
   (mkNameMap _).insert ``Nat (mkConst ``Unary, mkConst ``RN, (map4, map4))
+
+/-- no registered constants (the default for `transfer%`, which transfers types/functions). -/
+def noConsts : NameMap (Expr × ParamClass) := mkNameMap _
 
 /-- print the solved class of every named node in the shape tree. -/
 partial def report (sol : Array ParamClass) : Shape → MetaM Unit
@@ -172,5 +210,7 @@ partial def report (sol : Array ParamClass) : Shape → MetaM Unit
       logInfo m!"  ∀ node : {repr sol[v]!}   (domain {repr sol[dV]!}, bound-var class {repr sol[rV]!})"
       report sol b
   | .usevar v _    => logInfo m!"  use : {repr sol[v]!}"
+  | .piBase v _ base b => do logInfo m!"  ∀ {base}, … : {repr sol[v]!}"; report sol b
+  | .app v _ head  => logInfo m!"  {head} · : {repr sol[v]!}"
 
 end Trocq.Solver
