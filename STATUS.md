@@ -61,15 +61,15 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 | 3 | `Trocq/Combinators.lean` | The proof-heavy **combinators**: `paramArrow33` (arrow at (3,3), completeness via funext), `paramArrowLow` (same former at minimal class (0,1) — **zero proofs**), `paramType` (universe combinator at the **no-univalence ceiling** (2a,2a)). | `paramArrow33`: `[Quot.sound]` (=funext); `paramType`: **none** |
 | 4 | `Trocq/Solver.lean` | **The driver, wired.** Front half: walk an `Expr`, emit `Cstr`, run the real `solve` → minimal class per occurrence (reproduces the paper's `∀A:Type,A→A` ⇒ Type→(2a,0), A→(1,1), *from the Expr*). Back half: assemble the witness via `paramArrow33` + `weaken`. | generated witness: `[Quot.sound]` |
 
-### Graded combinator family (in progress) — `Trocq/Arrow.lean`
+### Graded combinator family (in progress) — `Trocq/Arrow.lean`, `Trocq/Forall.lean`
 
 | Combinator | Status | What it adds | Axioms |
 |---|---|---|---|
 | `paramArrow (m n)` | ✅ | The **arrow at every output class** `≤ (3,3)`: `arrowCov`/`arrowContra` (one arm per class) assembled with weakening; parts required only at the `depArrow`-**minimal** classes (a bound var at `(1,1)` is enough — no over-provisioning). `map4` deferred (the (3→4) adjoint coherence). | `[Quot.sound]` |
-| `paramForall` | ⏳ | dependent `Π` (arrow + binder; codomain relation depends on `a`). | — |
+| `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Capped at `2b` because output cov `2a`/`3` need the domain at `map4` *with* `R_in_mapK` — Π hits the adjoint-coherence wall earlier than arrow. | `[Quot.sound]` |
 | `paramType (m n)` | ⏳ | universe at all classes `≤ (2a,2a)` (currently fixed at `(2a,2a)` in `Combinators`). | — |
 
-**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators → Trocq.Arrow → Trocq.Solver`
+**Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators → Trocq.Arrow → Trocq.Forall → Trocq.Solver`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
 
 ### Two boundary facts now *mechanically verified*

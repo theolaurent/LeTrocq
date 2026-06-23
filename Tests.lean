@@ -9,6 +9,7 @@ import Tests.Lattice
 import Tests.Hierarchy
 import Tests.Combinators
 import Tests.Arrow
+import Tests.Forall
 import Tests.Solver
 
 def main : IO Unit := IO.println "✓ All Trocq tests passed."
