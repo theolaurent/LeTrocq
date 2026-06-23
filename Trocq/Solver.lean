@@ -33,16 +33,16 @@ structure GenState where
   cstrs   : Array Cstr := #[]
   binders : List (FVarId × Nat) := []
 
-/-- shape tree: each node remembers its class `Var`; only `atom`/`arrow` are assembled. -/
+/-- shape tree: each node remembers its class `Var`; `usevar` also remembers its binder's class var. -/
 inductive Shape
   | atom   (v : Nat) (name : Name)
   | arrow  (v : Nat) (dom cod : Shape)
   | pi     (v domV rV : Nat) (body : Shape)
   | sort   (v rV : Nat)
-  | usevar (v : Nat)
+  | usevar (v rV : Nat)
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ => v
 
 /- ===================== front half: generate constraints from a type Expr ===================== -/
 partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (st : IO.Ref GenState) :
@@ -74,7 +74,7 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (st : IO.Ref GenS
       let v ← fresh; let rV ← fresh; emit (.depType v rV); return .sort v rV
   | .fvar id => do
       match (← st.get).binders.find? (·.1 == id) with
-      | some (_, bv) => let p ← fresh; emit (.gev bv p); return .usevar p
+      | some (_, bv) => let p ← fresh; emit (.gev bv p); return .usevar p bv
       | none => throwError "gen: unbound fvar"
   | e => throwError "gen: unsupported {e}"
 where
@@ -104,33 +104,58 @@ def weakenTo (tgt src : ParamClass) (p : Expr) : MetaM Expr := do
                           (mkConst ``Bool.true))
   mkAppM ``Param.weaken #[← proof tgt.1 src.1, ← proof tgt.2 src.2, p]
 
-/-- proof of `MapClass.le t map3 = true` (the arrow combinator's cap), via `decide`. -/
-def leMap3Proof (t : MapClass) : MetaM Expr := do
-  mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (mkConst ``MapClass.map3))
+/-- proof of `MapClass.le t bound = true` (a combinator's class cap), via `decide`. -/
+def leProof (t bound : MapClass) : MetaM Expr := do
+  mkDecideProof (← mkEq (mkApp2 (mkConst ``MapClass.le) (classToExpr t) (classToExpr bound))
                         (mkConst ``Bool.true))
 
 /-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
-    and asking each part only at the `depArrow`-minimal class it needs — no over-provisioning. -/
-partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (req : ParamClass) :
-    Shape → MetaM Expr
+    and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
+    `env` maps a Π-binder's class var to the in-scope relatedness witness for that bound type variable. -/
+partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (env : List (Nat × Expr))
+    (req : ParamClass) : Shape → MetaM Expr
   | .atom _ name => do
       let some (_, wit, reg) := atoms.find? name | throwError "assemble: atom {name} not registered"
       weakenTo req reg wit
+  | .usevar _ rV => do
+      let some (_, aR) := env.find? (·.1 == rV)
+        | throwError "assemble: bound type variable (var {rV}) not in scope"
+      -- the universe combinator supplies bound-var relatedness at class (1,1); weaken to the use site.
+      weakenTo req (map1, map1) aR
+  | .sort _ _ => do
+      unless MapClass.le req.1 map2a && MapClass.le req.2 map2a do
+        throwError "assemble: `Type` at {repr req} exceeds the universe ceiling (2a) — needs univalence"
+      mkAppM ``paramTypeAt #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
   | .arrow _ sd sc => do
       unless MapClass.le req.1 map3 && MapClass.le req.2 map3 do
         throwError "assemble: arrow at {repr req} needs the deferred (4)-coherence"
       let (da, dc) := depArrow req            -- the minimal domain/codomain classes for this output
       mkAppM ``paramArrow
-        #[classToExpr req.1, classToExpr req.2, ← leMap3Proof req.1, ← leMap3Proof req.2,
-          ← assemble atoms da sd, ← assemble atoms dc sc]
-  | _ => throwError "assemble: only arrows over registered atoms (prototype)"
+        #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map3, ← leProof req.2 map3,
+          ← assemble atoms env da sd, ← assemble atoms env dc sc]
+  | .pi _ _ rV body => do
+      unless MapClass.le req.1 map2b && MapClass.le req.2 map2b do
+        throwError "assemble: ∀ at {repr req} exceeds the dependent-Π cap (2b)"
+      let (dPi, cPi) := depPi req              -- domain (`Type`) class, codomain (body) class
+      unless MapClass.le dPi.1 map2a && MapClass.le dPi.2 map2a do
+        throwError "assemble: ∀-domain `Type` at {repr dPi} exceeds the universe ceiling (2a)"
+      let domWit ← mkAppM ``paramTypeAt
+        #[classToExpr dPi.1, classToExpr dPi.2, ← leProof dPi.1 map2a, ← leProof dPi.2 map2a]
+      -- codomain FAMILY: fun (A A' : Type) (aR : domWit.R A A') => ⟨body witness at cPi, with A↦aR⟩
+      let pb ← withLocalDeclD `A (.sort (.succ .zero)) fun A =>
+        withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
+          let raaTy ← mkAppM ``Param.R #[domWit, A, A']
+          withLocalDeclD `aR raaTy fun aR => do
+            mkLambdaFVars #[A, A', aR] (← assemble atoms ((rV, aR) :: env) cPi body)
+      mkAppM ``paramForall
+        #[classToExpr req.1, classToExpr req.2, ← leProof req.1 map2b, ← leProof req.2 map2b, domWit, pb]
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
-    built by the graded combinator at the class `depArrow` dictates (parts never over-provisioned). -/
+    built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
 def transfer (atoms : NameMap (Expr × Expr × ParamClass)) (e : Expr) (root : ParamClass) :
     MetaM (Expr × Shape × Array ParamClass) := do
   let (shape, sol) ← runSolve atoms e root
-  let wit ← assemble atoms root shape
+  let wit ← assemble atoms [] root shape
   return (← instantiateMVars wit, shape, sol)
 
 /- ===================== the registered base + pretty-printer ===================== -/
@@ -145,6 +170,6 @@ partial def report (sol : Array ParamClass) : Shape → MetaM Unit
   | .pi v dV rV b  => do
       logInfo m!"  ∀ node : {repr sol[v]!}   (domain {repr sol[dV]!}, bound-var class {repr sol[rV]!})"
       report sol b
-  | .usevar v      => logInfo m!"  use : {repr sol[v]!}"
+  | .usevar v _    => logInfo m!"  use : {repr sol[v]!}"
 
 end Trocq.Solver

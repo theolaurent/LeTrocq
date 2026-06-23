@@ -48,4 +48,23 @@ example : Trocq.Tests.transferred.cov.down.map Nat.succ Unary.z = Unary.s Unary.
 example : Trocq.Tests.transferred2.cov.down.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
 #check (Trocq.Tests.transferred2 : Param.{0,0} .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary))
 
+/- FORALL + TYPE end-to-end: transfer the POLYMORPHIC `∀ A : Type, A → A` at (0,1) — the driver builds
+   the universe domain (`paramTypeAt`), goes under the binder, and assembles the body `A → A` from the
+   bound variable's relatedness witness. This is the paper's flagship, now *assembled*, not just inferred. -/
+def flagshipTy2 := ∀ A : Type, A → A
+run_cmd Command.liftTermElabM do
+  let e := (← getConstInfo ``flagshipTy2).value!
+  let (wit, _, _) ← transfer demoAtoms e (map0, map1)
+  let ty ← instantiateMVars (← inferType wit)
+  addDecl (.defnDecl { name := `Trocq.Tests.flagshipWit, levelParams := [], type := ty, value := wit,
+                       hints := .opaque, safety := .safe })
+
+/- the generated witness relates the polymorphic type to itself at class (0,1) (asserted via a
+   proof term to avoid codegen, since the witness is noncomputable — it uses funext): -/
+example : True := by
+  have : Param.{1, 1} .map0 .map1 (∀ A : Type, A → A) (∀ A : Type, A → A) := Trocq.Tests.flagshipWit
+  trivial
+/-- info: 'Trocq.Tests.flagshipWit' depends on axioms: [Quot.sound] -/
+#guard_msgs in #print axioms Trocq.Tests.flagshipWit
+
 end Trocq.Tests

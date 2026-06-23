@@ -6,6 +6,12 @@ relation between codomains is itself indexed by the domain relatedness,
   `RB : ∀ a a', RA a a' → B a → B' a' → Type`,
 so the Π-relation is `RForall f f' := ∀ a a' (raa : RA a a'), RB a a' raa (f a) (f' a')`.
 
+Four universes, all independent — essential for the flagship `∀ A : Type, A → A`:
+  `u`  the domain `A : Type u`            (for `∀ A : Type 0, …` this is `1`, since `Type 0 : Type 1`),
+  `w`  the codomain `B : A → Type w`      (`A → A : Type 0`, so `0`),
+  `v`  the domain relation `RA : Type v`  (`Param 1 1 : Type 1`, so `1`),
+  `vb` the codomain relation `RB : Type vb` (`RArrow … : Type 0`, so `0`).
+
 THE WRINKLE (why Π ≠ arrow): to land in `RB a a' raa` the forward map must *produce* a relatedness
 proof `raa` for the backward map — i.e. the domain's backward map must be RELATED, not just a function.
 That is exactly what `mapDepPi` encodes: its domain classes are higher than `mapDepArrow`'s. Output cov
@@ -14,24 +20,24 @@ arrow's `map4`). The coherence-FREE frontier for Π is thus output components `�
 (`le · map2b`), covering `{0,1,2b}²` — the function/section directions of dependent transport.
 -/
 import Trocq.Hierarchy
-universe u v
+universe u w v vb
 namespace Trocq
 open MapClass
 
 /- ===================== the dependent Π relation ===================== -/
 /-- related inputs ↦ related outputs, where the output relation depends on the input relatedness. -/
-def RForall {A A' : Type u} {B : A → Type u} {B' : A' → Type u}
-    (RA : A → A' → Type v) (RB : ∀ a a', RA a a' → B a → B' a' → Type v) :
-    (∀ a, B a) → (∀ a', B' a') → Type (max u v) :=
+def RForall {A A' : Type u} {B : A → Type w} {B' : A' → Type w}
+    (RA : A → A' → Type v) (RB : ∀ a a', RA a a' → B a → B' a' → Type vb) :
+    (∀ a, B a) → (∀ a', B' a') → Type (max u v vb) :=
   fun f f' => ∀ a a' (raa : RA a a'), RB a a' raa (f a) (f' a')
 
 /- ===================== the covariant half (output cov class ≤ 2b) ===================== -/
-def forallCov {A A' : Type u} {B : A → Type u} {B' : A' → Type u} :
+def forallCov {A A' : Type u} {B : A → Type w} {B' : A' → Type w} :
     (m : MapClass) → MapClass.le m map2b = true →
     (pa : Param.{u,v} (mapDepPi m).1.1 (mapDepPi m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param.{u,v} (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')) →
-    MapHas.{u, max u v} m (RForall pa.R (fun a a' raa => (pb a a' raa).R))
+          Param.{w,vb} (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')) →
+    MapHas.{max u w, max u v vb} m (RForall pa.R (fun a a' raa => (pb a a' raa).R))
   | map0,  _,  _,  _  => ULift.up {}
   | map1,  _,  pa, pb => ULift.up
       { map := fun f a' =>
@@ -49,12 +55,12 @@ def forallCov {A A' : Type u} {B : A → Type u} {B' : A' → Type u} :
   | map4,  h,  _,  _  => nomatch h
 
 /- ===================== the contravariant half (output contra class ≤ 2b) ===================== -/
-def forallContra {A A' : Type u} {B : A → Type u} {B' : A' → Type u} :
+def forallContra {A A' : Type u} {B : A → Type w} {B' : A' → Type w} :
     (n : MapClass) → MapClass.le n map2b = true →
     (pa : Param.{u,v} (mapDepPi n).1.2 (mapDepPi n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param.{u,v} (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')) →
-    MapHas.{u, max u v} n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
+          Param.{w,vb} (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')) →
+    MapHas.{max u w, max u v vb} n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
       RForall pa.R (fun a a' raa => (pb a a' raa).R) f f')
   | map0,  _,  _,  _  => ULift.up {}
   | map1,  _,  pa, pb => ULift.up
@@ -75,24 +81,24 @@ def forallContra {A A' : Type u} {B : A → Type u} {B' : A' → Type u} :
 /- ===================== the graded dependent-Π combinator (output ≤ (2b,2b)) ===================== -/
 /-- dependent Π at any output class `(m,n)` with `m,n ≤ 2b`, from a domain witness and a codomain
     FAMILY (one witness per related pair), each at the `depPi`-minimal class. -/
-def paramForall {A A' : Type u} {B : A → Type u} {B' : A' → Type u} (m n : MapClass)
+def paramForall {A A' : Type u} {B : A → Type w} {B' : A' → Type w} (m n : MapClass)
     (hm : MapClass.le m map2b = true) (hn : MapClass.le n map2b = true)
     (pa : Param.{u,v} (depPi (m, n)).1.1 (depPi (m, n)).1.2 A A')
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param.{u,v} (depPi (m, n)).2.1 (depPi (m, n)).2.2 (B a) (B' a')) :
-    Param.{u, max u v} m n (∀ a, B a) (∀ a', B' a') where
+          Param.{w,vb} (depPi (m, n)).2.1 (depPi (m, n)).2.2 (B a) (B' a')) :
+    Param.{max u w, max u v vb} m n (∀ a, B a) (∀ a', B' a') where
   R := RForall pa.R (fun a a' raa => (pb a a' raa).R)
   cov := forallCov m hm
     ((pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl)) :
       Param.{u,v} (mapDepPi m).1.1 (mapDepPi m).1.2 A A')
     (fun a a' raa => ((pb a a' raa).weaken (by cases m <;> cases n <;> rfl)
         (by cases m <;> cases n <;> rfl) :
-      Param.{u,v} (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')))
+      Param.{w,vb} (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')))
   contra := forallContra n hn
     ((pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl)) :
       Param.{u,v} (mapDepPi n).1.2 (mapDepPi n).1.1 A A')
     (fun a a' raa => ((pb a a' raa).weaken (by cases m <;> cases n <;> rfl)
         (by cases m <;> cases n <;> rfl) :
-      Param.{u,v} (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')))
+      Param.{w,vb} (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')))
 
 end Trocq

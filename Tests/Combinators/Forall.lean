@@ -23,7 +23,7 @@ example : pf2b.cov.down.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /- the combinator is genuinely dependent in its TYPE (B : A → Type); this elaborates the dependent
    codomain `Fin (·+1)` at the type level. -/
 example : True := by
-  have := @paramForall.{0,0} Nat Unary (fun n => Fin (n + 1)) (fun u => Fin (toNat u + 1))
+  have := @paramForall.{0,0,0,0} Nat Unary (fun n => Fin (n + 1)) (fun u => Fin (toNat u + 1))
   trivial
 
 /-- info: 'Trocq.Tests.pf2b' depends on axioms: [Quot.sound] -/

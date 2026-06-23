@@ -69,11 +69,13 @@ translation, the tactic). Run with `lake env lean Examples/<File>.lean`.
 | `paramForall (m n)` | ✅ | The **dependent Π at output `≤ (2b,2b)`**: codomain is a *family* `pb a a' raa` (the relatedness indexes the codomain relation). Capped at `2b` because output cov `2a`/`3` need the domain at `map4` *with* `R_in_mapK` — Π hits the adjoint-coherence wall earlier than arrow. | `[Quot.sound]` |
 | `paramType` / `paramTypeAt (m n)` | ✅ | universe combinator at every class `≤ (2a,2a)` (`paramTypeAt` weakens the `(2a,2a)` ceiling). | none |
 
-**Driver rewired** (`Trocq/Solver.lean`): the back-half `assemble req` now threads the required class
-top-down via `depArrow` and dispatches each `→` node to the **graded `paramArrow`** at exactly that
-class — parts built at the `depArrow`-minimal classes, no build-`(3,3)`-then-weaken. So `transfer e root`
-produces the witness *directly* at `root`, every node at its solver-/table-minimal class. (Tested: `Nat→Nat`
-and nested `Nat→Nat→Nat` at `(1,0)` generate computing witnesses; `#check` confirms the types.)
+**Driver fully wired** (`Trocq/Solver.lean`): the back-half `assemble req` threads the required class
+top-down via `depArrow`/`depPi` and dispatches **every former to its graded combinator** at exactly that
+class — `→`→`paramArrow`, `∀ A:Type,…`→`paramForall` (going under the binder), `Type`→`paramTypeAt`,
+bound-var uses→the introduced relatedness witness. Parts built at the `dep*`-minimal classes, no
+over-provisioning. So `transfer e root` produces the witness *directly* at `root`. Tested end-to-end:
+`Nat→Nat` and nested `Nat→Nat→Nat` at `(1,0)` (computing witnesses); and the **paper flagship
+`∀ A : Type, A → A` at `(0,1)`** — now *assembled* into `Param (0,1) (∀A,A→A) (∀A,A→A)`, not just inferred.
 
 **Module dependency chain:** `Trocq.Lattice → Trocq.Hierarchy → Trocq.Combinators{.Arrow,.Forall,.Universe} → Trocq.Solver`
 (`Trocq.Lattice` is the single source of the class algebra; `lake build` builds the chain via `Trocq.lean`).
@@ -89,15 +91,14 @@ and nested `Nat→Nat→Nat` at `(1,0)` generate computing witnesses; `#check` c
 
 Ordered roughly by leverage. The prototype is forward-compatible: each item extends, none rewrites.
 
-1. **Full graded combinator family** *(arrow ✅, forall ✅, Type ✅, driver rewired ✅)* — the family is
-   in place for arrow (≤(3,3)) and dependent Π (≤(2b,2b)), the universe combinator covers ≤(2a,2a), and
-   the driver assembles at minimal per-node classes. **Remaining:** wire the driver's back-half to also
-   emit `paramForall`/`paramTypeAt` (currently only `paramArrow`), and assemble **polymorphic binders**
-   (bound type vars — the case where the solver's *join* of leaf uses genuinely matters). Still deferred:
-   the `(4,4)` coherence field `R_in_mapK` (the
-   adjoint-equivalence triangle — Trocq's `Param44`, via half-adjoint machinery). This is what lets the
-   driver's **back half consume the per-node minimal classes** (cheapest combinator per node) and handle
-   **polymorphic binders**. *The front half (`Solver.lean`) already computes those classes correctly.*
+1. **Full graded combinator family** *(arrow ✅, forall ✅, Type ✅, driver fully wired ✅, polymorphic
+   binders ✅)* — arrow (≤(3,3)), dependent Π (≤(2b,2b)), universe (≤(2a,2a)) are all in place, and the
+   driver assembles every former at its minimal per-node class, including under `∀ A:Type` binders.
+   **Remaining:** (i) bound vars are currently supplied at the universe combinator's fixed inner class
+   `(1,1)` (paramType's relation) — a use needing more than `(1,1)` would fail; lifting this needs the
+   `Map_Type` sub-class table so the universe combinator's inner relation tracks the outer class. (ii)
+   The deferred `(4,4)` coherence field `R_in_mapK` (the adjoint-equivalence triangle — Trocq's
+   `Param44`, via half-adjoint machinery), which would lift arrow to `4` and Π past `2b`.
 
 2. **User surface** — merge the `Solver` front half with a real `trocq` tactic **and** a `transfer%`
    term elaborator, on top of the graded combinators. Generalises `Tactic.lean` (single `∀` over a
