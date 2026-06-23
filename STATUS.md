@@ -9,7 +9,8 @@ See `lean-port-design.md` for the full design rationale. This file is the live s
 
 - **Toolchain:** `leanprover/lean4:v4.26.0-rc2` (elan).
 - **Lake project** (`lakefile.toml`, no external deps). Layout:
-  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`), via `Trocq.lean`.
+  - `Trocq/` — the library (`Lattice → Hierarchy → Combinators → Solver → Tactic`; plus `Translate`,
+    the native term-level parametricity translation), via `Trocq.lean`.
   - `Tests/` — the `lake test` suite (mirrors `Trocq/`); hard assertions, fails on regression.
   - `lean-port-design.md`, `STATUS.md` — docs. `arXiv-2310.14022v2/`, `trocq/` — local reference (gitignored).
 - **Everything compiles** (`lake build`) **and `lake test` is green.** Axiom footprints are *pinned* by
@@ -121,10 +122,14 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.
 
-5. **Native term/program transport** — the driver builds a `Param` *witness* for a TYPE; a separate
-   pass that rebuilds a *term* over `B` leaf-by-leaf (`fun n => n.succ.succ` ⤳ `fun u => u.s.s`, native,
-   not iso-conjugation) is a distinct capability. It was prototyped early (removed `Examples/Driver.lean`,
-   fixed-`(4,4)`); rebuild it on the current graded library.
+5. **Native term/program transport** — ✅ **done** (`Trocq/Translate.lean`): the full term-level
+   parametricity translation `⟦·⟧`. For any term `t : T` the mutual `param`/`paramType` produce both the
+   native counterpart `t'` (rebuilt over `B` leaf-by-leaf, *not* iso-conjugation) and the relatedness
+   `tR : ⟦T⟧ t t'`. Structural over `.lam`/`.app`/`∀`(arrow+dependent Π)/`.sort`/`.fvar`; bottoms out at
+   registered **primitives** and **unfolds** any other constant's definition (so `double` transports via
+   `Nat.succ`/`Nat.zero` alone — item 1). `translate% t` ⤳ `t'`, `relate% t` ⤳ `tR`. Handles
+   polymorphism (`fun (A:Type)(a:A) => a`). *Open frontier:* **recursors / `match`** (→ generate the
+   `Unary` induction principle from `Nat.rec`), `match`-compiled defs, and `Nat`-literal/instance leaves.
 
 See `lean-port-design.md` §10 for the original phased plan.
 

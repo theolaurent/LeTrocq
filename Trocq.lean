@@ -8,6 +8,7 @@ Library layers (each builds on the previous):
                            (`Arrow`, `Forall`, `Universe`).
   • `Trocq.Solver`      — the driver: walk a type, solve for minimal classes, assemble the witness.
   • `Trocq.Tactic`      — the user surface: the `transfer%` term elaborator and the `trocq` tactic.
+  • `Trocq.Translate`   — the native parametricity translation: `translate% t` rebuilds a term over `B`.
 
 See `STATUS.md` for current progress and `lean-port-design.md` for the design rationale.
 -/
@@ -16,3 +17,4 @@ import Trocq.Hierarchy
 import Trocq.Combinators
 import Trocq.Solver
 import Trocq.Tactic
+import Trocq.Translate
