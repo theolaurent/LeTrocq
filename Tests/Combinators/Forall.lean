@@ -15,6 +15,11 @@ def pf01 : Param.{0,0} map0 map1 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
   paramForall map0 map1 (RN.weaken rfl rfl) (fun _ _ _ => RN.weaken rfl rfl)
 example : pf01.contra.down.map (fun u => u) 5 = 5 := rfl
 
+/- (2a,0): soundness via the `subst`+subsingleton transport — the first class past the old 2b cap. -/
+def pf2a : Param.{0,0} map2a map0 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
+  paramForall map2a map0 (RN.weaken rfl rfl) (fun _ _ _ => RN.weaken rfl rfl)
+example : pf2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+
 /- (3,3): full soundness+completeness — needs the domain at class 4 (RN is) and the `subst`+subsingleton
    transport in `map_in_R`. Forward map still computes. -/
 def pf33 : Param.{0,0} map3 map3 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
@@ -25,6 +30,7 @@ example : pf33.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 def pf44 : Param.{0,0} map4 map4 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
   paramForall map4 map4 (RN.weaken rfl rfl) (fun _ _ _ => RN.weaken rfl rfl)
 example : pf44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+example : pf44.contra.map (fun u => u) 5 = 5 := rfl                                       -- backward transport
 example : ∀ f f' r, pf44.cov.map_in_R f f' (pf44.cov.R_in_map f f' r) = r := pf44.cov.R_in_mapK
 
 /- the combinator is genuinely dependent in its TYPE (B : A → Type); this elaborates the dependent

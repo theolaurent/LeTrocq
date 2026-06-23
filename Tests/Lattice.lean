@@ -33,5 +33,48 @@ run_cmd Command.liftTermElabM do
   let r2 := solve 6 [(0, (map0,map1))] cs
   if r2 = #[(map0,map1),(map2a,map0),(map0,map1),(map1,map1),(map1,map0),(map0,map1)] then pure ()
   else throwError "solver regressed (∀A:Type,A→A @ (0,1)): {repr r2}"
+  -- (3) nested `A → (B → C)` at (0,1): both arrows split into (1,0)/(0,1).
+  let r3 := solve 5 [(0,(map0,map1))] [.depArrow 0 1 2, .depArrow 2 3 4]
+  if r3 = #[(map0,map1),(map1,map0),(map0,map1),(map1,map0),(map0,map1)] then pure ()
+  else throwError "solver regressed (nested arrow): {repr r3}"
+  -- (4) seeded at the TOP class: an arrow propagates (4,4) to both parts.
+  let r4 := solve 3 [(0,(map4,map4))] [.depArrow 0 1 2]
+  if r4 = #[(map4,map4),(map4,map4),(map4,map4)] then pure ()
+  else throwError "solver regressed (top): {repr r4}"
+  -- (5) a `gev` chain raises a shared variable to the join of its uses.
+  let r5 := solve 3 [(1,(map1,map0)), (2,(map0,map2a))] [.gev 0 1, .gev 0 2]
+  if r5[0]! = (map1, map2a) then pure ()
+  else throwError "solver regressed (gev join): {repr r5}"
+
+/- ===================== lattice laws (`MapClass`) ===================== -/
+example : ∀ a : MapClass, MapClass.le a a = true := by intro a; cases a <;> rfl
+example : ∀ a b c : MapClass, MapClass.le a b = true → MapClass.le b c = true → MapClass.le a c = true := by
+  intro a b c; cases a <;> cases b <;> cases c <;> decide
+example : ∀ a b : MapClass, MapClass.le a b = true → MapClass.le b a = true → a = b := by
+  intro a b; cases a <;> cases b <;> decide
+example : ∀ a b : MapClass, MapClass.le a (MapClass.join a b) = true := by
+  intro a b; cases a <;> cases b <;> decide
+example : ∀ a b : MapClass, MapClass.le b (MapClass.join a b) = true := by
+  intro a b; cases a <;> cases b <;> decide
+example : ∀ a b : MapClass, MapClass.le (MapClass.meet a b) a = true := by
+  intro a b; cases a <;> cases b <;> decide
+example : ∀ a b : MapClass, MapClass.join a b = MapClass.join b a := by intro a b; cases a <;> cases b <;> decide
+example : ∀ a : MapClass, MapClass.join a a = a := by intro a; cases a <;> rfl
+
+/- ===================== `ParamClass` laws + the axiom boundary as a property ===================== -/
+example : ∀ a : ParamClass, ParamClass.negate (ParamClass.negate a) = a := by intro ⟨x, y⟩; rfl
+example : ∀ a : ParamClass, ParamClass.le ParamClass.bot a = true := by intro ⟨x, y⟩; cases x <;> cases y <;> decide
+example : ∀ a : ParamClass, ParamClass.le a ParamClass.top = true := by intro ⟨x, y⟩; cases x <;> cases y <;> decide
+/-- the axiom boundary is *exactly* `{0,1,2a}²`. -/
+example : ∀ a : ParamClass,
+    ParamClass.requiresAxiom a = false ↔ (MapClass.le a.1 map2a = true ∧ MapClass.le a.2 map2a = true) := by
+  intro ⟨x, y⟩; cases x <;> cases y <;> decide
+
+/- ===================== more dependency-table entries ===================== -/
+example : depArrow (map4, map4) = ((map4,map4),(map4,map4)) := rfl
+example : depPi    (map0, map1) = ((map2a,map0),(map0,map1)) := rfl
+example : depPi    (map2a, map0) = ((map0,map4),(map2a,map0)) := rfl   -- Π domain needs the full equivalence
+example : depType  (map0, map1)  = ParamClass.bot := rfl              -- no axiom ⇒ trivial sort relation
+example : depType  (map0, map2b) = ParamClass.top := rfl              -- 2b ⇒ univalence ⇒ top
 
 end Trocq.Tests

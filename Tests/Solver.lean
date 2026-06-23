@@ -46,7 +46,9 @@ example : Trocq.Tests.transferred.cov.down.map Nat.succ Unary.z = Unary.s Unary.
 
 /- the nested witness is a real `Param (1,0) (Nat→Nat→Nat) (Unary→Unary→Unary)` and computes: -/
 example : Trocq.Tests.transferred2.cov.down.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
-#check (Trocq.Tests.transferred2 : Param.{0,0} .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary))
+example : True := by
+  have : Param.{0,0} .map1 .map0 (Nat → Nat → Nat) (Unary → Unary → Unary) := Trocq.Tests.transferred2
+  trivial
 
 /- FORALL + TYPE end-to-end: transfer the POLYMORPHIC `∀ A : Type, A → A` at (0,1) — the driver builds
    the universe domain (`paramTypeAt`), goes under the binder, and assembles the body `A → A` from the
@@ -91,6 +93,31 @@ run_cmd Command.liftTermElabM do
 example : Trocq.Tests.transferred44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 example : True := by
   have : Param.{0,0} .map4 .map4 (Nat → Nat) (Unary → Unary) := Trocq.Tests.transferred44
+  trivial
+
+/- `Nat → Nat` transferred at several intermediate root classes — each generated witness computes. -/
+run_cmd Command.liftTermElabM do
+  let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
+  let (w3, _, _) ← transfer demoAtoms e (map3, map3)
+  addDecl (.defnDecl { name := `Trocq.Tests.tr33, levelParams := [],
+                       type := ← instantiateMVars (← inferType w3), value := ← instantiateMVars w3,
+                       hints := .opaque, safety := .safe })
+  let (w2a, _, _) ← transfer demoAtoms e (map2a, map0)
+  addDecl (.defnDecl { name := `Trocq.Tests.tr2a, levelParams := [],
+                       type := ← instantiateMVars (← inferType w2a), value := ← instantiateMVars w2a,
+                       hints := .opaque, safety := .safe })
+example : Trocq.Tests.tr33.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+example : Trocq.Tests.tr2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
+
+/- a HIGHER-ORDER domain `(Nat → Nat) → Nat` transfers at (1,0): assembly nests through the arrow domain. -/
+run_cmd Command.liftTermElabM do
+  let e ← mkArrow (← mkArrow (mkConst ``Nat) (mkConst ``Nat)) (mkConst ``Nat)
+  let (wit, _, _) ← transfer demoAtoms e (map1, map0)
+  addDecl (.defnDecl { name := `Trocq.Tests.trHO, levelParams := [],
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param.{0,0} .map1 .map0 ((Nat → Nat) → Nat) ((Unary → Unary) → Unary) := Trocq.Tests.trHO
   trivial
 
 end Trocq.Tests
