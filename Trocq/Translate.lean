@@ -119,10 +119,12 @@ def buildCtx : MetaM Ctx := do
   let mut terms := mkNameMap _
   for e in trocqEntries (← getEnv) do
     match e with
-    | .base hA hB tyA tyB wit _ =>
+    | .base hA hB tyA tyB witName _ =>
+        let wit ← mkConstWithFreshMVarLevels witName
         types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
         types := types.insert hB (tyA, ← mkAppM ``Param.R #[← mkAppM ``Param.sym #[wit]])
-    | .term hA bTerm wit =>
+    | .term hA bTerm witName =>
+        let wit ← mkConstWithFreshMVarLevels witName
         terms := terms.insert hA (bTerm, wit)
         if let some bHead := bTerm.constName? then
           terms := terms.insert bHead (mkConst hA, ← symPrimitive wit)

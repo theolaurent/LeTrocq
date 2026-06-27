@@ -124,8 +124,13 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    the tactic runs in (goal-side → counterpart) is handled by a **bidirectional `Translate.buildCtx`**: every
    base is registered both ways (`Param.sym`) and every term primitive both ways (`Translate.symPrimitive`
    swaps the abstraction-theorem triples — the same proof serves both directions, only the value arguments
-   swap position). *Open:* an argument that mentions a bound **type** variable (a λ whose domain is `∀ A`-
-   bound) isn't threaded into the argument translation yet — args over the base / concrete types are full.
+   swap position). Arguments that mention a bound **type** variable are handled too: the driver threads each
+   `∀ A : Type`-bound variable into the argument-translation `env` (so a λ over `A` is rebuilt over the
+   counterpart type) AND supplies that type's own `Param` witness to the relator. The `app` node reads each
+   relator argument's shape (`relatorArgKinds`) to tell a TYPE arg (relatedness is a `Param m n` —
+   provisioned from the in-scope universe witness, with a `Cstr.ge` forcing the binder's class ≥ the
+   relator's) from a TERM arg (built by the term translation), so
+   `∀ A : Type, IdProp (fun (a : A) => a)` transfers end-to-end (`Tests/Tactic.lean`).
 
 3. **Registration** — ✅ **done** (`Trocq/Registry.lean` + `Trocq/Attr.lean`): `@[trocq]` attribute +
    env extension. Tagging a witness classifies it **eagerly** (`parseEntry`, run in the attribute's `add`)
@@ -135,8 +140,11 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    (`@[trocq] def bogus : Nat := 5` ⤳ error there). Per-surface builders (`Solver.buildAtoms`/`buildConsts`,
    `Translate.buildCtx`) just read the stored entries; `transfer%`/`trocq`/`translate%` use them — nothing
    hardcoded. A predicate `@[trocq]`-registered in a *user* file is picked up by `trocq` with no library
-   change (`Tests/Tactic.lean`). *Open:* universe-polymorphic witnesses (parser uses `mkConst`, no levels);
-   registering from a Mathlib `Equiv` (item 4).
+   change (`Tests/Tactic.lean`). **Universe-polymorphic witnesses now register**: the env extension stores
+   the witness *name* (not a level-baked `mkConst`), and every consumer rebuilds it with fresh universe
+   levels (`mkConstWithFreshMVarLevels`) — needed for relators over a type variable (e.g. `IdPropR`), whose
+   relation universe is a level parameter. Any residual free level (the universe combinator's relation
+   level) is defaulted to 0 in `transfer`. *Open:* registering from a Mathlib `Equiv` (item 4).
 
 4. **Mathlib reuse** — wire `Equiv` (registration menu), `Relator.LiftFun` (= `RArrow`), `Quot`
    (funext path) instead of bespoke definitions.

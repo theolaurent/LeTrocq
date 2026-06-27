@@ -46,6 +46,24 @@ inductive Shape
 def Shape.var : Shape → Nat
   | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ _ => v
 
+/-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
+    triples `(a, a', aR)`: `some (m,n)` when the triple's relatedness is itself a `Param m n` (so the
+    argument is a TYPE, related at class `(m,n)`), `none` when it is a bare relation (the argument is a
+    TERM). Lets the `app` node treat type and term arguments by their distinct abstraction-theorem shapes. -/
+def relatorArgKinds (wit : Expr) : MetaM (Array (Option ParamClass)) := do
+  forallTelescopeReducing (← inferType wit) fun bs _ => do
+    unless bs.size % 3 == 0 do
+      throwError "trocq: relator is not in abstraction-theorem triple form ({bs.size} binders): {wit}"
+    let mut kinds : Array (Option ParamClass) := #[]
+    for j in [0 : bs.size / 3] do
+      let relTy ← inferType bs[3*j+2]!
+      if relTy.getAppFn.isConstOf ``Param then
+        let args := relTy.getAppArgs
+        kinds := kinds.push (some (← exprToMapClass args[0]!, ← exprToMapClass args[1]!))
+      else
+        kinds := kinds.push none
+    return kinds
+
 /- ===================== front half: generate constraints from a type Expr ===================== -/
 partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
     (st : IO.Ref GenState) : Expr → MetaM Shape
@@ -75,17 +93,26 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
         let sc ← gen atoms consts st (B.instantiate1 (mkConst ``True))
         emit (.depArrow v sd.var sc.var)
         return .arrow v sd sc
-  | e@(.app ..) => do                                     -- `head arg₁ … argₙ`: registered relator applied
+  | e@(.app ..) => do                                     -- `head arg₁ … argₙ`: a registered relator applied
       let some head := e.getAppFn.constName?
         | throwError "gen: application head {e.getAppFn} is not a constant"
-      unless consts.contains head do throwError "gen: unregistered relator {head}"
-      -- abstract each argument over the in-scope term binders (assemble re-instantiates with its own fvars,
-      -- then translates the argument term to its `(a, a', aR)` triple — so args may be ANY term: nested
-      -- applications and λ over the base, not only bound variables).
-      let tbs := (← st.get).termBinders
-      let scopeFvars := (tbs.map (fun b => Expr.fvar b.1)).toArray
-      let argClosures := e.getAppArgs.map (·.abstract scopeFvars)
-      let v ← fresh; return .app v head argClosures (tbs.map (·.2))
+      let some (wit, _) := consts.find? head | throwError "gen: unregistered relator {head}"
+      let kinds ← relatorArgKinds wit
+      let args := e.getAppArgs
+      unless args.size == kinds.size do
+        throwError "gen: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
+      -- a TYPE argument that is a bound type variable must be provisioned at (≥) the relator's class for it.
+      for i in [0 : args.size] do
+        if let some cls := kinds[i]! then
+          if let .fvar x := args[i]! then
+            if let some (_, rV) := (← st.get).binders.find? (·.1 == x) then emit (.ge rV cls)
+      -- abstract each argument over ALL in-scope binders (base + type); assemble re-instantiates with its own
+      -- fvars, then builds each argument's triple — TERM args from the native term translation, TYPE args
+      -- from the universe witness — so arguments may be ANY term: nested apps, λ, and refs to bound type vars.
+      let scope := (← st.get).termBinders ++ (← st.get).binders
+      let scopeFvars := (scope.map (fun b => Expr.fvar b.1)).toArray
+      let argClosures := args.map (·.abstract scopeFvars)
+      let v ← fresh; return .app v head argClosures (scope.map (·.2))
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -107,7 +134,8 @@ where
 def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
-    if let .base hA hB tyA tyB wit cls := e then
+    if let .base hA hB tyA tyB witName cls := e then
+      let wit ← mkConstWithFreshMVarLevels witName
       m := m.insert hA (tyB, wit, cls)
       m := m.insert hB (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1))
   return m
@@ -116,7 +144,7 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
 def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
-    if let .relator hA wit cls := e then m := m.insert hA (wit, cls)
+    if let .relator hA witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
   return m
 
 /-- run the front half (build registries, generate constraints, solve): shape + minimal class per `Var`. -/
@@ -151,16 +179,17 @@ def mkUniv (req inner : ParamClass) : MetaM Expr := do
 
 /-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
     and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
-    `env` maps a Π-binder's class var to the in-scope relatedness witness for that bound type variable;
-    `sol` supplies each binder's solved (`Map_Type`-inner) class. -/
+    `env` maps a Π-binder's class var to its bound type variable's `(A, A', aR)` (source/target type +
+    relatedness `aR : Param sol[rV] A A'`); `termEnv` does the same for base binders; `sol` supplies each
+    binder's solved class. -/
 partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
-    (sol : Array ParamClass) (env : List (Nat × Expr)) (termEnv : List (Nat × (Expr × Expr × Expr)))
-    (req : ParamClass) : Shape → MetaM Expr
+    (sol : Array ParamClass) (env : List (Nat × (Expr × Expr × Expr)))
+    (termEnv : List (Nat × (Expr × Expr × Expr))) (req : ParamClass) : Shape → MetaM Expr
   | .atom _ name => do
       let some (_, wit, reg) := atoms.find? name | throwError "assemble: atom {name} not registered"
       weakenTo req reg wit
   | .usevar _ rV => do
-      let some (_, aR) := env.find? (·.1 == rV)
+      let some (_, _, _, aR) := env.find? (·.1 == rV)
         | throwError "assemble: bound type variable (var {rV}) not in scope"
       -- the universe combinator supplies the bound var at its solved class `sol[rV]`; weaken to the use.
       weakenTo req sol[rV]! aR
@@ -181,7 +210,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
         withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
           let raaTy ← mkAppM ``Param.R #[domWit, A, A']
           withLocalDeclD `aR raaTy fun aR => do
-            mkLambdaFVars #[A, A', aR] (← assemble atoms consts sol ((rV, aR) :: env) termEnv cPi body)
+            mkLambdaFVars #[A, A', aR] (← assemble atoms consts sol ((rV, (A, A', aR)) :: env) termEnv cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
   | .piBase _ bId base body => do
       -- `∀ (x : Base), …` over a registered base: `paramForall` with the base witness as the domain;
@@ -196,30 +225,48 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
             mkLambdaFVars #[x, x', xR]
               (← assemble atoms consts sol env ((bId, (x, x', xR)) :: termEnv) cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
-  | .app _ head argClosures scopeBids => do
+  | .app _ head argClosures scopeKeys => do
       -- the abstraction theorem `⟦head a₁ … aₙ⟧ = ⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`. Each argument `aᵢ` is an
-      -- ARBITRARY term over the base; its `(aᵢ', aᵢR)` come from the native term translation (`Translate`),
-      -- which runs in the goal→counterpart direction baked into `buildCtx`. Result weakened to `req`.
+      -- ARBITRARY term: a TERM arg's `(aᵢ', aᵢR)` come from the native term translation (`Translate`, in the
+      -- goal→counterpart direction baked into `buildCtx`); a TYPE arg's `(Aᵢ', ARᵢ)` come from the in-scope
+      -- universe witness. Both base and type binders are threaded into the translation `env`. Weakened to `req`.
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
-      -- re-instantiate the abstracted args with assemble's own source-side fvars (same order gen abstracted).
-      let asmFvars ← scopeBids.mapM fun b => do
-        let some (_, x, _, _) := termEnv.find? (·.1 == b) | throwError "assemble: term binder {b} not in scope"
-        return x
-      let asmFvarsArr := asmFvars.toArray
+      let kinds ← relatorArgKinds relator
+      -- resolve each in-scope binder to (its source fvar, its translation-`env` entry).
+      let resolve (k : Nat) : MetaM (Expr × (FVarId × Expr × Expr)) := do
+        match termEnv.find? (·.1 == k) with
+        | some (_, x, x', xR) => return (x, (x.fvarId!, x', xR))
+        | none => match env.find? (·.1 == k) with
+          | some (_, A, A', aR) => return (A, (A.fvarId!, A', ← mkAppM ``Param.R #[aR]))
+          | none => throwError "assemble: binder {k} not in scope"
+      let resolved ← scopeKeys.mapM resolve
+      let asmFvarsArr := (resolved.map (·.1)).toArray
+      let transEnv : Trocq.Translate.Env := resolved.map (·.2)
       let ctx ← Trocq.Translate.buildCtx
-      let transEnv : Trocq.Translate.Env := termEnv.map fun (_, x, x', xR) => (x.fvarId!, x', xR)
+      let args := argClosures.map (·.instantiateRev asmFvarsArr)
       let mut argExprs : Array Expr := #[]
-      for argClosure in argClosures do
-        let arg := argClosure.instantiateRev asmFvarsArr
-        let (a', aR) ← Trocq.Translate.param ctx transEnv arg
-        argExprs := argExprs ++ #[arg, a', aR]
+      for i in [0 : args.size] do
+        let arg := args[i]!
+        match kinds[i]! with
+        | some cls =>                                      -- TYPE arg: triple `(A, A', AR)` from the universe witness
+            let some entry := env.find? fun e => e.2.1 == arg
+              | throwError "assemble: type argument to {head} is not a bound type variable: {arg}"
+            argExprs := argExprs ++ #[arg, entry.2.2.1, ← weakenTo cls sol[entry.1]! entry.2.2.2]
+        | none =>                                          -- TERM arg: native counterpart + relatedness
+            let (a', aR) ← Trocq.Translate.param ctx transEnv arg
+            argExprs := argExprs ++ #[arg, a', aR]
       weakenTo req relClass (mkAppN relator argExprs)
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
 def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
   let (shape, sol) ← runSolve e root
-  let wit ← assemble (← buildAtoms) (← buildConsts) sol [] [] root shape
+  let wit ← instantiateMVars (← assemble (← buildAtoms) (← buildConsts) sol [] [] root shape)
+  -- default any genuinely-free residual universe mvars (e.g. the universe combinator's relation level, or a
+  -- universe-poly registered witness's level) to 0 — they're unconstrained, so any level is sound.
+  let st := Lean.collectLevelMVars (Lean.collectLevelMVars {} wit) (← instantiateMVars (← inferType wit))
+  for mid in st.result do
+    unless (← isLevelMVarAssigned mid) do assignLevelMVar mid levelZero
   return (← instantiateMVars wit, shape, sol)
 
 end Trocq.Solver

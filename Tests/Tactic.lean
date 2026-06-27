@@ -76,4 +76,20 @@ example : HOpred (fun u : Unary => Unary.s u) := by
   trocq                       -- ⊢ HOpred' (fun n : Nat => Nat.succ n)   (the λ rebuilt over Nat)
   trivial
 
+/- TYPE-VARIABLE arguments: a relator argument that mentions a `∀ A : Type`-bound type variable. The driver
+   threads the bound type variable into the term translation (so the λ `fun (a : A) => a` is rebuilt over the
+   counterpart type) AND supplies the type's own `Param` witness to the relator — full transport under a
+   universe binder. -/
+def IdProp {A : Type} (_f : A → A) : Prop := True
+@[trocq] def IdPropR {A A' : Type} (AR : Param map1 map1 A A')
+    (f : A → A) (f' : A' → A') (_ : RArrow AR.R AR.R f f') :
+    Param map1 map1 (IdProp f) (IdProp f') where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : ∀ A : Type, IdProp (fun (a : A) => a) := by
+  trocq                       -- ⊢ ∀ A : Type, IdProp (fun a => a)   (the type var + its λ both transported)
+  exact fun _ => trivial
+
 end Trocq.Tests
