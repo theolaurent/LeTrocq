@@ -21,6 +21,14 @@ example : (translate% double) Unary.z = Unary.s (Unary.s Unary.z) := rfl
 example : RArrow RNU RNU (fun n : Nat => Nat.succ n) (fun u : Unary => Unary.s u) :=
   relate% (fun n : Nat => Nat.succ n)
 
+/- Nat NUMERAL leaves: a literal `(2 : Nat)` (an `OfNat.ofNat` numeral) is expanded to its `succ`/`zero`
+   normal form and translated to the native `Unary` numeral — and it computes. -/
+example : (translate% (2 : Nat)) = Unary.s (Unary.s Unary.z) := rfl
+/- a numeral nested under a registered primitive translates too. -/
+example : (translate% (Nat.succ (1 : Nat))) = Unary.s (Unary.s Unary.z) := rfl
+/- `relate%` on a numeral gives the relatedness (the native numeral really is its counterpart). -/
+example : RNU (2 : Nat) (Unary.s (Unary.s Unary.z)) := relate% (2 : Nat)
+
 /- POLYMORPHISM: the translation handles `Sort`-binders, so a polymorphic term translates structurally.
    `fun (A : Type) (a : A) => a` ⤳ the native polymorphic identity (its action on `Unary` computes). -/
 example : (translate% (fun (A : Type) (a : A) => a)) Unary (Unary.s Unary.z) = Unary.s Unary.z := rfl

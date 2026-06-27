@@ -106,8 +106,9 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    to `(4,4)`. The driver assembles every former at its minimal per-node class, under binders, with
    bound variables at their solved class, and propagates full `(4,4)` equivalences end-to-end. The `(4,4)`
    coherence and the dependent-Π soundness transport are both done (free via subsingleton + `subst`).
-   *Open extension (not a combinator limit):* the driver's `gen` doesn't yet handle `∀ (n : Base), …`
-   (dependent Π over a registered base), so Π's `(4,4)` reach is only exercised via direct combinator use.
+   The driver's `gen`/`assemble` now **do** handle dependent Π over a registered base (`piBase`) — `trocq`
+   uses it for `∀ (x : Base), …` goals (item 2). Π over *`Type`* stays capped at `(2b,2b)` by the absent
+   univalence (a true Lean boundary, not a gap).
 
 2. **User surface** — ✅ **done** (`Trocq/Tactic.lean`): `transfer% T` elaborates to the witness
    `Param (4,4) T T'` (so `(transfer% (Nat→Nat)).cov.map` *is* the transported function, and it
@@ -157,8 +158,11 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    `tR : ⟦T⟧ t t'`. Structural over `.lam`/`.app`/`∀`(arrow+dependent Π)/`.sort`/`.fvar`; bottoms out at
    registered **primitives** and **unfolds** any other constant's definition (so `double` transports via
    `Nat.succ`/`Nat.zero` alone — item 1). `translate% t` ⤳ `t'`, `relate% t` ⤳ `tR`. Handles
-   polymorphism (`fun (A:Type)(a:A) => a`). *Open frontier:* **recursors / `match`** (→ generate the
-   `Unary` induction principle from `Nat.rec`), `match`-compiled defs, and `Nat`-literal/instance leaves.
+   polymorphism (`fun (A:Type)(a:A) => a`). **`Nat` numeral leaves** are handled: a raw `.lit` or an
+   `@OfNat.ofNat Nat …` numeral is expanded to its `succ`/`zero` normal form and translated through the
+   registered primitives (`translate% (2 : Nat) = Unary.s (Unary.s Unary.z)`, `Tests/Translate.lean`).
+   *Open frontier:* **recursors / `match`** (→ generate the `Unary` induction principle from `Nat.rec`),
+   `match`-compiled defs, and general **instance leaves** (numerals at non-`Nat` types, other typeclass ops).
 
 See `lean-port-design.md` §10 for the original phased plan.
 

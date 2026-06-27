@@ -28,6 +28,19 @@ structure Ctx where
 /-- bound-variable environment: `fvar ↦ (x', xR)` (for a type var, `xR` is its relation). -/
 abbrev Env := List (FVarId × Expr × Expr)
 
+/-- recognize a `Nat` numeral — a raw `.lit (.natVal n)` or the normal `@OfNat.ofNat Nat (lit n) _` — as `n`. -/
+def natNumeral? (e : Expr) : Option Nat :=
+  if let some n := e.rawNatLit? then some n
+  else if e.getAppFn.isConstOf ``OfNat.ofNat then
+    let args := e.getAppArgs
+    if args.size == 3 && args[0]!.isConstOf ``Nat then args[1]!.rawNatLit? else none
+  else none
+
+/-- expand `n` to its `Nat.succ`/`Nat.zero` normal form, so a numeral leaf reduces to registered primitives. -/
+def natExpr : Nat → Expr
+  | 0 => mkConst ``Nat.zero
+  | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
+
 mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
@@ -83,9 +96,13 @@ partial def param (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
           let some val := (← getConstInfo c).value? | throwError "param: opaque/unregistered constant {c}"
           param ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
   | .app f a => do
-      let (f', fR) ← param ctx env f
-      let (a', aR) ← param ctx env a
-      return (.app f' a', mkApp3 fR a a' aR)
+      match natNumeral? (.app f a) with                  -- a `Nat` numeral (`OfNat.ofNat Nat …`) leaf
+      | some n => param ctx env (natExpr n)
+      | none =>
+        let (f', fR) ← param ctx env f
+        let (a', aR) ← param ctx env a
+        return (.app f' a', mkApp3 fR a a' aR)
+  | .lit (.natVal n) => param ctx env (natExpr n)         -- a raw `Nat` literal leaf
   | .lam n A b _ => do
       let (A', relA) ← paramType ctx env A
       withLocalDeclD n A fun x =>
