@@ -96,16 +96,37 @@ partial def param (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | e => throwError "param: unsupported term {e}"
 end
 
-/-- the translation context assembled from the `@[trocq]` extension: BASES give type relations (`Param.R`),
-    TERM primitives give the `c ↦ c'` term map + its relatedness. -/
+/-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the
+    BACKWARD-direction combinator. A primitive is `cWit : ∀ a a' (aR : R a a') …, R (c …) (c' …)`
+    (binders in triples); this returns `fun a' a aR … => cWit a a' aR …`. Its relatedness binder keeps the
+    type `R a a'`, which is *defeq* to the symmetric relation `R.sym a' a` the backward direction supplies —
+    so the same proof term serves both directions, only the value arguments swap position. -/
+def symPrimitive (wit : Expr) : MetaM Expr := do
+  forallTelescope (← inferType wit) fun xs _ => do
+    unless xs.size % 3 == 0 do
+      throwError "trocq: term primitive is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
+    let mut swapped : Array Expr := #[]
+    for j in [0 : xs.size / 3] do
+      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
+    mkLambdaFVars swapped (mkAppN wit xs)
+
+/-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
+    type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
+    `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
+    So a term over *either* side of a registered equivalence translates by head match. -/
 def buildCtx : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
   for e in trocqEntries (← getEnv) do
     match e with
-    | .base hA _ _ tyB wit _ => types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
-    | .term hA bTerm wit     => terms := terms.insert hA (bTerm, wit)
-    | .relator ..            => pure ()
+    | .base hA hB tyA tyB wit _ =>
+        types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
+        types := types.insert hB (tyA, ← mkAppM ``Param.R #[← mkAppM ``Param.sym #[wit]])
+    | .term hA bTerm wit =>
+        terms := terms.insert hA (bTerm, wit)
+        if let some bHead := bTerm.constName? then
+          terms := terms.insert bHead (mkConst hA, ← symPrimitive wit)
+    | .relator .. => pure ()
   return { types, terms }
 
 /-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/

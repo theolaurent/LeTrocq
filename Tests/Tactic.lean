@@ -55,4 +55,25 @@ example : ∀ u v : Unary, Pos2 u v := by
   trocq                       -- ⊢ ∀ m n : Nat, Pos2' m n   (two binders + a 2-argument `app` node)
   intro m n; exact Nat.zero_le _
 
+/- NESTED arguments: a relator argument is no longer restricted to a bound variable — it can be an
+   ARBITRARY term over the base. `Pos (Unary.s u)` transfers: the driver rebuilds the argument `Unary.s u`
+   natively as `Nat.succ n` (with relatedness) via the term translation, then applies the relator. -/
+example : ∀ u : Unary, Pos (Unary.s u) := by
+  trocq                       -- ⊢ ∀ n : Nat, Pos' (Nat.succ n)
+  exact fun n => Nat.zero_le _
+
+/- LAMBDA arguments: a higher-order predicate whose argument is a λ. `HOpred (fun u => u.s)` transfers, the
+   λ `fun u : Unary => Unary.s u` being rebuilt natively as `fun n : Nat => Nat.succ n` — full transport. -/
+def HOpred  (_f : Unary → Unary) : Prop := True
+def HOpred' (_g : Nat → Nat)     : Prop := True
+@[trocq] def HOpredR (_f : Unary → Unary) (_g : Nat → Nat) (_ : RArrow RNsym.R RNsym.R _f _g) :
+    Param map1 map1 (HOpred _f) (HOpred' _g) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : HOpred (fun u : Unary => Unary.s u) := by
+  trocq                       -- ⊢ HOpred' (fun n : Nat => Nat.succ n)   (the λ rebuilt over Nat)
+  trivial
+
 end Trocq.Tests

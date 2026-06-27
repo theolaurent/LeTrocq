@@ -116,12 +116,16 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    and a **generic `app` node** (the abstraction-theorem rule `⟦head x⟧ = ⟦head⟧ x x' xR` for a
    registered constant `head`) — so `trocq` transfers real **`Prop` goals** end-to-end:
    `example : ∀ u : Unary, Pos u := by trocq; exact fun n => Nat.zero_le n` (reduces to `∀ n, Pos' n`).
-   The `app` node now handles **multi-argument relators** (`app`-of-`app`): a relator `head` applied to any
-   number of bound base variables `head x₁ … xₙ` assembles via `⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR` — e.g. a
-   binary predicate over two `Unary` binders, `∀ u v : Unary, Pos2 u v ↦ ∀ m n, Pos2' m n`
-   (`Tests/Tactic.lean`). *Open:* an `app` argument that is itself a *non-variable* application (`head (f u)`)
-   still needs term-level translation of the argument — and, in the backward direction the tactic runs in,
-   a backward term primitive for `f` — so genuinely nested term-arguments remain future work.
+   The `app` node now does **full argument transport**: a relator `head a₁ … aₙ` applied to *arbitrary*
+   argument terms assembles via `⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`, where each `(aᵢ', aᵢR)` is produced by
+   the **native term translation** (`Translate.param`) — so arguments may be multi-arg/curried
+   (`app`-of-`app`), **nested applications** (`Pos (Unary.s u) ↦ Pos' (Nat.succ n)`), and **λ-abstractions**
+   (`HOpred (fun u => u.s) ↦ HOpred' (fun n => n.succ)`), all in `Tests/Tactic.lean`. The backward direction
+   the tactic runs in (goal-side → counterpart) is handled by a **bidirectional `Translate.buildCtx`**: every
+   base is registered both ways (`Param.sym`) and every term primitive both ways (`Translate.symPrimitive`
+   swaps the abstraction-theorem triples — the same proof serves both directions, only the value arguments
+   swap position). *Open:* an argument that mentions a bound **type** variable (a λ whose domain is `∀ A`-
+   bound) isn't threaded into the argument translation yet — args over the base / concrete types are full.
 
 3. **Registration** — ✅ **done** (`Trocq/Registry.lean` + `Trocq/Attr.lean`): `@[trocq]` attribute +
    env extension. Tagging a witness classifies it **eagerly** (`parseEntry`, run in the attribute's `add`)

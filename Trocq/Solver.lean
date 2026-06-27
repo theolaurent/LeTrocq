@@ -12,12 +12,14 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
     the universe combinator), asking each part only at the `dep*`-minimal class it needs, and weakening
     the registered base leaves to fit. Handles arrows, polymorphic `∀ A : Type`, dependent Π over a
     registered base, and the generic application node (the abstraction theorem
-    `⟦head x₁ … xₙ⟧ = ⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR`, for a relator `head` applied to bound base variables).
+    `⟦head a₁ … aₙ⟧ = ⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`, for a relator `head` applied to ARBITRARY argument
+    terms — each `aᵢ`'s counterpart `aᵢ'` and relatedness `aᵢR` come from the native term translation).
 
 The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
 import Trocq.Combinators
 import Trocq.Attr
+import Trocq.Translate
 import Lean
 open Lean Lean.Meta
 namespace Trocq.Solver
@@ -38,10 +40,11 @@ inductive Shape
   | sort   (v rV : Nat)
   | usevar (v rV : Nat)                                  -- use of a bound TYPE variable
   | piBase (v bId : Nat) (base : Name) (body : Shape)    -- `∀ (x : base), …` over a registered base
-  | app    (v : Nat) (head : Name) (argBids : List Nat)  -- `head x₁ … xₙ`, registered `head` on term-binders
+  | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
+           (argClosures : Array Expr) (scopeBids : List Nat)  -- args abstracted over the in-scope term binders
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ _ => v
 
 /- ===================== front half: generate constraints from a type Expr ===================== -/
 partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
@@ -72,17 +75,17 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
         let sc ← gen atoms consts st (B.instantiate1 (mkConst ``True))
         emit (.depArrow v sd.var sc.var)
         return .arrow v sd sc
-  | e@(.app ..) => do                                     -- `head x₁ … xₙ`: registered relator on bound term vars
+  | e@(.app ..) => do                                     -- `head arg₁ … argₙ`: registered relator applied
       let some head := e.getAppFn.constName?
         | throwError "gen: application head {e.getAppFn} is not a constant"
       unless consts.contains head do throwError "gen: unregistered relator {head}"
-      let bids ← e.getAppArgs.toList.mapM fun arg => do
-        let .fvar x := arg
-          | throwError "gen: relator argument {arg} is not a bound base variable (nested apps unsupported)"
-        match (← st.get).termBinders.find? (·.1 == x) with
-        | some (_, bId) => pure bId
-        | none => throwError "gen: relator argument is not a registered base variable"
-      let v ← fresh; return .app v head bids
+      -- abstract each argument over the in-scope term binders (assemble re-instantiates with its own fvars,
+      -- then translates the argument term to its `(a, a', aR)` triple — so args may be ANY term: nested
+      -- applications and λ over the base, not only bound variables).
+      let tbs := (← st.get).termBinders
+      let scopeFvars := (tbs.map (fun b => Expr.fvar b.1)).toArray
+      let argClosures := e.getAppArgs.map (·.abstract scopeFvars)
+      let v ← fresh; return .app v head argClosures (tbs.map (·.2))
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -193,14 +196,23 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
             mkLambdaFVars #[x, x', xR]
               (← assemble atoms consts sol env ((bId, (x, x', xR)) :: termEnv) cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
-  | .app _ head bids => do
-      -- the abstraction-theorem rule: `⟦head x₁ … xₙ⟧ = ⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR`, weakened to `req`.
+  | .app _ head argClosures scopeBids => do
+      -- the abstraction theorem `⟦head a₁ … aₙ⟧ = ⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`. Each argument `aᵢ` is an
+      -- ARBITRARY term over the base; its `(aᵢ', aᵢR)` come from the native term translation (`Translate`),
+      -- which runs in the goal→counterpart direction baked into `buildCtx`. Result weakened to `req`.
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
+      -- re-instantiate the abstracted args with assemble's own source-side fvars (same order gen abstracted).
+      let asmFvars ← scopeBids.mapM fun b => do
+        let some (_, x, _, _) := termEnv.find? (·.1 == b) | throwError "assemble: term binder {b} not in scope"
+        return x
+      let asmFvarsArr := asmFvars.toArray
+      let ctx ← Trocq.Translate.buildCtx
+      let transEnv : Trocq.Translate.Env := termEnv.map fun (_, x, x', xR) => (x.fvarId!, x', xR)
       let mut argExprs : Array Expr := #[]
-      for bId in bids do
-        let some (_, x, x', xR) := termEnv.find? (·.1 == bId)
-          | throwError "assemble: bound term variable ({bId}) not in scope"
-        argExprs := argExprs ++ #[x, x', xR]
+      for argClosure in argClosures do
+        let arg := argClosure.instantiateRev asmFvarsArr
+        let (a', aR) ← Trocq.Translate.param ctx transEnv arg
+        argExprs := argExprs ++ #[arg, a', aR]
       weakenTo req relClass (mkAppN relator argExprs)
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
