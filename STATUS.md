@@ -159,10 +159,18 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    registered **primitives** and **unfolds** any other constant's definition (so `double` transports via
    `Nat.succ`/`Nat.zero` alone — item 1). `translate% t` ⤳ `t'`, `relate% t` ⤳ `tR`. Handles
    polymorphism (`fun (A:Type)(a:A) => a`). **`Nat` numeral leaves** are handled: a raw `.lit` or an
-   `@OfNat.ofNat Nat …` numeral is expanded to its `succ`/`zero` normal form and translated through the
-   registered primitives (`translate% (2 : Nat) = Unary.s (Unary.s Unary.z)`, `Tests/Translate.lean`).
-   *Open frontier:* **recursors / `match`** (→ generate the `Unary` induction principle from `Nat.rec`),
-   `match`-compiled defs, and general **instance leaves** (numerals at non-`Nat` types, other typeclass ops).
+   `@OfNat.ofNat Nat …` numeral (even at an unreduced type like `motive 0`) is expanded to its `succ`/`zero`
+   normal form and translated through the registered primitives (`translate% (2 : Nat) = Unary.s (Unary.s
+   Unary.z)`). **Recursors transport**: a recursor is a registered term primitive (`Nat.rec ↦ Unary.rec`,
+   witness `NatRecR` in `Examples/NatUnary.lean` — the eliminator's parametricity, proved by induction). The
+   enabler is that `param` routes any **type-valued term** (the recursor's *motive* `M : Nat → Type`)
+   through the type-level translation, so the motive is itself transported. A function defined by `Nat.rec`
+   then transports to native `Unary` recursion and computes: `natDouble = Nat.rec 0 (·.succ.succ) ⤳ fun u =>
+   Unary.rec Unary.z (·.s.s) u` (`Tests/Translate.lean`). *Open frontier:* **`match`-compiled defs** — a
+   `match`/structural-recursion def goes through an auto-generated matcher (→ `Nat.casesOn`/`brecOn`), whose
+   `Nat → Sort` motive type overflows `RArrow`'s universe (`⟦Sort⟧ = fun A B => A → B → Type` is `Type →
+   Type → Type 1`); needs a universe-aware Π-over-`Sort` translation. Also: **universe-polymorphic** /
+   **dependent-motive** recursor witnesses (`NatRecR` is monomorphic at `Type`), and non-`Nat` instance leaves.
 
 See `lean-port-design.md` §10 for the original phased plan.
 

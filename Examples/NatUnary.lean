@@ -44,6 +44,28 @@ def RNsym : Param map4 map4 Unary Nat := RN.sym
 @[trocq] def Rsucc (n : Nat) (u : Unary) (h : RNU n u) : RNU (Nat.succ n) (Unary.s u) :=
   PLift.up (by show u.toNat + 1 = Nat.succ n; rw [h.down])
 
+/- ===================== the recursor primitive: `Nat.rec ↦ Unary.rec` =====================
+   The parametricity of the eliminator: given related motives/base/step and `RNU n m`, the two recursors
+   produce related results. Registering this lets the term translation CROSS `Nat.rec`, so any function
+   defined by recursion on `Nat` transports to native `Unary` recursion (the motive `M : Nat → Type` is
+   itself transported — `param` routes it through the type-level translation). Monomorphic at `Type` (the
+   function-transport case); a universe-polymorphic recursor witness is future work. The proof is the
+   standard induction: the relation `RNU n m` fixes `n = m.toNat`, after which the recursors compute. -/
+@[trocq] noncomputable def NatRecR
+    {M : Nat → Type} {M' : Unary → Type}
+    (MR : (n : Nat) → (m : Unary) → RNU n m → M n → M' m → Type)
+    (z : M 0) (z' : M' .z) (zR : MR 0 .z R0 z z')
+    (s : (n : Nat) → M n → M (n + 1)) (s' : (m : Unary) → M' m → M' m.s)
+    (sR : (n : Nat) → (m : Unary) → (nm : RNU n m) → (a : M n) → (a' : M' m) → MR n m nm a a' →
+          MR (n + 1) m.s (Rsucc n m nm) (s n a) (s' m a')) :
+    (n : Nat) → (m : Unary) → (nm : RNU n m) →
+      MR n m nm (Nat.rec (motive := M) z s n) (Unary.rec (motive := M') z' s' m) := by
+  intro n m
+  induction m generalizing n with
+  | z => intro nm; have h : n = 0 := nm.down.symm; subst h; exact zR
+  | s m₀ ih => intro nm; have h : n = m₀.toNat + 1 := nm.down.symm; subst h
+               exact sR m₀.toNat m₀ ⟨rfl⟩ _ _ (ih m₀.toNat ⟨rfl⟩)
+
 /- ===================== a relator for a predicate (for the generic `app` rule) ===================== -/
 def Pos  (u : Unary) : Prop := 0 ≤ u.toNat
 def Pos' (n : Nat)   : Prop := 0 ≤ n

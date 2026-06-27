@@ -6,7 +6,10 @@ abstraction theorem: for any term `t : T` it produces BOTH
   • the native counterpart `t' : T'` (rebuilt over `B` leaf-by-leaf — NOT `iso ∘ t ∘ iso⁻¹`), and
   • the relatedness `tR : ⟦T⟧ t t'`.
 It recurses structurally (`.lam`, `.app`, `∀`, sort), bottoms out at registered PRIMITIVES, and unfolds
-any other constant's definition. `translate% e` elaborates to the native term `t'`.
+any other constant's definition. A **type-valued term** (a recursor's motive `M : Nat → Sort`, or any type
+family) is routed through the type-level translation — this is how RECURSORS transport: a recursor is a
+registered primitive (`Nat.rec ↦ Unary.rec`) whose motive argument is itself translated. `translate% e`
+elaborates to the native term `t'`.
 
 `⟦·⟧` is mutually defined on terms (`param`) and types (`paramType`, which returns the relation `R_T`):
   ⟦c⟧        = registered witness, else ⟦unfold c⟧
@@ -28,12 +31,13 @@ structure Ctx where
 /-- bound-variable environment: `fvar ↦ (x', xR)` (for a type var, `xR` is its relation). -/
 abbrev Env := List (FVarId × Expr × Expr)
 
-/-- recognize a `Nat` numeral — a raw `.lit (.natVal n)` or the normal `@OfNat.ofNat Nat (lit n) _` — as `n`. -/
+/-- recognize a numeral — a raw `.lit (.natVal n)` or an `@OfNat.ofNat _ (lit n) _` — as `n`. The caller
+    must additionally check the expression's type is `Nat` (the type argument here may be unreduced). -/
 def natNumeral? (e : Expr) : Option Nat :=
   if let some n := e.rawNatLit? then some n
   else if e.getAppFn.isConstOf ``OfNat.ofNat then
     let args := e.getAppArgs
-    if args.size == 3 && args[0]!.isConstOf ``Nat then args[1]!.rawNatLit? else none
+    if args.size == 3 then args[1]!.rawNatLit? else none
   else none
 
 /-- expand `n` to its `Nat.succ`/`Nat.zero` normal form, so a numeral leaf reduces to registered primitives. -/
@@ -84,7 +88,17 @@ partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | e => throwError "paramType: unsupported type {e}"
 
 /-- translate a TERM `t : T` to `(t', tR)` where `tR : R_T t t'`. -/
-partial def param (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
+partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := do
+  let ty ← inferType e
+  -- a TYPE-valued term is translated at the type level: its counterpart is the translated type and its
+  -- "relatedness" is the parametricity *relation*. This is what lets a recursor's motive `M : Nat → Sort`
+  -- (and any type-family argument) translate — the term/type translations meet here.
+  if ty.isSort then return ← paramType ctx env e
+  -- a `Nat` numeral leaf (raw `.lit` or `OfNat.ofNat …`, possibly at an unreduced type like `motive 0`):
+  -- expand to its `succ`/`zero` normal form and translate through the registered primitives.
+  if let some n := natNumeral? e then
+    if (← whnf ty).isConstOf ``Nat then return ← param ctx env (natExpr n)
+  match e with
   | .fvar id => do
       match env.find? (·.1 == id) with
       | some (_, x', xR) => return (x', xR)
@@ -96,13 +110,9 @@ partial def param (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
           let some val := (← getConstInfo c).value? | throwError "param: opaque/unregistered constant {c}"
           param ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
   | .app f a => do
-      match natNumeral? (.app f a) with                  -- a `Nat` numeral (`OfNat.ofNat Nat …`) leaf
-      | some n => param ctx env (natExpr n)
-      | none =>
-        let (f', fR) ← param ctx env f
-        let (a', aR) ← param ctx env a
-        return (.app f' a', mkApp3 fR a a' aR)
-  | .lit (.natVal n) => param ctx env (natExpr n)         -- a raw `Nat` literal leaf
+      let (f', fR) ← param ctx env f
+      let (a', aR) ← param ctx env a
+      return (.app f' a', mkApp3 fR a a' aR)
   | .lam n A b _ => do
       let (A', relA) ← paramType ctx env A
       withLocalDeclD n A fun x =>

@@ -37,4 +37,13 @@ example :
     (translate% (fun (A : Type) (f : A → A) (a : A) => f (f a))) Unary Unary.s Unary.z
       = Unary.s (Unary.s Unary.z) := rfl
 
+/- RECURSORS: a function defined by recursion on `Nat` (via `Nat.rec`) transports to NATIVE `Unary` recursion.
+   The registered recursor primitive `NatRecR` lets the translation cross `Nat.rec ↦ Unary.rec`; the motive
+   `fun _ => Nat` is itself transported (to `fun _ => Unary`) since `param` routes type-valued terms through
+   the type translation. The native `Unary`-recursive function then COMPUTES. -/
+def natDouble (n : Nat) : Nat := Nat.rec (motive := fun _ => Nat) 0 (fun _ ih => ih.succ.succ) n
+example : (translate% natDouble) Unary.z = Unary.z := rfl
+example : (translate% natDouble) (Unary.s Unary.z) = Unary.s (Unary.s Unary.z) := rfl
+example : (translate% natDouble) (Unary.s (Unary.s Unary.z)) = Unary.s (Unary.s (Unary.s (Unary.s Unary.z))) := rfl
+
 end Trocq.Tests
