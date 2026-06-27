@@ -46,4 +46,14 @@ example : (translate% natDouble) Unary.z = Unary.z := rfl
 example : (translate% natDouble) (Unary.s Unary.z) = Unary.s (Unary.s Unary.z) := rfl
 example : (translate% natDouble) (Unary.s (Unary.s Unary.z)) = Unary.s (Unary.s (Unary.s (Unary.s Unary.z))) := rfl
 
+/- NON-RECURSIVE `match`: a `match`-defined function compiles to an auto-generated matcher (built on
+   `Nat.casesOn`, which unfolds to the registered `Nat.rec`); the matcher's dummy `PUnit` argument is handled
+   by a built-in trivial relation, so the whole thing transports to native `Unary` code and computes. -/
+def natPred : Nat → Nat
+  | 0 => 0
+  | n + 1 => n
+example : (translate% natPred) Unary.z = Unary.z := rfl
+example : (translate% natPred) (Unary.s Unary.z) = Unary.z := rfl
+example : (translate% natPred) (Unary.s (Unary.s Unary.z)) = Unary.s Unary.z := rfl
+
 end Trocq.Tests

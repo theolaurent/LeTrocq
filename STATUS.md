@@ -166,11 +166,17 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    enabler is that `param` routes any **type-valued term** (the recursor's *motive* `M : Nat → Type`)
    through the type-level translation, so the motive is itself transported. A function defined by `Nat.rec`
    then transports to native `Unary` recursion and computes: `natDouble = Nat.rec 0 (·.succ.succ) ⤳ fun u =>
-   Unary.rec Unary.z (·.s.s) u` (`Tests/Translate.lean`). *Open frontier:* **`match`-compiled defs** — a
-   `match`/structural-recursion def goes through an auto-generated matcher (→ `Nat.casesOn`/`brecOn`), whose
-   `Nat → Sort` motive type overflows `RArrow`'s universe (`⟦Sort⟧ = fun A B => A → B → Type` is `Type →
-   Type → Type 1`); needs a universe-aware Π-over-`Sort` translation. Also: **universe-polymorphic** /
-   **dependent-motive** recursor witnesses (`NatRecR` is monomorphic at `Type`), and non-`Nat` instance leaves.
+   Unary.rec Unary.z (·.s.s) u` (`Tests/Translate.lean`). **Non-recursive `match` defs transport**: a
+   `match` compiles to an auto-generated matcher built on `Nat.casesOn` (which unfolds to the registered
+   `Nat.rec`); two fixes make it go through — (a) the arrow relation is built by the **general `∀`
+   construction** instead of `RArrow` (so a `Nat → Sort` motive type, mixing a `Type 0` domain relation with
+   a `Type 1` codomain relation, doesn't overflow `RArrow`'s single relation-universe), and (b) the matcher's
+   dummy **`PUnit`** argument has a built-in trivial relation. So `natPred = (match · with | 0 => 0 | n+1 =>
+   n)` transports to native `Unary` code and computes (`Tests/Translate.lean`). *Open frontier:* **recursive
+   `match`** (structural recursion) compiles via `Nat.brecOn`/`Nat.below = fun t => Nat.rec PUnit (fun n ih
+   => motive n ×' ih) t` — a **type-level** recursion needing `paramType` over `.lam`, a `PProd` relation,
+   and `Nat.rec` at a `Nat → Type` (higher-universe) motive (so a **universe-polymorphic `NatRecR`**). Also:
+   **dependent-motive** recursor witnesses, and non-`Nat` instance leaves.
 
 See `lean-port-design.md` §10 for the original phased plan.
 

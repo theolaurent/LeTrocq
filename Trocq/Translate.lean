@@ -49,6 +49,13 @@ mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
+      -- `PUnit` (the dummy argument a non-recursive matcher introduces) relates to itself by the trivial
+      -- always-inhabited relation `fun _ _ => PUnit` — built in, since it has no `@[trocq]` registration.
+      if c == ``PUnit then
+        let pu := Expr.const ``PUnit lvls
+        let rel ← withLocalDeclD `a pu fun a => withLocalDeclD `b pu fun b =>
+          mkLambdaFVars #[a, b] (Expr.const ``PUnit [levelOne])
+        return (pu, rel)
       match ctx.types.find? c with
       | some p => return p
       | none =>
@@ -69,22 +76,19 @@ partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
         mkLambdaFVars #[A, B] (← mkArrow A (← mkArrow B (.sort 1)))
       return (.sort lvl, rel)
   | e@(.forallE n A B _) => do
+      -- ONE construction for arrow AND dependent Π: R_{∀x,B} f g := ∀ x x' (xR : R_A x x'), R_{B x} (f x)(g x')
+      -- (built explicitly, NOT via `RArrow`, so the domain and codomain relations may live at DIFFERENT
+      -- universes — needed when the codomain is a `Sort`, e.g. a recursor/matcher motive `Nat → Sort`).
       let (A', relA) ← paramType ctx env A
-      if B.hasLooseBVar 0 then
-        -- dependent Π: R_{∀x,B} f f' := ∀ x x' (xR : R_A x x'), R_{B x} (f x) (f' x')
-        withLocalDeclD n A fun x =>
-        withLocalDeclD (n.appendAfter "'") A' fun x' =>
-        withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xR => do
-          let (Bx', relBx) ← paramType ctx ((x.fvarId!, x', xR) :: env) (B.instantiate1 x)
-          let T' ← mkForallFVars #[x'] Bx'
-          let rel ← withLocalDeclD `f e fun f => withLocalDeclD `g T' fun g => do
-            let body ← mkForallFVars #[x, x', xR] (mkApp2 relBx (.app f x) (.app g x'))
-            mkLambdaFVars #[f, g] body
-          return (T', rel)
-      else
-        -- non-dependent arrow: reuse the library's `RArrow`
-        let (B', relB) ← paramType ctx env B
-        return (← mkArrow A' B', ← mkAppM ``RArrow #[relA, relB])
+      withLocalDeclD n A fun x =>
+      withLocalDeclD (n.appendAfter "'") A' fun x' =>
+      withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xR => do
+        let (Bx', relBx) ← paramType ctx ((x.fvarId!, x', xR) :: env) (B.instantiate1 x)
+        let T' ← mkForallFVars #[x'] Bx'
+        let rel ← withLocalDeclD `f e fun f => withLocalDeclD `g T' fun g => do
+          let body ← mkForallFVars #[x, x', xR] (mkApp2 relBx (.app f x) (.app g x'))
+          mkLambdaFVars #[f, g] body
+        return (T', rel)
   | e => throwError "paramType: unsupported type {e}"
 
 /-- translate a TERM `t : T` to `(t', tR)` where `tR : R_T t t'`. -/
@@ -104,6 +108,9 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | some (_, x', xR) => return (x', xR)
       | none => throwError "param: unbound variable"
   | .const c lvls => do
+      -- the unique `PUnit.unit` relates to itself; its relatedness inhabits the trivial `PUnit` relation.
+      if c == ``PUnit.unit then
+        return (Expr.const ``PUnit.unit lvls, Expr.const ``PUnit.unit [levelOne])
       match ctx.terms.find? c with
       | some p => return p
       | none =>
