@@ -41,10 +41,12 @@ inductive Shape
   | usevar (v rV : Nat)                                  -- use of a bound TYPE variable
   | piBase (v bId : Nat) (base : Name) (body : Shape)    -- `∀ (x : base), …` over a registered base
   | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
-           (argClosures : Array Expr) (scopeBids : List Nat)  -- args abstracted over the in-scope term binders
+           (argClosures : Array Expr)                    -- every arg abstracted over the in-scope binders
+           (typeArgShapes : List Shape)                  -- a sub-shape per TYPE argument (in arg order)
+           (scopeBids : List Nat)                        -- the in-scope binder ids (abstraction order)
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ _ => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ _ _ => v
 
 /-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
     triples `(a, a', aR)`: `some (m,n)` when the triple's relatedness is itself a `Param m n` (so the
@@ -101,18 +103,22 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
       let args := e.getAppArgs
       unless args.size == kinds.size do
         throwError "gen: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
-      -- a TYPE argument that is a bound type variable must be provisioned at (≥) the relator's class for it.
+      -- a TYPE argument is itself a type: recurse to build its sub-shape (so the solver builds its `Param`),
+      -- and force that sub-shape's class ≥ the relator's class for that argument. Subsumes the bare-type-
+      -- variable case (`usevar`) and reaches compound type args (`A → A`, a registered base, …).
+      let mut typeShapes : Array Shape := #[]
       for i in [0 : args.size] do
         if let some cls := kinds[i]! then
-          if let .fvar x := args[i]! then
-            if let some (_, rV) := (← st.get).binders.find? (·.1 == x) then emit (.ge rV cls)
+          let sub ← gen atoms consts st args[i]!
+          emit (.ge sub.var cls)
+          typeShapes := typeShapes.push sub
       -- abstract each argument over ALL in-scope binders (base + type); assemble re-instantiates with its own
       -- fvars, then builds each argument's triple — TERM args from the native term translation, TYPE args
-      -- from the universe witness — so arguments may be ANY term: nested apps, λ, and refs to bound type vars.
+      -- from their sub-shape — so arguments may be ANY term: nested apps, λ, and (compound) refs to bound vars.
       let scope := (← st.get).termBinders ++ (← st.get).binders
       let scopeFvars := (scope.map (fun b => Expr.fvar b.1)).toArray
       let argClosures := args.map (·.abstract scopeFvars)
-      let v ← fresh; return .app v head argClosures (scope.map (·.2))
+      let v ← fresh; return .app v head argClosures typeShapes.toList (scope.map (·.2))
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -225,11 +231,12 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
             mkLambdaFVars #[x, x', xR]
               (← assemble atoms consts sol env ((bId, (x, x', xR)) :: termEnv) cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
-  | .app _ head argClosures scopeKeys => do
+  | .app _ head argClosures typeArgShapes scopeKeys => do
       -- the abstraction theorem `⟦head a₁ … aₙ⟧ = ⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`. Each argument `aᵢ` is an
       -- ARBITRARY term: a TERM arg's `(aᵢ', aᵢR)` come from the native term translation (`Translate`, in the
-      -- goal→counterpart direction baked into `buildCtx`); a TYPE arg's `(Aᵢ', ARᵢ)` come from the in-scope
-      -- universe witness. Both base and type binders are threaded into the translation `env`. Weakened to `req`.
+      -- goal→counterpart direction baked into `buildCtx`); a TYPE arg's `(Aᵢ', ARᵢ)` are built by recursively
+      -- assembling its sub-shape (so the solver builds its `Param`). Both base and type binders are threaded
+      -- into the translation `env`. The whole application is then weakened to `req`.
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
       let kinds ← relatorArgKinds relator
       -- resolve each in-scope binder to (its source fvar, its translation-`env` entry).
@@ -244,14 +251,20 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let transEnv : Trocq.Translate.Env := resolved.map (·.2)
       let ctx ← Trocq.Translate.buildCtx
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
+      let mut typeShapes := typeArgShapes        -- consumed left-to-right, one per TYPE argument
       let mut argExprs : Array Expr := #[]
       for i in [0 : args.size] do
         let arg := args[i]!
         match kinds[i]! with
-        | some cls =>                                      -- TYPE arg: triple `(A, A', AR)` from the universe witness
-            let some entry := env.find? fun e => e.2.1 == arg
-              | throwError "assemble: type argument to {head} is not a bound type variable: {arg}"
-            argExprs := argExprs ++ #[arg, entry.2.2.1, ← weakenTo cls sol[entry.1]! entry.2.2.2]
+        | some cls =>                                      -- TYPE arg: build its `Param` from the sub-shape
+            let sub :: rest := typeShapes
+              | throwError "assemble: missing sub-shape for type argument {i} of {head}"
+            typeShapes := rest
+            let tR ← assemble atoms consts sol env termEnv cls sub
+            -- the B-side type is `tR`'s type's 4th arg; `whnf` first, since a weaken-free witness can still
+            -- carry the universe combinator's `domWit.R A A'` (a projection) rather than a bare `Param … A A'`.
+            let tgt := (← whnf (← instantiateMVars (← inferType tR))).getAppArgs[3]!
+            argExprs := argExprs ++ #[arg, tgt, tR]
         | none =>                                          -- TERM arg: native counterpart + relatedness
             let (a', aR) ← Trocq.Translate.param ctx transEnv arg
             argExprs := argExprs ++ #[arg, a', aR]

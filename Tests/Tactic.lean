@@ -92,4 +92,18 @@ example : ∀ A : Type, IdProp (fun (a : A) => a) := by
   trocq                       -- ⊢ ∀ A : Type, IdProp (fun a => a)   (the type var + its λ both transported)
   exact fun _ => trivial
 
+/- COMPOUND type arguments: here the relator's type parameter is `T := A → A` (an arrow over the bound type
+   variable), which the solver builds RECURSIVELY — `IsInhabR` then receives that `Param (A → A) (A' → A')`
+   as its type witness, and the term λ's relatedness must match the recursively-built arrow relation. -/
+def IsInhab {T : Type} (_t : T) : Prop := True
+@[trocq] def IsInhabR {T T' : Type} (TR : Param map1 map1 T T')
+    (t : T) (t' : T') (_ : TR.R t t') : Param map1 map1 (IsInhab t) (IsInhab t') where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : ∀ A : Type, IsInhab (fun (a : A) => a) := by
+  trocq                       -- ⊢ ∀ A : Type, IsInhab (fun a => a)   (type arg `A → A` built recursively)
+  exact fun _ => trivial
+
 end Trocq.Tests

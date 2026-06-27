@@ -126,11 +126,13 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    swaps the abstraction-theorem triples — the same proof serves both directions, only the value arguments
    swap position). Arguments that mention a bound **type** variable are handled too: the driver threads each
    `∀ A : Type`-bound variable into the argument-translation `env` (so a λ over `A` is rebuilt over the
-   counterpart type) AND supplies that type's own `Param` witness to the relator. The `app` node reads each
-   relator argument's shape (`relatorArgKinds`) to tell a TYPE arg (relatedness is a `Param m n` —
-   provisioned from the in-scope universe witness, with a `Cstr.ge` forcing the binder's class ≥ the
-   relator's) from a TERM arg (built by the term translation), so
-   `∀ A : Type, IdProp (fun (a : A) => a)` transfers end-to-end (`Tests/Tactic.lean`).
+   counterpart type). The `app` node reads each relator argument's shape (`relatorArgKinds`) to tell a TYPE
+   arg (relatedness is a `Param m n`) from a TERM arg (a bare relation, built by the term translation). For a
+   **TYPE arg the solver recursively builds its `Param`**: `gen` recurses to produce the argument's own
+   sub-shape (forcing its class ≥ the relator's with a `Cstr.ge`), and `assemble` recursively assembles it —
+   so a type argument may be a bare bound variable (`∀ A : Type, IdProp (fun a => a)`) OR a **compound type**
+   over the bound variable (`IsInhab (fun (a : A) => a)`, where the relator's type parameter is `A → A`,
+   built by `paramArrow`), and a registered base atom. Both transfer end-to-end (`Tests/Tactic.lean`).
 
 3. **Registration** — ✅ **done** (`Trocq/Registry.lean` + `Trocq/Attr.lean`): `@[trocq]` attribute +
    env extension. Tagging a witness classifies it **eagerly** (`parseEntry`, run in the attribute's `add`)
