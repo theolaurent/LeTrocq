@@ -41,4 +41,18 @@ example : ∀ u : Unary, Triv u := by
   trocq                       -- ⊢ ∀ n : Nat, Triv' n   (resolved via the just-registered `TrivR`)
   exact fun n => rfl
 
+/- MULTI-ARG relators (`app`-of-`app`): a BINARY predicate over two base binders transfers. The driver now
+   handles `head x₁ … xₙ` (was single-argument only) — the relator is applied to every binder's triple. -/
+def Pos2  (u v : Unary) : Prop := 0 ≤ u.toNat + v.toNat
+def Pos2' (m n : Nat)   : Prop := 0 ≤ m + n
+@[trocq] def Pos2R (u : Unary) (m : Nat) (_ : RNsym.R u m) (v : Unary) (n : Nat) (_ : RNsym.R v n) :
+    Param map1 map1 (Pos2 u v) (Pos2' m n) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => by unfold Pos2'; exact Nat.zero_le _ }
+  contra := { map := fun _ => by unfold Pos2;  exact Nat.zero_le _ }
+
+example : ∀ u v : Unary, Pos2 u v := by
+  trocq                       -- ⊢ ∀ m n : Nat, Pos2' m n   (two binders + a 2-argument `app` node)
+  intro m n; exact Nat.zero_le _
+
 end Trocq.Tests

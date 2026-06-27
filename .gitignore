@@ -1,6 +1,2 @@
 # Lake build output
 /.lake/
-
-# Local reference material (paper source + original Coq/Rocq Trocq), not part of this repo
-/arXiv-2310.14022v2/
-/trocq/

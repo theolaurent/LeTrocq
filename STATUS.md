@@ -116,8 +116,12 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    and a **generic `app` node** (the abstraction-theorem rule `⟦head x⟧ = ⟦head⟧ x x' xR` for a
    registered constant `head`) — so `trocq` transfers real **`Prop` goals** end-to-end:
    `example : ∀ u : Unary, Pos u := by trocq; exact fun n => Nat.zero_le n` (reduces to `∀ n, Pos' n`).
-   *Open:* still hard-wired to `Nat ≃ Unary` + the demo constant `Pos` (needs item 3, `@[trocq]`);
-   `app`'s argument is currently a bound base variable (nested apps / `app`-of-`app` not yet).
+   The `app` node now handles **multi-argument relators** (`app`-of-`app`): a relator `head` applied to any
+   number of bound base variables `head x₁ … xₙ` assembles via `⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR` — e.g. a
+   binary predicate over two `Unary` binders, `∀ u v : Unary, Pos2 u v ↦ ∀ m n, Pos2' m n`
+   (`Tests/Tactic.lean`). *Open:* an `app` argument that is itself a *non-variable* application (`head (f u)`)
+   still needs term-level translation of the argument — and, in the backward direction the tactic runs in,
+   a backward term primitive for `f` — so genuinely nested term-arguments remain future work.
 
 3. **Registration** — ✅ **done** (`Trocq/Registry.lean` + `Trocq/Attr.lean`): `@[trocq]` attribute +
    env extension. Tagging a witness classifies it **eagerly** (`parseEntry`, run in the attribute's `add`)

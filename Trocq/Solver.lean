@@ -11,7 +11,8 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
     rebuild the witness by dispatching each node to its graded combinator (`paramArrow`, `paramForall`,
     the universe combinator), asking each part only at the `dep*`-minimal class it needs, and weakening
     the registered base leaves to fit. Handles arrows, polymorphic `∀ A : Type`, dependent Π over a
-    registered base, and the generic application node (the abstraction theorem `⟦head x⟧ = ⟦head⟧ x x' xR`).
+    registered base, and the generic application node (the abstraction theorem
+    `⟦head x₁ … xₙ⟧ = ⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR`, for a relator `head` applied to bound base variables).
 
 The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
@@ -37,7 +38,7 @@ inductive Shape
   | sort   (v rV : Nat)
   | usevar (v rV : Nat)                                  -- use of a bound TYPE variable
   | piBase (v bId : Nat) (base : Name) (body : Shape)    -- `∀ (x : base), …` over a registered base
-  | app    (v bId : Nat) (head : Name)                   -- `head x`, registered `head` applied to term-binder `bId`
+  | app    (v : Nat) (head : Name) (argBids : List Nat)  -- `head x₁ … xₙ`, registered `head` on term-binders
 
 def Shape.var : Shape → Nat
   | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ => v
@@ -71,12 +72,17 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
         let sc ← gen atoms consts st (B.instantiate1 (mkConst ``True))
         emit (.depArrow v sd.var sc.var)
         return .arrow v sd sc
-  | .app (.const head _) (.fvar x) => do                  -- `head x`: registered head on a bound term var
-      match (← st.get).termBinders.find? (·.1 == x) with
-      | some (_, bId) =>
-          unless consts.contains head do throwError "gen: unregistered constant {head}"
-          let v ← fresh; return .app v bId head
-      | none => throwError "gen: application argument is not a bound base variable"
+  | e@(.app ..) => do                                     -- `head x₁ … xₙ`: registered relator on bound term vars
+      let some head := e.getAppFn.constName?
+        | throwError "gen: application head {e.getAppFn} is not a constant"
+      unless consts.contains head do throwError "gen: unregistered relator {head}"
+      let bids ← e.getAppArgs.toList.mapM fun arg => do
+        let .fvar x := arg
+          | throwError "gen: relator argument {arg} is not a bound base variable (nested apps unsupported)"
+        match (← st.get).termBinders.find? (·.1 == x) with
+        | some (_, bId) => pure bId
+        | none => throwError "gen: relator argument is not a registered base variable"
+      let v ← fresh; return .app v head bids
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -187,12 +193,15 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
             mkLambdaFVars #[x, x', xR]
               (← assemble atoms consts sol env ((bId, (x, x', xR)) :: termEnv) cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
-  | .app _ bId head => do
-      -- the abstraction-theorem rule: `⟦head x⟧ = ⟦head⟧ x x' xR`, weakened to the requested class.
-      let some (_, x, x', xR) := termEnv.find? (·.1 == bId)
-        | throwError "assemble: bound term variable ({bId}) not in scope"
+  | .app _ head bids => do
+      -- the abstraction-theorem rule: `⟦head x₁ … xₙ⟧ = ⟦head⟧ x₁ x₁' x₁R … xₙ xₙ' xₙR`, weakened to `req`.
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
-      weakenTo req relClass (mkApp3 relator x x' xR)
+      let mut argExprs : Array Expr := #[]
+      for bId in bids do
+        let some (_, x, x', xR) := termEnv.find? (·.1 == bId)
+          | throwError "assemble: bound term variable ({bId}) not in scope"
+        argExprs := argExprs ++ #[x, x', xR]
+      weakenTo req relClass (mkAppN relator argExprs)
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
