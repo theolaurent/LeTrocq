@@ -174,8 +174,15 @@ Ordered roughly by leverage. The prototype is forward-compatible: each item exte
    dummy **`PUnit`** argument has a built-in trivial relation. So `natPred = (match · with | 0 => 0 | n+1 =>
    n)` transports to native `Unary` code and computes (`Tests/Translate.lean`). *Open frontier:* **recursive
    `match`** (structural recursion) compiles via `Nat.brecOn`/`Nat.below = fun t => Nat.rec PUnit (fun n ih
-   => motive n ×' ih) t` — a **type-level** recursion needing `paramType` over `.lam`, a `PProd` relation,
-   and `Nat.rec` at a `Nat → Type` (higher-universe) motive (so a **universe-polymorphic `NatRecR`**). Also:
+   => motive n ×' ih) t`. A spike got most of the way — past the matcher, then `paramType` over `.lam`
+   (the `Nat.below` family), a `PProd`/`PProd.mk` relation (the `×'` tower), `.proj` on both `param`/
+   `paramType`, a `paramType`→term-primitive fallback (a recursor used in *type* position), a
+   **universe-polymorphic `NatRecR`**, and a `Meta.check` pass in `translate%` to pin the recursor's fresh
+   universe levels (raw applications don't constrain them). The **remaining wall** is a universe-tower
+   off-by-one in `Nat.below`'s *nested* type-level recursion: its inner `Nat.rec` produces types (motive
+   `Nat → Type u`, one universe up), and the translated B-side motive came out one level too low
+   (`Unary → Type 0` where `Unary → Type 1` was needed). That spike was reverted (kept the tree green and
+   tested); resuming it means getting the nested-recursion motive universe right. Also future:
    **dependent-motive** recursor witnesses, and non-`Nat` instance leaves.
 
 See `lean-port-design.md` §10 for the original phased plan.
