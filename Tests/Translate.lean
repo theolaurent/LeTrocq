@@ -58,15 +58,16 @@ example : (translate% natPred) (Unary.s Unary.z) = Unary.z := rfl
 example : (translate% natPred) (Unary.s (Unary.s Unary.z)) = Unary.s Unary.z := rfl
 
 /- PARAMETERIZED TYPES: a `List Nat` rebuilds element-by-element as a `List Unary` (the type former `List`
-   crosses via `ListRel`, the constructors `nil`/`cons` are term primitives, the element numerals expand).-/
+   crosses via `ListR`, the constructors `nil`/`cons` are term primitives, the element numerals expand). -/
 example : (translate% ([1, 2] : List Nat)) = [Unary.s Unary.z, Unary.s (Unary.s Unary.z)] := rfl
 example : (translate% (List.cons (1 : Nat) [])) = [Unary.s Unary.z] := rfl
 example : (translate% ([] : List Nat)) = ([] : List Unary) := rfl
 /- a function over lists transports: `List.cons` applied under a λ rebuilds over `Unary`. -/
 example : (translate% (fun n : Nat => [n, Nat.succ n])) (Unary.s Unary.z)
     = [Unary.s Unary.z, Unary.s (Unary.s Unary.z)] := rfl
-/- `relate%` gives the relatedness: the native list really is the `ListRel`-counterpart. -/
-example : ListRel Nat Unary RNU [1, 2] [Unary.s Unary.z, Unary.s (Unary.s Unary.z)] :=
+/- `relate%` gives the relatedness: the native list really is the `ListR`-counterpart (an inductive proof,
+   `ListR.cons` of the element relatednesses). -/
+example : ListR Nat Unary RNU [1, 2] [Unary.s Unary.z, Unary.s (Unary.s Unary.z)] :=
   relate% ([1, 2] : List Nat)
 /- `Option` transports the same way. -/
 example : (translate% (some (2 : Nat))) = some (Unary.s (Unary.s Unary.z)) := rfl
