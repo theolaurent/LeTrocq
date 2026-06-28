@@ -52,13 +52,15 @@ def Shape.var : Shape → Nat
 
 /-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
     triples `(a, a', aR)` by the SHAPE of the triple's relatedness `aR`:
-      • `.type (m,n)`   — `aR : Param m n A A'`                         (a TYPE argument);
-      • `.family (m,n)` — `aR : ∀ a a' (aR : RA a a'), Param m n (B a)(B' a')` (a dependent type FAMILY,
-                          e.g. `Sigma`/`WTree`'s `β`), classified by the conclusion of its telescope;
-      • `.term`         — `aR` a bare relation                          (a TERM argument). -/
+      • `.type (m,n)`          — `aR : Param m n A A'`                  (a TYPE argument);
+      • `.family (m,n) domIdx` — `aR : ∀ a a' (aR : RA a a'), Param m n (B a)(B' a')` (a dependent type
+                                 FAMILY, e.g. `Sigma`/`WTree`'s `β`). `domIdx` is the index of the TYPE
+                                 argument that is the family's domain `A` — read off `B`'s own binder type,
+                                 so the family need NOT sit right after its domain;
+      • `.term`                — `aR` a bare relation                  (a TERM argument). -/
 inductive ArgKind
   | type   (cls : ParamClass)
-  | family (cls : ParamClass)
+  | family (cls : ParamClass) (domIdx : Nat)
   | term
   deriving Inhabited
 
@@ -67,11 +69,13 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
     unless bs.size % 3 == 0 do
       throwError "trocq: relator is not in abstraction-theorem triple form ({bs.size} binders): {wit}"
     let mut kinds : Array ArgKind := #[]
+    let mut lastTypeIdx : Nat := 0
     for j in [0 : bs.size / 3] do
       let relTy ← inferType bs[3*j+2]!
       if relTy.getAppFn.isConstOf ``Param then
         let a := relTy.getAppArgs
         kinds := kinds.push (.type (← exprToMapClass a[0]!, ← exprToMapClass a[1]!))
+        lastTypeIdx := j
       else
         -- a FAMILY arg's relatedness telescopes to a `Param`; anything else is a bare-relation TERM arg.
         let fam? ← forallTelescopeReducing relTy fun _ concl => do
@@ -79,7 +83,17 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
             let a := concl.getAppArgs
             return some (← exprToMapClass a[0]!, ← exprToMapClass a[1]!)
           else return none
-        kinds := kinds.push (match fam? with | some cls => .family cls | none => .term)
+        match fam? with
+        | some cls =>
+            -- the family binder `B : A → _` names its domain `A`; find the TYPE-arg triple whose first
+            -- binder IS that `A` (so the right witness is used even if the family is not adjacent to it).
+            -- Fall back to the most recent type argument if `A` is not a bare earlier binder.
+            let domA := (← whnf (← inferType bs[3*j]!)).bindingDomain!
+            let mut domIdx := lastTypeIdx
+            for k in [0 : j] do
+              if bs[3*k]! == domA then domIdx := k
+            kinds := kinds.push (.family cls domIdx)
+        | none => kinds := kinds.push .term
     return kinds
 
 /- ===================== front half: generate constraints from a type Expr ===================== -/
@@ -132,7 +146,7 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
             let sub ← gen atoms consts st args[i]!
             emit (.ge sub.var cls)
             tyArgs := tyArgs.push (none, sub)
-        | .family cls =>
+        | .family cls _ =>
             let elemBid ← fresh
             let famDom := (← whnf (← inferType args[i]!)).bindingDomain!
             let saved := (← st.get).termBinders
@@ -287,7 +301,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
       let mut tyArgs := typeArgShapes            -- (Option Nat × Shape), consumed left-to-right per TYPE/FAMILY arg
       let mut argExprs : Array Expr := #[]
-      let mut lastTypeWit : Option Expr := none  -- the most recent type arg's witness — a family depends on it
+      let mut argWits : Array (Option Expr) := Array.replicate args.size none  -- each TYPE arg's witness, by index
       for i in [0 : args.size] do
         let arg := args[i]!
         match kinds[i]! with
@@ -300,13 +314,14 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
             -- carry the universe combinator's `domWit.R A A'` (a projection) rather than a bare `Param … A A'`.
             let tgt := (← whnf (← instantiateMVars (← inferType tR))).getAppArgs[3]!
             argExprs := argExprs ++ #[arg, tgt, tR]
-            lastTypeWit := some tR
-        | .family cls =>                                   -- FAMILY arg: build the `Param` family + its B-side
+            argWits := argWits.set! i (some tR)
+        | .family cls domIdx =>                            -- FAMILY arg: build the `Param` family + its B-side
             let (some elemBid, sub) :: rest := tyArgs
               | throwError "assemble: missing family sub-shape for argument {i} of {head}"
             tyArgs := rest
-            let some paWit := lastTypeWit
-              | throwError "assemble: family argument {i} of {head} has no preceding type argument"
+            -- the family's domain witness is the TYPE argument named in its binder type (`domIdx`).
+            let some paWit := argWits[domIdx]!
+              | throwError "assemble: family argument {i} of {head} has no domain type argument (#{domIdx})"
             let paTy := (← whnf (← instantiateMVars (← inferType paWit))).getAppArgs
             let (famB', pbWit) ← withLocalDeclD `a paTy[2]! fun a => withLocalDeclD `a' paTy[3]! fun a' => do
               let aRTy ← mkAppM ``Param.R #[paWit, a, a']

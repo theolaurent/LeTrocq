@@ -3,6 +3,7 @@ import Lean
 import Trocq.Translate
 import Examples.NatUnary
 import Examples.ListParam
+import Examples.DepParam
 namespace Trocq.Tests
 open Trocq Trocq.Translate Trocq.Examples
 
@@ -72,5 +73,20 @@ example : ListR Nat Unary RNU [1, 2] [Unary.s Unary.z, Unary.s (Unary.s Unary.z)
 /- `Option` transports the same way. -/
 example : (translate% (some (2 : Nat))) = some (Unary.s (Unary.s Unary.z)) := rfl
 example : (translate% (none : Option Nat)) = (none : Option Unary) := rfl
+
+/- DEPENDENT parameterized types. `Sigma` (the dependent pair): `⟨1, 2⟩ : Σ _ : Nat, Nat` rebuilds as a pair
+   over `Unary` — the type family `fun _ => Nat` is itself transported (to `fun _ => Unary`) and the two
+   components cross as terms. -/
+example : (translate% (⟨1, 2⟩ : Σ _ : Nat, Nat))
+    = (⟨Unary.s Unary.z, Unary.s (Unary.s Unary.z)⟩ : Σ _ : Unary, Unary) := rfl
+/- `relate%` gives the `SigmaR` witness (the family relation `RB` is what `param` derived for `fun _ => Nat`).-/
+example : SigmaR Nat Unary RNU (fun _ => Nat) (fun _ => Unary) (fun _ _ _ => RNU)
+    ⟨1, 2⟩ ⟨Unary.s Unary.z, Unary.s (Unary.s Unary.z)⟩ := relate% (⟨1, 2⟩ : Σ _ : Nat, Nat)
+
+/- W-type: a closed tree needs an empty child type (none is registered over `Nat ≃ Unary`), but the driver
+   still crosses `WTree.mk` and the dependent family in BOTH type-former position (the binder `f`'s type) and
+   constructor position — exercised here by transporting a closed λ that builds a node. -/
+example : (translate% (fun (a : Nat) (f : Nat → WTree Nat (fun _ => Nat)) => @WTree.mk Nat (fun _ => Nat) a f))
+    = (fun (a : Unary) (f : Unary → WTree Unary (fun _ => Unary)) => @WTree.mk Unary (fun _ => Unary) a f) := rfl
 
 end Trocq.Tests

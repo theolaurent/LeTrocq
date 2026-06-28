@@ -3,6 +3,7 @@ import Lean
 import Trocq.Tactic
 import Examples.NatUnary
 import Examples.ListParam
+import Examples.DepParam
 namespace Trocq.Tests
 open Trocq MapClass Trocq.Examples
 
@@ -129,5 +130,49 @@ def AllTriv' (_l : List Nat)   : Prop := True
 example : ∀ l : List Unary, AllTriv l := by
   trocq                       -- ⊢ ∀ l : List Nat, AllTriv' l   (binder typed `List Unary`, domain built via relator)
   exact fun _ => trivial
+
+/- DEPENDENT type formers: the relator framework now handles a type FAMILY argument (`Sigma`'s `β`), built as
+   a FAMILY of `Param`s. `transfer% (Σ _ : Nat, Nat)` lifts the base through `paramSigmaR`; the forward map (a
+   dependent-pair map) COMPUTES. -/
+example :
+    (transfer% (Σ _ : Nat, Nat)).cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩ = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
+
+/- and a `Prop` goal binding a `Σ`-typed variable transfers — the dependent-Π domain `Σ _ : Unary, Unary` is
+   built via `paramSigmaR` (the family machinery feeding the generalized `piTerm`). -/
+def SigTriv  (_s : Σ _ : Unary, Unary) : Prop := True
+def SigTriv' (_s : Σ _ : Nat, Nat)     : Prop := True
+@[trocq] def SigTrivR (s : Σ _ : Unary, Unary) (t : Σ _ : Nat, Nat)
+    (_ : (paramSigmaR Unary Nat RNsym (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym)).R s t) :
+    Param map1 map1 (SigTriv s) (SigTriv' t) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : ∀ s : Σ _ : Unary, Unary, SigTriv s := by
+  trocq                       -- ⊢ ∀ s : Σ _ : Nat, Nat, SigTriv' s   (Σ-typed binder, domain via `paramSigmaR`)
+  exact fun _ => trivial
+
+/- W-types in the tactic too: a goal binding a `WTree`-typed variable transfers, its domain built via the
+   recursive `paramWTreeR` (again the family machinery feeding `piTerm`). -/
+def WTriv  (_t : WTree Unary (fun _ => Unary)) : Prop := True
+def WTriv' (_t : WTree Nat (fun _ => Nat))     : Prop := True
+@[trocq] def WTrivR (s : WTree Unary (fun _ => Unary)) (t : WTree Nat (fun _ => Nat))
+    (_ : (paramWTreeR Unary Nat RNsym (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym)).R s t) :
+    Param map1 map1 (WTriv s) (WTriv' t) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : ∀ t : WTree Unary (fun _ => Unary), WTriv t := by
+  trocq                       -- ⊢ ∀ t : WTree Nat (fun _ => Nat), WTriv' t   (W-typed binder, domain via `paramWTreeR`)
+  exact fun _ => trivial
+
+/- NON-ADJACENT family domain: `Tw Nat Unary β` puts a phantom `C := Unary` between the family's domain
+   `A := Nat` and `β`. The driver reads `β`'s domain off its binder type (the `Nat` arg), NOT the preceding
+   type arg (`Unary`), so it feeds `β` the `Nat ≃ Unary` witness — and the dependent map still COMPUTES.
+   (Were the domain taken as "the preceding type arg", `β : Nat → Type` would wrongly get the `Unary` base.) -/
+example :
+    (transfer% (Tw Nat Unary (fun _ : Nat => Nat))).cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩
+      = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
 
 end Trocq.Tests
