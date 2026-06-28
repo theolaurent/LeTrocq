@@ -19,6 +19,7 @@ elaborates to the native term `t'`.
 -/
 import Trocq.Combinators
 import Trocq.Attr
+import Trocq.Quot
 import Lean
 open Lean Lean.Meta
 namespace Trocq.Translate
@@ -29,6 +30,9 @@ structure Ctx where
   types : NameMap (Expr × Expr)
   terms : NameMap (Expr × Expr)
   props : NameMap (Expr × Expr)
+  /-- each registered base's `Param` witness (both directions), keyed by head — for eliminators like
+      `Quot.lift` whose respect proof must be SYNTHESISED from the equivalence's maps (not just the relation). -/
+  baseParams : NameMap Expr
 
 /-- bound-variable environment: `fvar ↦ (x', xR)` (for a type var, `xR` is its relation). -/
 abbrev Env := List (FVarId × Expr × Expr)
@@ -114,6 +118,36 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
   -- expand to its `succ`/`zero` normal form and translate through the registered primitives.
   if let some n := natNumeral? e then
     if (← whnf ty).isConstOf ``Nat then return ← param ctx env (natExpr n)
+  -- `Quot.lift f h [q]`: special-cased because the respect proof `h` cannot be translated structurally (it is
+  -- a `∀`-eq proof). We translate `f`/`q`, SYNTHESISE `h'` from the base equivalences' maps (`quotLiftResp`),
+  -- and build the relatedness via the eliminator's parametricity (`quotLiftRel`).
+  if e.getAppFn.isConstOf ``Quot.lift then
+    let args := e.getAppArgs
+    if args.size == 5 || args.size == 6 then
+      let A := args[0]!; let r := args[1]!; let B := args[2]!; let f := args[3]!; let hresp := args[4]!
+      let (A', αR) ← paramType ctx env A
+      let (r', rR) ← param ctx env r
+      let (f', fR) ← param ctx env f
+      let some pa := A.getAppFn.constName?.bind ctx.baseParams.find?
+        | throwError "param: Quot.lift domain {A} is not a registered base equivalence"
+      let some pb := B.getAppFn.constName?.bind ctx.baseParams.find?
+        | throwError "param: Quot.lift codomain {B} is not a registered base equivalence"
+      let h' ← mkAppM ``Trocq.quotLiftResp #[pa, pb, rR, fR, hresp]
+      let fn ← mkAppM ``Quot.lift #[f', h']   -- α'/r'/β' inferred from `f'`/`h'` (unifies the levels)
+      if args.size == 6 then
+        let (q', qR) ← param ctx env args[5]!
+        return (mkApp fn q', ← mkAppM ``Trocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', args[5]!, q', qR])
+      else
+        -- the function `Quot.lift f h : Quot r → β`: relatedness is `fun q q' qR => quotLiftRel … q q' qR`.
+        let quotRel ← mkAppM ``Trocq.QuotRel #[A, A', αR, r, r', rR]
+        let quotR ← mkAppM ``Quot #[r]
+        let quotR' ← mkAppM ``Quot #[r']
+        let rel ← withLocalDeclD `q quotR fun q =>
+          withLocalDeclD `q' quotR' fun q' =>
+            withLocalDeclD `qR (mkApp2 quotRel q q') fun qR => do
+              mkLambdaFVars #[q, q', qR]
+                (← mkAppM ``Trocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', q, q', qR])
+        return (fn, rel)
   match e with
   | .fvar id => do
       match env.find? (·.1 == id) with
@@ -209,12 +243,15 @@ def buildCtx : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
   let mut props := mkNameMap _
+  let mut baseParams := mkNameMap _
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB witName _ =>
         let wit ← mkConstWithFreshMVarLevels witName
         types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
         types := types.insert hB (tyA, ← mkAppM ``Param.R #[← mkAppM ``Param.sym #[wit]])
+        baseParams := baseParams.insert hA wit
+        baseParams := baseParams.insert hB (← mkAppM ``Param.sym #[wit])
     | .term hA bTerm witName =>
         let wit ← mkConstWithFreshMVarLevels witName
         terms := terms.insert hA (bTerm, wit)
@@ -240,7 +277,7 @@ def buildCtx : MetaM Ctx := do
         if hB != hA then
           props := props.insert hB (← mkConstWithFreshMVarLevels hA, ← symProp wit)
     | .relator .. => pure ()
-  return { types, terms, props }
+  return { types, terms, props, baseParams }
 
 /-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/
 elab "translate% " t:term : term => do

@@ -4,7 +4,6 @@ import Trocq.Tactic
 import Examples.NatUnary
 import Examples.ListParam
 import Examples.DepParam
-import Examples.QuotParam
 namespace Trocq.Tests
 open Trocq MapClass Trocq.Examples
 

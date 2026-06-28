@@ -8,6 +8,7 @@ The library, module by module (each builds on the previous):
                            (`Arrow`, `Forall`, `Universe`).
   • `Trocq.Registry`    — classify a witness (base / relator / term primitive) from its type.
   • `Trocq.Attr`        — the `@[trocq]` attribute + env extension storing the classified witnesses.
+  • `Trocq.Quot`        — quotients as a built-in registration (`Quot`/`Quot.mk`/`Quot.lift`).
   • `Trocq.Solver`      — the driver: walk a type, solve for minimal classes, assemble the witness.
   • `Trocq.Tactic`      — the user surface: the `transfer%` term elaborator and the `trocq` tactic.
   • `Trocq.Translate`   — the native parametricity translation: `translate% t` rebuilds a term over `B`.
@@ -19,6 +20,7 @@ import Trocq.Hierarchy
 import Trocq.Combinators
 import Trocq.Registry
 import Trocq.Attr
+import Trocq.Quot
 import Trocq.Solver
 import Trocq.Tactic
 import Trocq.Translate

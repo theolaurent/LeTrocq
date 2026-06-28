@@ -4,7 +4,6 @@ import Trocq.Translate
 import Examples.NatUnary
 import Examples.ListParam
 import Examples.DepParam
-import Examples.QuotParam
 namespace Trocq.Tests
 open Trocq Trocq.Translate Trocq.Examples
 
@@ -109,5 +108,15 @@ example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
    relatedness is the `↔` from the prop refinement). `Quot.mk r a` rebuilds as `Quot.mk r' a'` over `Unary`. -/
 example : (translate% (Quot.mk (fun _ _ : Nat => True) (2 : Nat)))
     = Quot.mk (fun _ _ : Unary => True) (Unary.s (Unary.s Unary.z)) := rfl
+
+/- `Quot.lift` ELIMINATOR: a function defined by `Quot.lift` transports to a NATIVE `Quot.lift` over `Unary`
+   and COMPUTES. The respect proof `h'` is synthesised (translate is map-free) from the base equivalences. -/
+def gsucc : Quot (fun _ _ : Nat => False) → Nat :=
+  Quot.lift (fun n => Nat.succ n) (fun _ _ h => h.elim)
+example : (translate% gsucc) (Quot.mk _ Unary.z) = Unary.s Unary.z := rfl
+example : (translate% gsucc) (Quot.mk _ (Unary.s Unary.z)) = Unary.s (Unary.s Unary.z) := rfl
+/- a constant function over the total relation transports too. -/
+def gconst : Quot (fun _ _ : Nat => True) → Nat := Quot.lift (fun _ => (2 : Nat)) (fun _ _ _ => rfl)
+example : (translate% gconst) (Quot.mk _ Unary.z) = Unary.s (Unary.s Unary.z) := rfl
 
 end Trocq.Tests
