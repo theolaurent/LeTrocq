@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to a branch/PR cancels any still-running CI for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Installs the Lean toolchain pinned in `lean-toolchain`, then runs `lake build` and `lake test`.
+      # `lake test` builds the test executable, which transitively compiles the whole codebase (Trocq +
+      # Examples + Tests) and therefore enforces, in one shot:
+      #   • `warningAsError` (set for every target in `lakefile.toml`) — any Lean warning fails the build;
+      #   • every `example … := rfl` / `#guard_msgs` regression check in `Tests/`;
+      #   • the axiom-footprint guard in `Tests.lean` (only propext / Classical.choice / Quot.sound —
+      #     so a stray `sorry`/`admit` or any new axiom fails).
+      # No Mathlib dependency, so its cache is disabled; the toolchain and build are cached automatically.
+      - name: Build & test
+        uses: leanprover/lean-action@v1
+        with:
+          test: true
+          use-mathlib-cache: false
