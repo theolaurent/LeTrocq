@@ -19,7 +19,6 @@ elaborates to the native term `t'`.
 -/
 import Trocq.Combinators
 import Trocq.Attr
-import Trocq.Quot
 import Lean
 open Lean Lean.Meta
 namespace Trocq.Translate
@@ -62,6 +61,9 @@ partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
         let rel ← withLocalDeclD `a pu fun a => withLocalDeclD `b pu fun b =>
           mkLambdaFVars #[a, b] (Expr.const ``PUnit [levelOne])
         return (pu, rel)
+      -- `Quot` is a kernel PRIMITIVE: its relation `QuotRel` is built in, not `@[trocq]`-registered.
+      if c == ``Quot then
+        return (← mkConstWithFreshMVarLevels ``Quot, ← mkConstWithFreshMVarLevels ``QuotRel)
       match ctx.types.find? c with
       | some p => return p
       | none =>
@@ -157,6 +159,9 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       -- the unique `PUnit.unit` relates to itself; its relatedness inhabits the trivial `PUnit` relation.
       if c == ``PUnit.unit then
         return (Expr.const ``PUnit.unit lvls, Expr.const ``PUnit.unit [levelOne])
+      -- `Quot.mk` is a kernel PRIMITIVE: its relatedness `QuotMkR` is built in, not `@[trocq]`-registered.
+      if c == ``Quot.mk then
+        return (← mkConstWithFreshMVarLevels ``Quot.mk, ← mkConstWithFreshMVarLevels ``QuotMkR)
       match ctx.terms.find? c with
       | some p => return p
       | none =>
