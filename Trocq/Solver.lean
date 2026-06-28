@@ -42,28 +42,44 @@ inductive Shape
   | piTerm (v bId : Nat) (dom : Shape) (body : Shape)    -- `∀ (x : T), …` over any buildable domain `T`
   | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
            (argClosures : Array Expr)                    -- every arg abstracted over the in-scope binders
-           (typeArgShapes : List Shape)                  -- a sub-shape per TYPE argument (in arg order)
+           (typeArgShapes : List (Option Nat × Shape))   -- a sub-shape per TYPE/FAMILY arg (in arg order);
+                                                          --   `none` = a type arg, `some bid` = a family arg
+                                                          --   whose body is built under element binder `bid`
            (scopeBids : List Nat)                        -- the in-scope binder ids (abstraction order)
 
 def Shape.var : Shape → Nat
   | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piTerm v _ _ _ | .app v _ _ _ _ => v
 
 /-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
-    triples `(a, a', aR)`: `some (m,n)` when the triple's relatedness is itself a `Param m n` (so the
-    argument is a TYPE, related at class `(m,n)`), `none` when it is a bare relation (the argument is a
-    TERM). Lets the `app` node treat type and term arguments by their distinct abstraction-theorem shapes. -/
-def relatorArgKinds (wit : Expr) : MetaM (Array (Option ParamClass)) := do
+    triples `(a, a', aR)` by the SHAPE of the triple's relatedness `aR`:
+      • `.type (m,n)`   — `aR : Param m n A A'`                         (a TYPE argument);
+      • `.family (m,n)` — `aR : ∀ a a' (aR : RA a a'), Param m n (B a)(B' a')` (a dependent type FAMILY,
+                          e.g. `Sigma`/`WTree`'s `β`), classified by the conclusion of its telescope;
+      • `.term`         — `aR` a bare relation                          (a TERM argument). -/
+inductive ArgKind
+  | type   (cls : ParamClass)
+  | family (cls : ParamClass)
+  | term
+  deriving Inhabited
+
+def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
   forallTelescopeReducing (← inferType wit) fun bs _ => do
     unless bs.size % 3 == 0 do
       throwError "trocq: relator is not in abstraction-theorem triple form ({bs.size} binders): {wit}"
-    let mut kinds : Array (Option ParamClass) := #[]
+    let mut kinds : Array ArgKind := #[]
     for j in [0 : bs.size / 3] do
       let relTy ← inferType bs[3*j+2]!
       if relTy.getAppFn.isConstOf ``Param then
-        let args := relTy.getAppArgs
-        kinds := kinds.push (some (← exprToMapClass args[0]!, ← exprToMapClass args[1]!))
+        let a := relTy.getAppArgs
+        kinds := kinds.push (.type (← exprToMapClass a[0]!, ← exprToMapClass a[1]!))
       else
-        kinds := kinds.push none
+        -- a FAMILY arg's relatedness telescopes to a `Param`; anything else is a bare-relation TERM arg.
+        let fam? ← forallTelescopeReducing relTy fun _ concl => do
+          if concl.getAppFn.isConstOf ``Param then
+            let a := concl.getAppArgs
+            return some (← exprToMapClass a[0]!, ← exprToMapClass a[1]!)
+          else return none
+        kinds := kinds.push (match fam? with | some cls => .family cls | none => .term)
     return kinds
 
 /- ===================== front half: generate constraints from a type Expr ===================== -/
@@ -106,22 +122,34 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
       let args := e.getAppArgs
       unless args.size == kinds.size do
         throwError "gen: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
-      -- a TYPE argument is itself a type: recurse to build its sub-shape (so the solver builds its `Param`),
-      -- and force that sub-shape's class ≥ the relator's class for that argument. Subsumes the bare-type-
-      -- variable case (`usevar`) and reaches compound type args (`A → A`, a registered base, …).
-      let mut typeShapes : Array Shape := #[]
+      -- TYPE arg: recurse to build its sub-shape (so the solver builds its `Param`), forcing class ≥ the
+      -- relator's. FAMILY arg `B : X → Type`: introduce an element `a : X` as a (local) TERM binder and gen
+      -- the body `B a`; the element is abstracted away inside the sub-shape, so `termBinders` is restored.
+      let mut tyArgs : Array (Option Nat × Shape) := #[]
       for i in [0 : args.size] do
-        if let some cls := kinds[i]! then
-          let sub ← gen atoms consts st args[i]!
-          emit (.ge sub.var cls)
-          typeShapes := typeShapes.push sub
+        match kinds[i]! with
+        | .type cls =>
+            let sub ← gen atoms consts st args[i]!
+            emit (.ge sub.var cls)
+            tyArgs := tyArgs.push (none, sub)
+        | .family cls =>
+            let elemBid ← fresh
+            let famDom := (← whnf (← inferType args[i]!)).bindingDomain!
+            let saved := (← st.get).termBinders
+            let sub ← withLocalDeclD `a famDom fun a => do
+              st.modify fun s => { s with termBinders := (a.fvarId!, elemBid) :: s.termBinders }
+              gen atoms consts st (args[i]!.beta #[a])
+            st.modify fun s => { s with termBinders := saved }
+            emit (.ge sub.var cls)
+            tyArgs := tyArgs.push (some elemBid, sub)
+        | .term => pure ()
       -- abstract each argument over ALL in-scope binders (base + type); assemble re-instantiates with its own
-      -- fvars, then builds each argument's triple — TERM args from the native term translation, TYPE args
-      -- from their sub-shape — so arguments may be ANY term: nested apps, λ, and (compound) refs to bound vars.
+      -- fvars, then builds each argument's triple — TERM args from the native term translation, TYPE/FAMILY
+      -- args from their sub-shape — so arguments may be ANY term: nested apps, λ, families, refs to binders.
       let scope := (← st.get).termBinders ++ (← st.get).binders
       let scopeFvars := (scope.map (fun b => Expr.fvar b.1)).toArray
       let argClosures := args.map (·.abstract scopeFvars)
-      let v ← fresh; return .app v head argClosures typeShapes.toList (scope.map (·.2))
+      let v ← fresh; return .app v head argClosures tyArgs.toList (scope.map (·.2))
   | .const name _ => do
       let v ← fresh
       if atoms.contains name then return .atom v name
@@ -240,8 +268,9 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       -- the abstraction theorem `⟦head a₁ … aₙ⟧ = ⟦head⟧ a₁ a₁' a₁R … aₙ aₙ' aₙR`. Each argument `aᵢ` is an
       -- ARBITRARY term: a TERM arg's `(aᵢ', aᵢR)` come from the native term translation (`Translate`, in the
       -- goal→counterpart direction baked into `buildCtx`); a TYPE arg's `(Aᵢ', ARᵢ)` are built by recursively
-      -- assembling its sub-shape (so the solver builds its `Param`). Both base and type binders are threaded
-      -- into the translation `env`. The whole application is then weakened to `req`.
+      -- assembling its sub-shape; a FAMILY arg `B`'s relatedness is the `Param` FAMILY
+      -- `fun a a' aR => ⟨witness of B a ≃ B' a'⟩` (built like `paramForall`'s codomain, but the binder is an
+      -- ELEMENT related at the preceding type arg's witness). The whole application is then weakened to `req`.
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
       let kinds ← relatorArgKinds relator
       -- resolve each in-scope binder to (its source fvar, its translation-`env` entry).
@@ -256,21 +285,41 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let transEnv : Trocq.Translate.Env := resolved.map (·.2)
       let ctx ← Trocq.Translate.buildCtx
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
-      let mut typeShapes := typeArgShapes        -- consumed left-to-right, one per TYPE argument
+      let mut tyArgs := typeArgShapes            -- (Option Nat × Shape), consumed left-to-right per TYPE/FAMILY arg
       let mut argExprs : Array Expr := #[]
+      let mut lastTypeWit : Option Expr := none  -- the most recent type arg's witness — a family depends on it
       for i in [0 : args.size] do
         let arg := args[i]!
         match kinds[i]! with
-        | some cls =>                                      -- TYPE arg: build its `Param` from the sub-shape
-            let sub :: rest := typeShapes
+        | .type cls =>                                     -- TYPE arg: build its `Param` from the sub-shape
+            let (_, sub) :: rest := tyArgs
               | throwError "assemble: missing sub-shape for type argument {i} of {head}"
-            typeShapes := rest
+            tyArgs := rest
             let tR ← assemble atoms consts sol env termEnv cls sub
             -- the B-side type is `tR`'s type's 4th arg; `whnf` first, since a weaken-free witness can still
             -- carry the universe combinator's `domWit.R A A'` (a projection) rather than a bare `Param … A A'`.
             let tgt := (← whnf (← instantiateMVars (← inferType tR))).getAppArgs[3]!
             argExprs := argExprs ++ #[arg, tgt, tR]
-        | none =>                                          -- TERM arg: native counterpart + relatedness
+            lastTypeWit := some tR
+        | .family cls =>                                   -- FAMILY arg: build the `Param` family + its B-side
+            let (some elemBid, sub) :: rest := tyArgs
+              | throwError "assemble: missing family sub-shape for argument {i} of {head}"
+            tyArgs := rest
+            let some paWit := lastTypeWit
+              | throwError "assemble: family argument {i} of {head} has no preceding type argument"
+            let paTy := (← whnf (← instantiateMVars (← inferType paWit))).getAppArgs
+            let (famB', pbWit) ← withLocalDeclD `a paTy[2]! fun a => withLocalDeclD `a' paTy[3]! fun a' => do
+              let aRTy ← mkAppM ``Param.R #[paWit, a, a']
+              withLocalDeclD `aR aRTy fun aR => do
+                let bodyWit ← assemble atoms consts sol env ((elemBid, (a, a', aR)) :: termEnv) cls sub
+                -- the B-side family `B' : A' → Type` is the body witness's B-side; it must depend only on `a'`
+                -- (the parametricity B-side), never on the A-side element `a` or the proof `aR`.
+                let bside := (← whnf (← instantiateMVars (← inferType bodyWit))).getAppArgs[3]!
+                if bside.hasAnyFVar (fun id => id == a.fvarId! || id == aR.fvarId!) then
+                  throwError "assemble: family B-side depends on the element/proof — unsupported dependent family in {head}"
+                return (← mkLambdaFVars #[a'] bside, ← mkLambdaFVars #[a, a', aR] bodyWit)
+            argExprs := argExprs ++ #[arg, famB', pbWit]
+        | .term =>                                         -- TERM arg: native counterpart + relatedness
             let (a', aR) ← Trocq.Translate.param ctx transEnv arg
             argExprs := argExprs ++ #[arg, a', aR]
       weakenTo req relClass (mkAppN relator argExprs)

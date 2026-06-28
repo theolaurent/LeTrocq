@@ -22,7 +22,9 @@ open MapClass
 /-- `transfer% T` ⤳ the relatedness witness `Param (4,4) T T'` (`T` a type over a registered base). -/
 elab "transfer% " t:term : term => do
   let tE ← elabType t
-  let (wit, _, _) ← Solver.transfer tE (map4, map4)
+  -- force pending elaboration (e.g. a type-family argument's body) so `gen` sees a fully-formed type.
+  synthesizeSyntheticMVarsNoPostponing
+  let (wit, _, _) ← Solver.transfer (← instantiateMVars tE) (map4, map4)
   return (← instantiateMVars wit)
 
 /-- `trocq` transfers the goal across the registered base and leaves you the (easier) counterpart. -/
