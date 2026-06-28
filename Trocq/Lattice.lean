@@ -13,24 +13,46 @@ inductive MapClass | map0 | map1 | map2a | map2b | map3 | map4
 deriving DecidableEq, Repr, Inhabited
 
 namespace MapClass
-def all : List MapClass := [map0, map1, map2a, map2b, map3, map4]
 
 /-- partial order `a ≤ b` on the diamond. -/
-def le : MapClass → MapClass → Bool
-  | map0,  _     => true
-  | map1,  map1  => true | map1, map2a => true | map1, map2b => true
-  | map1,  map3  => true | map1, map4  => true | map1, _ => false
-  | map2a, map2a => true | map2a, map3 => true | map2a, map4 => true | map2a, _ => false
-  | map2b, map2b => true | map2b, map3 => true | map2b, map4 => true | map2b, _ => false
-  | map3,  map3  => true | map3, map4  => true | map3, _ => false
-  | map4,  map4  => true | map4, _ => false
+def le (a b: MapClass) : Bool :=
+  match a, b with
+  | map0, _ => true
+  | _, map0 => false
+  | map1, _ => true
+  | _, map1 => false
+  | map2a, map2b => false
+  | map2b, map2a => false
+  | map2a, _ => true
+  | _, map2a => false
+  | map2b, _ => true
+  | _, map2b => false
+  | map3, _ => true
+  | _, map3 => false
+  | map4, map4 => true
 
 /-- least upper bound (join). -/
 def join (a b : MapClass) : MapClass :=
-  all.foldl (fun best c => if le a c && le b c && le c best then c else best) map4
+  match a, b with
+  | map0, x | x, map0 => x
+  | map1, x | x, map1 => x
+  | map2a, map2b | map2b, map2a => map3
+  | map2a, x | x, map2a => x
+  | map2b, x | x, map2b => x
+  | map3, x | x, map3 => x
+  | map4, map4 => map4
+
 /-- greatest lower bound (meet). -/
 def meet (a b : MapClass) : MapClass :=
-  all.foldl (fun best c => if le c a && le c b && le best c then c else best) map0
+  match a, b with
+  | map0, _ | _, map0 => map0
+  | map1, _ | _, map1 => map1
+  | map2a, map2b | map2b, map2a => map1
+  | map2a, _ | _, map2a => map2a
+  | map2b, _ | _, map2b => map2b
+  | map3, _ | _, map3 => map3
+  | map4, map4 => map4
+
 end MapClass
 
 /- ===================== parametricity classes (pairs) ===================== -/
