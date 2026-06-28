@@ -1,10 +1,13 @@
 /-
 Classifying `@[trocq]`-tagged witnesses by their type.
 
-A tagged constant `w` is one of three kinds, read off the conclusion of its (telescoped) type:
-  • BASE     `w : Param m n A B`        (A,B closed consts, no binders)  — an equivalence of types.
-  • RELATOR  `w : ∀ …, Param m n (P …) (P' …)`                          — relates an applied head `P`.
-  • TERM     `w : ∀ …, R … (c …) (c' …)`  (R a bare relation, not Param) — relates a term head `c↦c'`.
+A tagged constant `w` is one of four kinds, read off the conclusion of its (telescoped) type:
+  • BASE       `w : Param m n A B`      (A,B closed consts, no binders)  — an equivalence of types.
+  • RELATOR    `w : ∀ …, Param m n (P …) (P' …)`                        — relates an applied head `P`.
+  • TYPEFORMER `w : ∀ params, F args → F' args' → Sort`  (concl a SORT) — the parametricity RELATION of a
+                parameterized type `F` (e.g. `List`/`Option`); the native translation uses it to cross
+                `F a`. Its constructors/recursor register separately as ordinary TERM primitives.
+  • TERM       `w : ∀ …, R … (c …) (c' …)`  (R a bare relation)        — relates a term head `c ↦ c'`.
 
 The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The
 `@[trocq]` attribute (`Attr.lean`) runs `parseEntry` eagerly and stores the resulting `RegKind`.
@@ -29,9 +32,10 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
     baked `mkConst`: consumers re-create it with fresh universe levels (`mkConstWithFreshMVarLevels`), so
     universe-polymorphic witnesses register and instantiate correctly. -/
 inductive RegKind
-  | base    (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  | relator (headA : Name) (witName : Name) (cls : ParamClass)
-  | term    (headA : Name) (bTerm : Expr) (witName : Name)
+  | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
+  | relator    (headA : Name) (witName : Name) (cls : ParamClass)
+  | typeFormer (headA headB : Name) (relName : Name)
+  | term       (headA : Name) (bTerm : Expr) (witName : Name)
   deriving Inhabited
 
 /-- classify a tagged constant `w` from its type (see the kinds above). The const is built with its own
@@ -40,7 +44,17 @@ def parseEntry (w : Name) : MetaM RegKind := do
   let wit ← mkConstWithLevelParams w
   forallTelescopeReducing (← inferType wit) fun bs concl => do
     let args := concl.getAppArgs
-    if concl.getAppFn.isConstOf ``Param then
+    if concl.isSort then
+      -- a RELATION FORMER `F-args → F'-args' → Sort`: the parametricity relation of a parameterized type.
+      -- The telescope eats the two related objects too, so they are the last two binders; their head
+      -- constants name the A-/B-side type formers (equal for a homogeneous type like `List`/`Option`).
+      unless bs.size ≥ 2 do throwError "trocq: type former {w} must relate two objects"
+      let some hA := (← inferType bs[bs.size - 2]!).getAppFn.constName?
+        | throwError "trocq: type former {w} A-object has no head constant"
+      let some hB := (← inferType bs[bs.size - 1]!).getAppFn.constName?
+        | throwError "trocq: type former {w} B-object has no head constant"
+      return .typeFormer hA hB w
+    else if concl.getAppFn.isConstOf ``Param then
       let cls := (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
       let A := args[2]!; let B := args[3]!
       if bs.isEmpty && A.isConst && B.isConst then

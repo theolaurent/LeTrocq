@@ -2,6 +2,7 @@
 import Lean
 import Trocq.Tactic
 import Examples.NatUnary
+import Examples.ListParam
 namespace Trocq.Tests
 open Trocq MapClass Trocq.Examples
 
@@ -105,5 +106,13 @@ def IsInhab {T : Type} (_t : T) : Prop := True
 example : ∀ A : Type, IsInhab (fun (a : A) => a) := by
   trocq                       -- ⊢ ∀ A : Type, IsInhab (fun a => a)   (type arg `A → A` built recursively)
   exact fun _ => trivial
+
+/- PARAMETERIZED TYPES in the tactic: `transfer% (List Nat)` lifts the base `Nat ≃ Unary` through the
+   `paramListR` relator. The witness's forward map is `List.map` over the base map — and it COMPUTES. -/
+example : (transfer% (List Nat)).cov.map [Nat.zero, Nat.succ Nat.zero] = [Unary.z, Unary.s Unary.z] := rfl
+/- a `List`-valued function type transfers: the codomain `List Nat` goes through the same relator. -/
+example : (transfer% (Nat → List Nat)).cov.map (fun n => [n]) Unary.z = [Unary.z] := rfl
+/- nested formers compose: `Option (List Nat)` chains `paramOptionR` over `paramListR` over the base. -/
+example : (transfer% (Option (List Nat))).cov.map (some [Nat.zero]) = some [Unary.z] := rfl
 
 end Trocq.Tests

@@ -160,8 +160,20 @@ def buildCtx : MetaM Ctx := do
     | .term hA bTerm witName =>
         let wit ← mkConstWithFreshMVarLevels witName
         terms := terms.insert hA (bTerm, wit)
+        -- backward map `c' ↦ c`: ONLY for a HETEROGENEOUS primitive (distinct heads, e.g. `Nat.succ ↦
+        -- Unary.s`). For a homogeneous one (a polymorphic constructor like `List.cons ↦ List.cons`) the
+        -- forward `wit` already serves both directions — it is polymorphic in the element relation, which
+        -- carries the direction — and a swapped entry under the SAME head would clobber it (and strip the
+        -- constructor's universe levels via the level-free `mkConst`).
         if let some bHead := bTerm.constName? then
-          terms := terms.insert bHead (mkConst hA, ← symPrimitive wit)
+          if bHead != hA then
+            terms := terms.insert bHead (← mkConstWithFreshMVarLevels hA, ← symPrimitive wit)
+    | .typeFormer hA hB relName =>
+        -- a parameterized type former `F`: `paramType` crosses `F a` via `(F', relFormer)`, where
+        -- `relFormer a a' aR : F a → F' a' → Type` is applied by the `.app` rule's `mkApp3`. ONE entry
+        -- serves BOTH directions — the per-argument relation `aR` carries the direction and `relFormer`
+        -- is polymorphic in it (for a homogeneous `F`, `hB = hA`, so there is nothing extra to add).
+        types := types.insert hA (← mkConstWithFreshMVarLevels hB, ← mkConstWithFreshMVarLevels relName)
     | .relator .. => pure ()
   return { types, terms }
 
