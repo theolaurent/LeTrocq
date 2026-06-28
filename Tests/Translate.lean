@@ -4,6 +4,7 @@ import Trocq.Translate
 import Examples.NatUnary
 import Examples.ListParam
 import Examples.DepParam
+import Examples.QuotParam
 namespace Trocq.Tests
 open Trocq Trocq.Translate Trocq.Examples
 
@@ -103,5 +104,10 @@ example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ↔ IsTrivU u)
 /- connectives compose congruently: `p n ∧ p n` transports via `and_congr`. -/
 example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
     = (fun u : Unary => IsTrivU u ∧ IsTrivU u) := rfl
+
+/- QUOTIENTS: `Quot {α} (r : α → α → Prop)` is a former over a type AND a relation `r` (a term arg, whose
+   relatedness is the `↔` from the prop refinement). `Quot.mk r a` rebuilds as `Quot.mk r' a'` over `Unary`. -/
+example : (translate% (Quot.mk (fun _ _ : Nat => True) (2 : Nat)))
+    = Quot.mk (fun _ _ : Unary => True) (Unary.s (Unary.s Unary.z)) := rfl
 
 end Trocq.Tests

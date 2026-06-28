@@ -4,6 +4,7 @@ import Trocq.Tactic
 import Examples.NatUnary
 import Examples.ListParam
 import Examples.DepParam
+import Examples.QuotParam
 namespace Trocq.Tests
 open Trocq MapClass Trocq.Examples
 
@@ -166,6 +167,12 @@ def WTriv' (_t : WTree Nat (fun _ => Nat))     : Prop := True
 example : ∀ t : WTree Unary (fun _ => Unary), WTriv t := by
   trocq                       -- ⊢ ∀ t : WTree Nat (fun _ => Nat), WTriv' t   (W-typed binder, domain via `paramWTreeR`)
   exact fun _ => trivial
+
+/- QUOTIENTS in the tactic: `Quot r` is a former over a type AND a relation (the relation is a term arg). The
+   `(4,4)` relator `paramQuotR` builds `Quot r ≃ Quot r'` (maps are `Quot.lift`s); the forward map COMPUTES on
+   a concrete class. -/
+example : (transfer% (Quot (fun _ _ : Nat => True))).cov.map (Quot.mk _ (Nat.succ Nat.zero))
+    = Quot.mk (fun _ _ : Unary => True) (Unary.s Unary.z) := rfl
 
 /- NON-ADJACENT family domain: `Tw Nat Unary β` puts a phantom `C := Unary` between the family's domain
    `A := Nat` and `β`. The driver reads `β`'s domain off its binder type (the `Nat` arg), NOT the preceding
