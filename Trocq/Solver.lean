@@ -39,14 +39,14 @@ inductive Shape
   | pi     (v domV rV : Nat) (body : Shape)              -- `∀ A : Type, …`
   | sort   (v rV : Nat)
   | usevar (v rV : Nat)                                  -- use of a bound TYPE variable
-  | piBase (v bId : Nat) (base : Name) (body : Shape)    -- `∀ (x : base), …` over a registered base
+  | piTerm (v bId : Nat) (dom : Shape) (body : Shape)    -- `∀ (x : T), …` over any buildable domain `T`
   | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
            (argClosures : Array Expr)                    -- every arg abstracted over the in-scope binders
            (typeArgShapes : List Shape)                  -- a sub-shape per TYPE argument (in arg order)
            (scopeBids : List Nat)                        -- the in-scope binder ids (abstraction order)
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piBase v _ _ _ | .app v _ _ _ _ => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piTerm v _ _ _ | .app v _ _ _ _ => v
 
 /-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
     triples `(a, a', aR)`: `some (m,n)` when the triple's relatedness is itself a `Param m n` (so the
@@ -80,15 +80,18 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
               let sb ← gen atoms consts st (B.instantiate1 x)
               emit (.depPi v domV sb.var)
               return .pi v domV rV sb
-        | .const baseName _ =>                             -- ∀ (x : Base), … over a registered base
-            unless atoms.contains baseName do throwError "gen: dependent Π over unregistered base {baseName}"
-            let v ← fresh; let domV ← fresh; let bId ← fresh
+        | _ =>                                             -- ∀ (x : T), … over ANY buildable domain type `T`
+            -- gen the domain `T` to a sub-shape (so the solver builds its `Param`, exactly as for a type
+            -- ARGUMENT): a registered base atom, an arrow, a relator application (`List Unary`, …), even a
+            -- compound over outer binders. The body's `app` nodes then consume the bound term variable as a
+            -- TERM argument whose relatedness is the Π-domain witness — no special base handling needed.
+            let v ← fresh; let bId ← fresh
+            let sd ← gen atoms consts st A
             withLocalDeclD n A fun x => do
               st.modify fun s => { s with termBinders := (x.fvarId!, bId) :: s.termBinders }
               let sb ← gen atoms consts st (B.instantiate1 x)
-              emit (.depPi v domV sb.var)
-              return .piBase v bId baseName sb
-        | _ => throwError "gen: dependent Π over non-Type/base unsupported"
+              emit (.depPi v sd.var sb.var)
+              return .piTerm v bId sd sb
       else
         let v ← fresh
         let sd ← gen atoms consts st A
@@ -218,14 +221,16 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
           withLocalDeclD `aR raaTy fun aR => do
             mkLambdaFVars #[A, A', aR] (← assemble atoms consts sol ((rV, (A, A', aR)) :: env) termEnv cPi body)
       mkAppM ``paramForall #[classToExpr req.1, classToExpr req.2, domWit, pb]
-  | .piBase _ bId base body => do
-      -- `∀ (x : Base), …` over a registered base: `paramForall` with the base witness as the domain;
-      -- the bound term variable `(x, x', xR)` is threaded into `termEnv` for the body's `app` nodes.
+  | .piTerm _ bId domShape body => do
+      -- `∀ (x : T), …` over any domain `T`: build `T`'s witness by recursively assembling its sub-shape at
+      -- the `depPi`-minimal domain class, read the two sides `T`/`T'` off the witness's `Param` type (`whnf`
+      -- first — a weaken-free witness can carry a projection rather than a bare `Param … T T'`), then feed it
+      -- to `paramForall`. The bound term variable `(x, x', xR)` is threaded into `termEnv` for the body.
       let (dPi, cPi) := depPi req
-      let some (baseB, baseWit, baseReg) := atoms.find? base | throwError "assemble: base {base} not registered"
-      let domWit ← weakenTo dPi baseReg baseWit
-      let pb ← withLocalDeclD `x (mkConst base) fun x =>
-        withLocalDeclD `x' baseB fun x' => do
+      let domWit ← assemble atoms consts sol env termEnv dPi domShape
+      let domTy := (← whnf (← instantiateMVars (← inferType domWit))).getAppArgs
+      let pb ← withLocalDeclD `x domTy[2]! fun x =>
+        withLocalDeclD `x' domTy[3]! fun x' => do
           let xRTy ← mkAppM ``Param.R #[domWit, x, x']
           withLocalDeclD `xR xRTy fun xR => do
             mkLambdaFVars #[x, x', xR]

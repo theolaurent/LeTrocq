@@ -115,4 +115,19 @@ example : (transfer% (Nat → List Nat)).cov.map (fun n => [n]) Unary.z = [Unary
 /- nested formers compose: `Option (List Nat)` chains `paramOptionR` over `paramListR` over the base. -/
 example : (transfer% (Option (List Nat))).cov.map (some [Nat.zero]) = some [Unary.z] := rfl
 
+/- DEPENDENT Π over a PARAMETERIZED-TYPE binder: `∀ l : List Unary, P l`. The driver now builds the domain
+   witness (`paramListR` over the base) for ANY domain type, not just a bare base — the bound variable `l`
+   flows into the body's `app` node as a term argument whose relatedness is that domain witness. -/
+def AllTriv  (_l : List Unary) : Prop := True
+def AllTriv' (_l : List Nat)   : Prop := True
+@[trocq] def AllTrivR (l : List Unary) (n : List Nat) (_ : (paramListR Unary Nat RNsym).R l n) :
+    Param map1 map1 (AllTriv l) (AllTriv' n) where
+  R := fun _ _ => PLift True
+  cov    := { map := fun _ => trivial }
+  contra := { map := fun _ => trivial }
+
+example : ∀ l : List Unary, AllTriv l := by
+  trocq                       -- ⊢ ∀ l : List Nat, AllTriv' l   (binder typed `List Unary`, domain built via relator)
+  exact fun _ => trivial
+
 end Trocq.Tests
