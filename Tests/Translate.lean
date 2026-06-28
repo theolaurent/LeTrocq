@@ -89,4 +89,19 @@ example : SigmaR Nat Unary RNU (fun _ => Nat) (fun _ => Unary) (fun _ _ _ => RNU
 example : (translate% (fun (a : Nat) (f : Nat → WTree Nat (fun _ => Nat)) => @WTree.mk Nat (fun _ => Nat) a f))
     = (fun (a : Unary) (f : Unary → WTree Unary (fun _ => Unary)) => @WTree.mk Unary (fun _ => Unary) a f) := rfl
 
+/- PROP-RELATION REFINEMENT: a `Prop`-valued component now relates by LOGICAL EQUIVALENCE `↔` (matching the
+   `Prop` universe / `paramProp`), not the old generic proof-relevant `· → · → Type`. A registered predicate
+   `p ↦ p'` supplies its own equivalence, and `translate%` rebuilds it over `Unary`. -/
+def IsTrivN (_ : Nat)   : Prop := True
+def IsTrivU (_ : Unary) : Prop := True
+@[trocq] def IsTrivR (n : Nat) (u : Unary) (_ : RNU n u) : PLift (IsTrivN n ↔ IsTrivU u) := PLift.up Iff.rfl
+
+example : (translate% (fun n : Nat => IsTrivN n)) = (fun u : Unary => IsTrivU u) := rfl
+/- the relatedness is `PLift (· ↔ ·)` — the refinement (previously `· → · → Type`). -/
+example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ↔ IsTrivU u) :=
+  relate% (fun n : Nat => IsTrivN n)
+/- connectives compose congruently: `p n ∧ p n` transports via `and_congr`. -/
+example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
+    = (fun u : Unary => IsTrivU u ∧ IsTrivU u) := rfl
+
 end Trocq.Tests

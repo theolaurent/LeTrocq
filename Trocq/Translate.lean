@@ -23,10 +23,12 @@ import Lean
 open Lean Lean.Meta
 namespace Trocq.Translate
 
-/-- registration: type primitives ↦ (B-type, relation `A→B→Type`); term primitives ↦ (B-term, relatedness). -/
+/-- registration: type primitives ↦ (B-type, relation `A→B→Type`); term primitives ↦ (B-term, relatedness);
+    PROP primitives (predicates) ↦ (B-predicate, equivalence combinator `… → PLift (p a ↔ p' a')`). -/
 structure Ctx where
   types : NameMap (Expr × Expr)
   terms : NameMap (Expr × Expr)
+  props : NameMap (Expr × Expr)
 
 /-- bound-variable environment: `fvar ↦ (x', xR)` (for a type var, `xR` is its relation). -/
 abbrev Env := List (FVarId × Expr × Expr)
@@ -70,11 +72,19 @@ partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
       let (a', aR) ← param ctx env a
       return (.app f' a', mkApp3 fR a a' aR)
   | .sort lvl => do
-      -- ⟦Sort u⟧: the B-side is the same sort; the relation between two types is "a relation"
-      -- `R_{Sort u} A A' := A → A' → Type` (so a TYPE `A : Sort u` translates to a relation `R_A`).
-      let rel ← withLocalDeclD `A (.sort lvl) fun A => withLocalDeclD `B (.sort lvl) fun B => do
-        mkLambdaFVars #[A, B] (← mkArrow A (← mkArrow B (.sort 1)))
-      return (.sort lvl, rel)
+      -- ⟦Sort u⟧: the B-side is the same sort. The relation between two TYPES is "a relation"
+      -- `R_{Type} A A' := A → A' → Type`; the relation between two PROPS is logical equivalence
+      -- `R_{Prop} P P' := PLift (P ↔ P')` (matching `paramProp`/the Prop universe), so a `Prop`-valued
+      -- component relates by `↔`, not the generic proof-relevant `→ Type`.
+      match ← instantiateLevelMVars lvl with
+      | .zero =>
+          let rel ← withLocalDeclD `P (.sort .zero) fun P => withLocalDeclD `P' (.sort .zero) fun P' => do
+            mkLambdaFVars #[P, P'] (← mkAppM ``PLift #[← mkAppM ``Iff #[P, P']])
+          return (.sort .zero, rel)
+      | lvl =>
+          let rel ← withLocalDeclD `A (.sort lvl) fun A => withLocalDeclD `B (.sort lvl) fun B => do
+            mkLambdaFVars #[A, B] (← mkArrow A (← mkArrow B (.sort 1)))
+          return (.sort lvl, rel)
   | e@(.forallE n A B _) => do
       -- ONE construction for arrow AND dependent Π: R_{∀x,B} f g := ∀ x x' (xR : R_A x x'), R_{B x} (f x)(g x')
       -- (built explicitly, NOT via `RArrow`, so the domain and codomain relations may live at DIFFERENT
@@ -94,10 +104,12 @@ partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
 /-- translate a TERM `t : T` to `(t', tR)` where `tR : R_T t t'`. -/
 partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := do
   let ty ← inferType e
-  -- a TYPE-valued term is translated at the type level: its counterpart is the translated type and its
-  -- "relatedness" is the parametricity *relation*. This is what lets a recursor's motive `M : Nat → Sort`
-  -- (and any type-family argument) translate — the term/type translations meet here.
-  if ty.isSort then return ← paramType ctx env e
+  -- a PROPOSITION (`e : Prop`) relates by logical equivalence, via `paramProp`; a (larger) TYPE-valued term
+  -- relates by the parametricity *relation*, via `paramType` (this is what lets a recursor's motive
+  -- `M : Nat → Sort` or any type-family argument translate). The two meet here.
+  if let .sort lvl := ty then
+    if (← instantiateLevelMVars lvl) == levelZero then return ← paramProp ctx env e
+    else return ← paramType ctx env e
   -- a `Nat` numeral leaf (raw `.lit` or `OfNat.ofNat …`, possibly at an unreduced type like `motive 0`):
   -- expand to its `succ`/`zero` normal form and translate through the registered primitives.
   if let some n := natNumeral? e then
@@ -128,6 +140,39 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
         let (b', bR) ← param ctx ((x.fvarId!, x', xR) :: env) (b.instantiate1 x)
         return (← mkLambdaFVars #[x'] b', ← mkLambdaFVars #[x, x', xR] bR)
   | e => throwError "param: unsupported term {e}"
+
+/-- translate a PROPOSITION `P` to `(P', h)` where `h : PLift (P ↔ P')` — its logical-equivalence relatedness.
+    Unlike `∀`-transport (which needs the domain's backward map and so belongs to the solver), an equivalence
+    is built from the *relations* alone: logical connectives combine their parts' equivalences congruently, and
+    a registered predicate supplies its own (the abstraction theorem `⟦p a₁…⟧ = pR a₁ a₁' a₁R …`). -/
+partial def paramProp (ctx : Ctx) (env : Env) (P : Expr) : MetaM (Expr × Expr) := do
+  let args := P.getAppArgs
+  match P.getAppFn with
+  | .const c _ =>
+      if (c == ``True || c == ``False) && args.isEmpty then
+        return (P, ← mkAppM ``PLift.up #[← mkAppOptM ``Iff.rfl #[P]])
+      else if c == ``Not && args.size == 1 then
+        let (Q', hQ) ← paramProp ctx env args[0]!
+        return (← mkAppM ``Not #[Q'],
+          ← mkAppM ``PLift.up #[← mkAppM ``not_congr #[← mkAppM ``PLift.down #[hQ]]])
+      else if (c == ``And || c == ``Or || c == ``Iff) && args.size == 2 then
+        let (L', hL) ← paramProp ctx env args[0]!
+        let (R', hR) ← paramProp ctx env args[1]!
+        let cong := if c == ``And then ``and_congr else if c == ``Or then ``or_congr else ``iff_congr
+        return (mkApp2 (.const c []) L' R',
+          ← mkAppM ``PLift.up #[← mkAppM cong #[← mkAppM ``PLift.down #[hL], ← mkAppM ``PLift.down #[hR]]])
+      else match ctx.props.find? c with
+        | some (head', wit) =>
+            -- the abstraction theorem for a registered predicate `p`: `⟦p a₁ … aₙ⟧ = pR a₁ a₁' a₁R …`.
+            let mut cnt := head'
+            let mut rel := wit
+            for a in args do
+              let (a', aR) ← param ctx env a
+              cnt := .app cnt a'
+              rel := mkApp3 rel a a' aR
+            return (cnt, rel)
+        | none => throwError "paramProp: unregistered/opaque proposition head {c}"
+  | f => throwError "paramProp: unsupported proposition (head {f})"
 end
 
 /-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the
@@ -144,6 +189,18 @@ def symPrimitive (wit : Expr) : MetaM Expr := do
       swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
     mkLambdaFVars swapped (mkAppN wit xs)
 
+/-- the backward direction of a PROP primitive `pR : ∀ triples, PLift (p … ↔ p' …)`: like `symPrimitive`
+    (swap each triple's value pair), but the conclusion is an `Iff`, so the proof is `Iff.symm`'d too. -/
+def symProp (wit : Expr) : MetaM Expr := do
+  forallTelescope (← inferType wit) fun xs _ => do
+    unless xs.size % 3 == 0 do
+      throwError "trocq: prop primitive is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
+    let mut swapped : Array Expr := #[]
+    for j in [0 : xs.size / 3] do
+      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
+    mkLambdaFVars swapped
+      (← mkAppM ``PLift.up #[← mkAppM ``Iff.symm #[← mkAppM ``PLift.down #[mkAppN wit xs]]])
+
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
     type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
     `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
@@ -151,6 +208,7 @@ def symPrimitive (wit : Expr) : MetaM Expr := do
 def buildCtx : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
+  let mut props := mkNameMap _
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB witName _ =>
@@ -174,8 +232,15 @@ def buildCtx : MetaM Ctx := do
         -- serves BOTH directions — the per-argument relation `aR` carries the direction and `relFormer`
         -- is polymorphic in it (for a homogeneous `F`, `hB = hA`, so there is nothing extra to add).
         types := types.insert hA (← mkConstWithFreshMVarLevels hB, ← mkConstWithFreshMVarLevels relName)
+    | .propPrim hA hB witName =>
+        -- a PROP primitive (predicate) `p ↦ p'`: forward equivalence + the `Iff.symm`'d backward one (skip
+        -- the backward insert for a homogeneous predicate, exactly as for term primitives).
+        let wit ← mkConstWithFreshMVarLevels witName
+        props := props.insert hA (← mkConstWithFreshMVarLevels hB, wit)
+        if hB != hA then
+          props := props.insert hB (← mkConstWithFreshMVarLevels hA, ← symProp wit)
     | .relator .. => pure ()
-  return { types, terms }
+  return { types, terms, props }
 
 /-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/
 elab "translate% " t:term : term => do
