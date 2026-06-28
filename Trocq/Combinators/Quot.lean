@@ -67,8 +67,13 @@ noncomputable def paramQuotR (A A' : Type) (pa : Param map4 map4 A A')
 /- ===================== `Quot.lift`: the eliminator (special-cased in `param`) =====================
    `Quot.lift f h : Quot r → β` transports to `Quot.lift f' h' : Quot r' → β'`. The respect proof
    `h' : ∀ a' b', r' a' b' → f' a' = f' b'` cannot be got from the relations alone (translate is map-free):
-   `quotLiftResp` SYNTHESISES it from the domain/codomain base equivalences — pull `a' b'` back, use `rR`,
-   the original `h`, then `fR` + the codomain map. `quotLiftRel` is the eliminator's parametricity. -/
+   `quotLiftResp` SYNTHESISES it from the domain/codomain equivalences `pa`/`pb` — pull `a' b'` back, use `rR`,
+   the original `h`, then `fR` + the codomain map. `quotLiftRel` is the eliminator's parametricity.
+
+   Because `h'` is built from `pa`/`pb`, the lift's COUNTERPART depends on those equivalences. For a CONCRETE
+   carrier they are closed (solver-built), so `translate%` rebuilds the lift. For a TYPE-VARIABLE carrier they
+   are relatedness binders, so only `relate%` (which has them in scope) works — `translate%`'s pure B-side
+   counterpart cannot exist. See the ⚠ note at the `Quot.lift` case in `Trocq.Translate`. -/
 theorem quotLiftResp {A A' B B' : Type} (pa : Param map4 map4 A A') (pb : Param map4 map4 B B')
     {r : A → A → Prop} {r' : A' → A' → Prop} {f : A → B} {f' : A' → B'}
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b'))

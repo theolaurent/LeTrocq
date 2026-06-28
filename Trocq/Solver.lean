@@ -290,11 +290,12 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
       let kinds ← relatorArgKinds relator
       -- resolve each in-scope binder to (its source fvar, its translation-`env` entry).
-      let resolve (k : Nat) : MetaM (Expr × (FVarId × Expr × Expr)) := do
+      let resolve (k : Nat) : MetaM (Expr × (FVarId × Expr × Expr × Option Expr)) := do
         match termEnv.find? (·.1 == k) with
-        | some (_, x, x', xR) => return (x, (x.fvarId!, x', xR))
+        | some (_, x, x', xR) => return (x, (x.fvarId!, x', xR, none))
         | none => match env.find? (·.1 == k) with
-          | some (_, A, A', aR) => return (A, (A.fvarId!, A', ← mkAppM ``Param.R #[aR]))
+          -- a TYPE binder: pass both its relation and its full `Param` `aR` (the latter for `Quot.lift`).
+          | some (_, A, A', aR) => return (A, (A.fvarId!, A', ← mkAppM ``Param.R #[aR], some aR))
           | none => throwError "assemble: binder {k} not in scope"
       let resolved ← scopeKeys.mapM resolve
       let asmFvarsArr := (resolved.map (·.1)).toArray
@@ -352,5 +353,9 @@ def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array Para
   for mid in st.result do
     unless (← isLevelMVarAssigned mid) do assignLevelMVar mid levelZero
   return (← instantiateMVars wit, shape, sol)
+
+/-- wire the solver into `Translate`'s forward reference, so `param`'s `Quot.lift` case can build the
+    `Param` (hence the maps) of an arbitrary carrier — closing the `Translate`↔`Solver` cycle. -/
+initialize Trocq.Translate.carrierParamRef.set fun ty => return (← transfer ty (map4, map4)).1
 
 end Trocq.Solver

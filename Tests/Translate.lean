@@ -119,4 +119,16 @@ example : (translate% gsucc) (Quot.mk _ (Unary.s Unary.z)) = Unary.s (Unary.s Un
 def gconst : Quot (fun _ _ : Nat => True) → Nat := Quot.lift (fun _ => (2 : Nat)) (fun _ _ _ => rfl)
 example : (translate% gconst) (Quot.mk _ Unary.z) = Unary.s (Unary.s Unary.z) := rfl
 
+/- ARBITRARY carrier: `Quot.lift` works over ANY (concrete) carrier the solver can build — e.g. the COMPOUND
+   `List Nat`, not just registered bases. The carrier's maps come from the solver via a forward reference. -/
+def gList : Quot (fun _ _ : List Nat => False) → Nat := Quot.lift (fun _ => (2 : Nat)) (fun _ _ h => h.elim)
+example : (translate% gList) (Quot.mk _ ([Unary.z] : List Unary)) = Unary.s (Unary.s Unary.z) := rfl
+
+/- TYPE-VARIABLE carrier: the bound type's full `Param` (its MAPS) is threaded through the env, so `relate%`
+   of a polymorphic `Quot.lift` builds its relatedness witness using that `Param`. (`translate%` of the B-side
+   counterpart is NOT possible here: the respect proof's counterpart needs the `A ≃ A'` maps, which are
+   relatedness data absent from the pure B-side — a semantic wall, not a threading gap.) -/
+def gpoly (A : Type) : Quot (fun _ _ : A => False) → A := Quot.lift (fun a => a) (fun _ _ h => h.elim)
+noncomputable def gpolyRelatedness := relate% gpoly
+
 end Trocq.Tests
