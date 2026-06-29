@@ -1,11 +1,11 @@
 /-
-Registering a PARAMETERIZED type: `List` (the same recipe applies verbatim to `Option`, at the bottom).
+The Trocq STANDARD LIBRARY: `List`.
 
 A type CONSTRUCTOR `List : Type → Type` is a *relator*: its witness lifts a relation on elements to a
 relation on lists. Following the standard parametricity translation, that lifted relation is itself an
 INDUCTIVE — one constructor per the original's, each carrying the relations of its arguments (`ListR.cons`
 pairs an element relation with the tail relation). It registers on BOTH surfaces, each base-agnostic (it
-works for ANY element equivalence; the tests instantiate at `Nat ≃ Unary`):
+works for ANY element equivalence):
 
   • the native TRANSLATION (`translate%` / `relate%`): `ListR` is the parametricity RELATION (a TYPE FORMER,
     so `paramType` can cross `List a`), and the constructors `List.nil` / `List.cons` are TERM primitives
@@ -15,12 +15,15 @@ works for ANY element equivalence; the tests instantiate at `Nat ≃ Unary`):
     an element equivalence to a `List` equivalence at the top class `(4,4)` (the solver weakens it per use).
     Over the inductive relation the completeness laws are inductions, and the coherence `R_in_mapK` is free
     once the relation is a subsingleton — which it is, since the element relation is (class 4).
+
+This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
+only because `List` is part of Lean's prelude. Contrast `Quot` (a kernel primitive the driver knows
+intrinsically — see `Trocq.Combinators.Quot`).
 -/
-import Trocq
-namespace Trocq.Examples
+import Trocq.Attr
+namespace Trocq.Std
 open Trocq MapClass
 
-/- ===================== `List` — the inductive parametricity relation ===================== -/
 /-- two lists are related iff they are cons-by-cons related: same length, corresponding elements `R`-related.
     This is the canonical relational interpretation of the inductive `List`. Its first three parameters
     `(A, A', R)` are what `paramType`'s `mkApp3` supplies; the two list INDICES are read off as the related
@@ -72,44 +75,4 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
         | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
       R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-/- ===================== `Option` — the SAME recipe, smaller (one constructor pair, no recursion) ===================== -/
-@[trocq] inductive OptionR (A A' : Type) (R : A → A' → Type) : Option A → Option A' → Type
-  | none : OptionR A A' R none none
-  | some {a a'} (aR : R a a') : OptionR A A' R (some a) (some a')
-
-theorem OptionR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : R a a'), x = y) :
-    {oa : Option A} → {ob : Option A'} → (x y : OptionR A A' R oa ob) → x = y
-  | _, _, .none,    .none     => rfl
-  | _, _, .some aR, .some aR' => by rw [hR _ _ aR aR']
-
-@[trocq] def OptionNoneR (A A' : Type) (R : A → A' → Type) : OptionR A A' R none none := .none
-@[trocq] def OptionSomeR (A A' : Type) (R : A → A' → Type) (a : A) (a' : A') (aR : R a a') :
-    OptionR A A' R (some a) (some a') := .some aR
-
-@[trocq] noncomputable def paramOptionR (A B : Type) (pa : Param map4 map4 A B) :
-    Param map4 map4 (Option A) (Option B) where
-  R := OptionR A B pa.R
-  cov :=
-    { map := Option.map pa.cov.map
-      map_in_R := fun oa ob h => by
-        subst h; cases oa with
-        | none => exact .none
-        | some a => exact .some (pa.cov.map_in_R a _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with
-        | none => rfl
-        | some aR => exact congrArg some (pa.cov.R_in_map _ _ aR)
-      R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
-  contra :=
-    { map := Option.map pa.contra.map
-      map_in_R := fun ob oa h => by
-        subst h; cases ob with
-        | none => exact .none
-        | some b => exact .some (pa.contra.map_in_R b _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with
-        | none => rfl
-        | some aR => exact congrArg some (pa.contra.R_in_map _ _ aR)
-      R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
-
-end Trocq.Examples
+end Trocq.Std

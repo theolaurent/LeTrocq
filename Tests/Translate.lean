@@ -2,10 +2,9 @@
 import Lean
 import Trocq.Translate
 import Examples.NatUnary
-import Examples.ListParam
 import Examples.DepParam
 namespace Trocq.Tests
-open Trocq Trocq.Translate Trocq.Examples
+open Trocq Trocq.Translate Trocq.Std Trocq.Examples
 
 /- `fun n => n.succ.succ` over `Nat` ⤳ the NATIVE `fun u => u.s.s` over `Unary` (not iso-conjugation). -/
 example : (translate% (fun n : Nat => Nat.succ (Nat.succ n))) Unary.z = Unary.s (Unary.s Unary.z) := rfl

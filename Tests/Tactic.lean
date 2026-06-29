@@ -2,10 +2,9 @@
 import Lean
 import Trocq.Tactic
 import Examples.NatUnary
-import Examples.ListParam
 import Examples.DepParam
 namespace Trocq.Tests
-open Trocq MapClass Trocq.Examples
+open Trocq MapClass Trocq.Std Trocq.Examples
 
 /- `transfer%` exposes the relatedness witness; its forward map is native function transport over the
    registered `Nat ≃ Unary` base — and it COMPUTES: -/
