@@ -17,7 +17,7 @@ elaborates to the native term `t'`.
   ⟦fun x=>b⟧ = (fun x'=>b', fun x x' xR => bR)
   ⟦A → B⟧    = (A'→B', RArrow R_A R_B)                  -- as a TYPE: returns the relation
 -/
-import Trocq.Combinators
+import Trocq.Core
 import Trocq.Attr
 import Lean
 open Lean Lean.Meta

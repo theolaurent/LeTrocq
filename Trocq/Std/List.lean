@@ -18,7 +18,7 @@ works for ANY element equivalence):
 
 This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
 only because `List` is part of Lean's prelude. Contrast `Quot` (a kernel primitive the driver knows
-intrinsically — see `Trocq.Combinators.Quot`).
+intrinsically — see `Trocq.Core.Quot`).
 -/
 import Trocq.Attr
 namespace Trocq.Std

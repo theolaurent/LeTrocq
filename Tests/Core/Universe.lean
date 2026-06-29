@@ -1,6 +1,6 @@
 /- The universe construction: `paramType` at the no-univalence ceiling (2a,2a). -/
 import Lean
-import Trocq.Combinators.Universe
+import Trocq.Core.Universe
 namespace Trocq.Tests
 open Trocq MapClass
 

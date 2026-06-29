@@ -17,7 +17,7 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
 
 The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
-import Trocq.Combinators
+import Trocq.Core
 import Trocq.Attr
 import Trocq.Translate
 import Lean

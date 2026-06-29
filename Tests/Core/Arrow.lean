@@ -1,6 +1,6 @@
 /- The arrow construction: sample combinators + the graded `paramArrow`, over the `Nat ≃ Unary` base. -/
 import Lean
-import Trocq.Combinators.Arrow
+import Trocq.Core.Arrow
 import Examples.NatUnary
 namespace Trocq.Tests
 open Trocq MapClass Trocq.Examples
