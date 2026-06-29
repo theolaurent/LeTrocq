@@ -67,20 +67,29 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
+/- ===================== kernel primitives (built-in, NOT `@[trocq]`-registered) =====================
+   The single table of constants the translation knows intrinsically: each maps a head to its `(counterpart,
+   relation/relatedness)`, given the occurrence's universe levels. The level policy is PER-PRIMITIVE, which is
+   why this is a table of functions rather than plain entries: `Quot`'s relation `QuotRel` has its own (fixed)
+   universes pinned later by its arguments, so it takes FRESH level mvars; `PUnit`'s relation is the trivial,
+   level-UNconstrained `UnitRel`, so its counterpart/relatedness must reuse the OCCURRENCE's levels (nothing
+   else pins them). Their relations live in `Core/Quot` and `Core/Unit`. Adding a primitive is one entry here
+   (plus its `Param` relator in `Solver.buildConsts` if it can also appear as a goal TYPE, as `Quot` does).
+   `Quot.lift` is NOT here — an eliminator is a synthesis procedure, not a relation; see `param`'s special case. -/
+def typePrimitives : List (Name × (List Level → MetaM (Expr × Expr))) :=
+  [ (``PUnit, fun lvls => return (.const ``PUnit lvls, .const ``UnitRel lvls)),
+    (``Quot,  fun _    => return (← mkConstWithFreshMVarLevels ``Quot, ← mkConstWithFreshMVarLevels ``QuotRel)) ]
+
+def termPrimitives : List (Name × (List Level → MetaM (Expr × Expr))) :=
+  [ (``PUnit.unit, fun lvls => return (.const ``PUnit.unit lvls, .const ``UnitR lvls)),
+    (``Quot.mk,    fun _    => return (← mkConstWithFreshMVarLevels ``Quot.mk, ← mkConstWithFreshMVarLevels ``QuotMkR)) ]
+
 mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
-      -- `PUnit` (the dummy argument a non-recursive matcher introduces) relates to itself by the trivial
-      -- always-inhabited relation `fun _ _ => PUnit` — built in, since it has no `@[trocq]` registration.
-      if c == ``PUnit then
-        let pu := Expr.const ``PUnit lvls
-        let rel ← withLocalDeclD `a pu fun a => withLocalDeclD `b pu fun b =>
-          mkLambdaFVars #[a, b] (Expr.const ``PUnit [levelOne])
-        return (pu, rel)
-      -- `Quot` is a kernel PRIMITIVE: its relation `QuotRel` is built in, not `@[trocq]`-registered.
-      if c == ``Quot then
-        return (← mkConstWithFreshMVarLevels ``Quot, ← mkConstWithFreshMVarLevels ``QuotRel)
+      -- a kernel primitive (`PUnit`/`Quot`), else a registered former, else unfold the definition.
+      if let some mk := typePrimitives.lookup c then return ← mk lvls
       match ctx.types.find? c with
       | some p => return p
       | none =>
@@ -195,12 +204,9 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | some (_, x', xR, _) => return (x', xR)
       | none => throwError "param: unbound variable"
   | .const c lvls => do
-      -- the unique `PUnit.unit` relates to itself; its relatedness inhabits the trivial `PUnit` relation.
-      if c == ``PUnit.unit then
-        return (Expr.const ``PUnit.unit lvls, Expr.const ``PUnit.unit [levelOne])
-      -- `Quot.mk` is a kernel PRIMITIVE: its relatedness `QuotMkR` is built in, not `@[trocq]`-registered.
-      if c == ``Quot.mk then
-        return (← mkConstWithFreshMVarLevels ``Quot.mk, ← mkConstWithFreshMVarLevels ``QuotMkR)
+      -- a kernel primitive (`PUnit.unit`/`Quot.mk`), else a registered term primitive, else unfold the
+      -- definition. (`Quot.lift`, an ELIMINATOR, is handled by the special case above, not the table.)
+      if let some mk := termPrimitives.lookup c then return ← mk lvls
       match ctx.terms.find? c with
       | some p => return p
       | none =>
