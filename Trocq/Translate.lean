@@ -24,22 +24,23 @@ open Lean Lean.Meta
 namespace Trocq.Translate
 
 /-- registration: type primitives ↦ (B-type, relation `A→B→Type`); term primitives ↦ (B-term, relatedness);
-    PROP primitives (predicates) ↦ (B-predicate, equivalence combinator `… → PLift (p a ↔ p' a')`). -/
+    PROP primitives (predicates) ↦ (B-predicate, equivalence combinator `… → PLift (p a ↔ p' a')`).
+
+    `buildCarrier` is the SOLVER's witness builder, INJECTED as data (not imported): `param`'s `Quot.lift`
+    case calls it to obtain the `Param` (hence the MAPS) of an ARBITRARY carrier — not just a registered base.
+    `Translate` does not depend on `Solver`; the caller (`Trocq.Solver`/the surface elaborators) supplies
+    `fun ty => (transfer ty (4,4)).1` here. This is how the genuine `Translate`↔`Solver` mutual recursion is
+    expressed WITHOUT a global mutable hook — see `AGENTS.md`. -/
 structure Ctx where
   types : NameMap (Expr × Expr)
   terms : NameMap (Expr × Expr)
   props : NameMap (Expr × Expr)
+  buildCarrier : Expr → MetaM Expr
 
 /-- bound-variable environment: `fvar ↦ (x', xR, paramOpt)`. `xR` is the relatedness (for a type var, its
     relation). `paramOpt` is the bound type variable's full `Param` (with MAPS), threaded so eliminators like
     `Quot.lift` over a type-VARIABLE carrier can use its maps; `none` for term/base binders. -/
 abbrev Env := List (FVarId × Expr × Expr × Option Expr)
-
-/-- forward reference to the SOLVER's witness builder (set by `Trocq.Solver`), used by `param`'s `Quot.lift`
-    case to obtain the `Param` (hence the MAPS) of an ARBITRARY carrier — not just a registered base. Lives
-    here to break the `Translate`↔`Solver` import cycle; `transfer ty (4,4)` builds `Param map4 map4 ty ty'`. -/
-initialize carrierParamRef : IO.Ref (Expr → MetaM Expr) ←
-  IO.mkRef fun _ => throwError "Quot.lift transport needs the solver — `import Trocq` so `Trocq.Solver` is loaded"
 
 /-- recognize a numeral — a raw `.lit (.natVal n)` or an `@OfNat.ofNat _ (lit n) _` — as `n`. The caller
     must additionally check the expression's type is `Nat` (the type argument here may be unreduced). -/
@@ -164,13 +165,12 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       -- type-binder case of `.lam`); a concrete carrier has the solver build it on demand. For a type var the
       -- result `pT` is a relatedness binder — see the ⚠ note above: `h'` then refers to it, which is fine for
       -- the relatedness but makes the counterpart open (so `translate%` of a polymorphic lift is impossible).
-      let buildCarrier ← carrierParamRef.get
       let carrierParam (T : Expr) : MetaM Expr := do
         match T with
         | .fvar id => match (env.find? (·.1 == id)).bind (·.2.2.2) with
                       | some pT => pure pT
-                      | none => buildCarrier T
-        | _ => buildCarrier T
+                      | none => ctx.buildCarrier T
+        | _ => ctx.buildCarrier T
       let pa ← carrierParam A
       let pb ← carrierParam B
       let h' ← mkAppM ``Trocq.quotLiftResp #[pa, pb, rR, fR, hresp]
@@ -297,8 +297,9 @@ def symProp (wit : Expr) : MetaM Expr :=
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
     type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
     `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
-    So a term over *either* side of a registered equivalence translates by head match. -/
-def buildCtx : MetaM Ctx := do
+    So a term over *either* side of a registered equivalence translates by head match. The caller injects
+    `buildCarrier` (the solver's witness builder) — see `Ctx`. -/
+def buildCtx (buildCarrier : Expr → MetaM Expr) : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
   let mut props := mkNameMap _
@@ -333,20 +334,6 @@ def buildCtx : MetaM Ctx := do
         if hB != hA then
           props := props.insert hB (← mkConstWithFreshMVarLevels hA, ← symProp wit)
     | .relator .. => pure ()
-  return { types, terms, props }
-
-/-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/
-elab "translate% " t:term : term => do
-  let e ← Lean.Elab.Term.elabTerm t none
-  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
-  let (e', _) ← param (← buildCtx) [] (← instantiateMVars e)
-  instantiateMVars e'
-
-/-- `relate% t` ⤳ the relatedness `tR : ⟦T⟧ t t'` — the proof the native counterpart is correct. -/
-elab "relate% " t:term : term => do
-  let e ← Lean.Elab.Term.elabTerm t none
-  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing
-  let (_, eR) ← param (← buildCtx) [] (← instantiateMVars e)
-  instantiateMVars eR
+  return { types, terms, props, buildCarrier }
 
 end Trocq.Translate

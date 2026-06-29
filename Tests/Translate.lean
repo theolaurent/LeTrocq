@@ -1,6 +1,6 @@
 /- The native parametricity translation: `translate% t` rebuilds a term over `B` (here `Unary`). -/
 import Lean
-import Trocq.Translate
+import Trocq.Tactic
 import Examples.NatUnary
 import Examples.DepParam
 namespace Trocq.Tests

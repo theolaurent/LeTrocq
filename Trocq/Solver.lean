@@ -230,6 +230,10 @@ def mkUniv (req inner : ParamClass) : MetaM Expr := do
   mkAppM ``paramTypeAtInner #[classToExpr req.1, classToExpr req.2, classToExpr inner.1,
     classToExpr inner.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
 
+-- `assemble` and `transfer` are genuinely MUTUALLY recursive: `transfer` runs `assemble`, and `assemble`'s
+-- application node feeds `param`'s `Quot.lift` case a carrier builder that calls `transfer`. Expressed as a
+-- real `mutual` block (no global mutable hook); `Translate.param` receives `transfer` injected via `Ctx`.
+mutual
 /-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
     and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
     `env` maps a Π-binder's class var to its bound type variable's `(A, A', aR)` (source/target type +
@@ -300,7 +304,9 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let resolved ← scopeKeys.mapM resolve
       let asmFvarsArr := (resolved.map (·.1)).toArray
       let transEnv : Trocq.Translate.Env := resolved.map (·.2)
-      let ctx ← Trocq.Translate.buildCtx
+      -- inject the solver itself as `Translate`'s carrier builder: the genuine `param`↔`transfer` mutual
+      -- recursion, passed as DATA (no global hook) — `param`'s `Quot.lift` case calls this for any carrier.
+      let ctx ← Trocq.Translate.buildCtx (fun ty => return (← transfer ty (map4, map4)).1)
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
       let mut tyArgs := typeArgShapes            -- (Option Nat × Shape), consumed left-to-right per TYPE/FAMILY arg
       let mut argExprs : Array Expr := #[]
@@ -344,7 +350,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
 
 /-- full pipeline: solve for minimal classes, then assemble the witness DIRECTLY at `root` — every node
     built by the graded combinator at the class the `dep*` tables dictate (parts never over-provisioned). -/
-def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
+partial def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array ParamClass) := do
   let (shape, sol) ← runSolve e root
   let wit ← instantiateMVars (← assemble (← buildAtoms) (← buildConsts) sol [] [] root shape)
   -- default any genuinely-free residual universe mvars (e.g. the universe combinator's relation level, or a
@@ -353,9 +359,6 @@ def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Array Para
   for mid in st.result do
     unless (← isLevelMVarAssigned mid) do assignLevelMVar mid levelZero
   return (← instantiateMVars wit, shape, sol)
-
-/-- wire the solver into `Translate`'s forward reference, so `param`'s `Quot.lift` case can build the
-    `Param` (hence the maps) of an arbitrary carrier — closing the `Translate`↔`Solver` cycle. -/
-initialize Trocq.Translate.carrierParamRef.set fun ty => return (← transfer ty (map4, map4)).1
+end
 
 end Trocq.Solver
