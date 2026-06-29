@@ -17,6 +17,20 @@ import Lean
 open Lean Lean.Meta
 namespace Trocq
 
+/-- install a registered witness in BOTH directions, keyed by head: the forward entry at `hA` always, and a
+    backward entry at the B-side head `hB?` only when it is present and DISTINCT from `hA`. A homogeneous head
+    (`hB? = none` or `some hA` — e.g. a polymorphic constructor `List.cons ↦ List.cons`) needs no backward
+    entry: its forward witness already serves both directions (it is polymorphic in the direction-carrying
+    relation), and a second entry under the same key would clobber it. The backward value is a thunk, run only
+    when actually inserted. This is the single home of the forward/backward + homogeneous-skip POLICY that the
+    solver (`buildAtoms`) and the translation (`buildCtx`) both consume; the value type `α` differs per map. -/
+def insertBidir {α} (m : NameMap α) (hA : Name) (hB? : Option Name)
+    (fwd : α) (bwd : MetaM α) : MetaM (NameMap α) := do
+  let m := m.insert hA fwd
+  match hB? with
+  | some hB => if hB == hA then return m else return m.insert hB (← bwd)
+  | none    => return m
+
 /-- read a `MapClass` constructor out of its `Expr`. -/
 def exprToMapClass (e : Expr) : MetaM MapClass := do
   match e.getAppFn.constName? with

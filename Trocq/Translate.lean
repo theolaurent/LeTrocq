@@ -303,36 +303,29 @@ def buildCtx (buildCarrier : Expr → MetaM Expr) : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
   let mut props := mkNameMap _
+  -- every BASE / TERM / PROP primitive installs in both directions via `insertBidir` (the shared
+  -- forward/backward + homogeneous-skip policy); the backward witness is the relevant `sym*`.
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB witName _ =>
         let wit ← mkConstWithFreshMVarLevels witName
-        types := types.insert hA (tyB, ← mkAppM ``Param.R #[wit])
-        types := types.insert hB (tyA, ← mkAppM ``Param.R #[← mkAppM ``Param.sym #[wit]])
+        types ← insertBidir types hA (some hB) (tyB, ← mkAppM ``Param.R #[wit])
+          (return (tyA, ← mkAppM ``Param.R #[← mkAppM ``Param.sym #[wit]]))
     | .term hA bTerm witName =>
+        -- the backward key is the B-side head (so a homogeneous constructor like `List.cons` is skipped).
         let wit ← mkConstWithFreshMVarLevels witName
-        terms := terms.insert hA (bTerm, wit)
-        -- backward map `c' ↦ c`: ONLY for a HETEROGENEOUS primitive (distinct heads, e.g. `Nat.succ ↦
-        -- Unary.s`). For a homogeneous one (a polymorphic constructor like `List.cons ↦ List.cons`) the
-        -- forward `wit` already serves both directions — it is polymorphic in the element relation, which
-        -- carries the direction — and a swapped entry under the SAME head would clobber it (and strip the
-        -- constructor's universe levels via the level-free `mkConst`).
-        if let some bHead := bTerm.constName? then
-          if bHead != hA then
-            terms := terms.insert bHead (← mkConstWithFreshMVarLevels hA, ← symPrimitive wit)
+        terms ← insertBidir terms hA bTerm.constName? (bTerm, wit)
+          (return (← mkConstWithFreshMVarLevels hA, ← symPrimitive wit))
+    | .propPrim hA hB witName =>
+        let wit ← mkConstWithFreshMVarLevels witName
+        props ← insertBidir props hA (some hB) (← mkConstWithFreshMVarLevels hB, wit)
+          (return (← mkConstWithFreshMVarLevels hA, ← symProp wit))
     | .typeFormer hA hB relName =>
         -- a parameterized type former `F`: `paramType` crosses `F a` via `(F', relFormer)`, where
         -- `relFormer a a' aR : F a → F' a' → Type` is applied by the `.app` rule's `mkApp3`. ONE entry
-        -- serves BOTH directions — the per-argument relation `aR` carries the direction and `relFormer`
-        -- is polymorphic in it (for a homogeneous `F`, `hB = hA`, so there is nothing extra to add).
+        -- serves BOTH directions (the per-argument relation `aR` carries the direction and `relFormer` is
+        -- polymorphic in it), so no `sym` exists to install — forward only.
         types := types.insert hA (← mkConstWithFreshMVarLevels hB, ← mkConstWithFreshMVarLevels relName)
-    | .propPrim hA hB witName =>
-        -- a PROP primitive (predicate) `p ↦ p'`: forward equivalence + the `Iff.symm`'d backward one (skip
-        -- the backward insert for a homogeneous predicate, exactly as for term primitives).
-        let wit ← mkConstWithFreshMVarLevels witName
-        props := props.insert hA (← mkConstWithFreshMVarLevels hB, wit)
-        if hB != hA then
-          props := props.insert hB (← mkConstWithFreshMVarLevels hA, ← symProp wit)
     | .relator .. => pure ()
   return { types, terms, props, buildCarrier }
 

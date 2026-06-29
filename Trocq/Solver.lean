@@ -187,8 +187,8 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
   for e in trocqEntries (← getEnv) do
     if let .base hA hB tyA tyB witName cls := e then
       let wit ← mkConstWithFreshMVarLevels witName
-      m := m.insert hA (tyB, wit, cls)
-      m := m.insert hB (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1))
+      m ← insertBidir m hA (some hB) (tyB, wit, cls)
+        (return (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1)))
   return m
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written), plus the
