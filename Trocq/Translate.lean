@@ -278,11 +278,9 @@ end
 def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Expr → MetaM Expr) :
     MetaM Expr := do
   forallTelescope (← inferType wit) fun xs _ => do
-    unless xs.size % 3 == 0 do
-      throwError "trocq: {what} is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
     let mut swapped : Array Expr := #[]
-    for j in [0 : xs.size / 3] do
-      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
+    for (a, a', aR) in ← chunkTriples what wit xs do
+      swapped := swapped.push a' |>.push a |>.push aR     -- swap the value pair, keep the relatedness
     k xs swapped
 
 /-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the

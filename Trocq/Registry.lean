@@ -31,6 +31,18 @@ def insertBidir {α} (m : NameMap α) (hA : Name) (hB? : Option Name)
   | some hB => if hB == hA then return m else return m.insert hB (← bwd)
   | none    => return m
 
+/-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
+    `(a, a', aR)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
+    (the error names `what`/`wit`) and return the triples in order. The single home of the `3·j` indexing
+    that the solver (`relatorArgKinds`) and the translation (`symPrimitive`/`symProp`) both walk. -/
+def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (Expr × Expr × Expr)) := do
+  unless xs.size % 3 == 0 do
+    throwError "trocq: {what} is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
+  let mut ts := #[]
+  for j in [0 : xs.size / 3] do
+    ts := ts.push (xs[3*j]!, xs[3*j+1]!, xs[3*j+2]!)
+  return ts
+
 /-- read a `MapClass` constructor out of its `Expr`. -/
 def exprToMapClass (e : Expr) : MetaM MapClass := do
   match e.getAppFn.constName? with

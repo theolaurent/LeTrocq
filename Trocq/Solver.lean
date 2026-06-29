@@ -66,12 +66,12 @@ inductive ArgKind
 
 def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
   forallTelescopeReducing (← inferType wit) fun bs _ => do
-    unless bs.size % 3 == 0 do
-      throwError "trocq: relator is not in abstraction-theorem triple form ({bs.size} binders): {wit}"
+    let triples ← chunkTriples "relator" wit bs
     let mut kinds : Array ArgKind := #[]
     let mut lastTypeIdx : Nat := 0
-    for j in [0 : bs.size / 3] do
-      let relTy ← inferType bs[3*j+2]!
+    for j in [0 : triples.size] do
+      let (aBinder, _, aR) := triples[j]!                 -- `(a, a', aR)`: the A-binder and the relatedness
+      let relTy ← inferType aR
       if relTy.getAppFn.isConstOf ``Param then
         let a := relTy.getAppArgs
         kinds := kinds.push (.type (← exprToMapClass a[0]!, ← exprToMapClass a[1]!))
@@ -85,13 +85,13 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
           else return none
         match fam? with
         | some cls =>
-            -- the family binder `B : A → _` names its domain `A`; find the TYPE-arg triple whose first
-            -- binder IS that `A` (so the right witness is used even if the family is not adjacent to it).
+            -- the family binder `B : A → _` names its domain `A`; find the TYPE-arg triple whose A-binder
+            -- IS that `A` (so the right witness is used even if the family is not adjacent to it).
             -- Fall back to the most recent type argument if `A` is not a bare earlier binder.
-            let domA := (← whnf (← inferType bs[3*j]!)).bindingDomain!
+            let domA := (← whnf (← inferType aBinder)).bindingDomain!
             let mut domIdx := lastTypeIdx
             for k in [0 : j] do
-              if bs[3*k]! == domA then domIdx := k
+              if triples[k]!.1 == domA then domIdx := k
             kinds := kinds.push (.family cls domIdx)
         | none => kinds := kinds.push .term
     return kinds
