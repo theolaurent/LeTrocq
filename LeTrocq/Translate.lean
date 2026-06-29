@@ -48,19 +48,30 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
+/-- re-instantiate a HOMOGENEOUS registration (B-side head = the occurrence head `c` — `List`/`Quot`/`PUnit`
+    and their constructors) at the OCCURRENCE's universe levels `lvls`. `Param` relates same-universe types, so
+    reusing `lvls` is sound — and it is what lets a UNIVERSE-POLYMORPHIC, content-free primitive like `PUnit`
+    get a CONCRETE B-side universe instead of an unpinned fresh one (nothing in the irrelevant `PUnit` would pin
+    a fresh mvar, so it would default to the wrong level). `side` is the B-side former/counterpart; `wit` its
+    relation/relatedness, re-leveled to `lvls` too when its universe arity matches (the witness is polymorphic
+    over the same universes, in order — a monomorphic witness keeps its fixed universes). A heterogeneous entry
+    (a BASE `Nat ↦ Unary`, whose two sides are different closed types) is returned unchanged. -/
+def relevelHomogeneous (c : Name) (lvls : List Level) (side wit : Expr) : MetaM (Expr × Expr) := do
+  unless side.getAppFn.constName? == some c do return (side, wit)
+  let wit ← match wit.getAppFn.constName? with
+    | some wn => if ((← getConstInfo wn).levelParams).length == lvls.length then pure (.const wn lvls)
+                 else pure wit
+    | none    => pure wit
+  return (.const c lvls, wit)
+
 mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
       -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.Std`), else unfold the definition.
+      -- A homogeneous former is re-leveled to the occurrence's universes (`relevelHomogeneous`).
       match ctx.types.find? c with
-      | some (B, rel) =>
-          -- HOMOGENEOUS former (B-side head = the occurrence head `c` — `List`/`Quot`/`PUnit`/…): rebuild the
-          -- B-side at the OCCURRENCE's levels. `Param` relates same-universe types, so this is sound, and it is
-          -- what gives a content-free former like `PUnit` a CONCRETE B-side universe — a fresh level mvar would
-          -- be left unpinned (nothing in the irrelevant `PUnit` constrains it) and default to the wrong level.
-          -- A heterogeneous entry (a BASE `Nat ↦ Unary`) keeps its stored closed B-side `B`.
-          if B.getAppFn.constName? == some c then return (.const c lvls, rel) else return (B, rel)
+      | some (B, rel) => relevelHomogeneous c lvls B rel
       | none =>
           let some val := (← getConstInfo c).value? | throwError "paramType: opaque/unregistered type {c}"
           paramType ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
@@ -122,9 +133,9 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | none => throwError "param: unbound variable"
   | .const c lvls => do
       -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.Std`), else unfold
-      -- the definition.
+      -- the definition. A homogeneous primitive is re-leveled to the occurrence's universes.
       match ctx.terms.find? c with
-      | some p => return p
+      | some (bTerm, wit) => relevelHomogeneous c lvls bTerm wit
       | none =>
           let some val := (← getConstInfo c).value? | throwError "param: opaque/unregistered constant {c}"
           param ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)

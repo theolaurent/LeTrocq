@@ -49,13 +49,17 @@ example : (translate% natDouble) (Unary.s (Unary.s Unary.z)) = Unary.s (Unary.s 
 
 /- NON-RECURSIVE `match`: a `match`-defined function compiles to an auto-generated matcher (built on
    `Nat.casesOn`, which unfolds to the registered `Nat.rec`); the matcher's dummy `PUnit` argument is handled
-   by a built-in trivial relation, so the whole thing transports to native `Unary` code and computes. -/
+   by the `@[trocq]`-registered trivial relation (`LeTrocq.Std.Unit`, universe-polymorphic — the driver reuses
+   the occurrence's level), so the whole thing transports to native `Unary` code and computes. -/
 def natPred : Nat → Nat
   | 0 => 0
   | n + 1 => n
 example : (translate% natPred) Unary.z = Unary.z := rfl
 example : (translate% natPred) (Unary.s Unary.z) = Unary.z := rfl
 example : (translate% natPred) (Unary.s (Unary.s Unary.z)) = Unary.s Unary.z := rfl
+/- the RELATEDNESS path crosses the `PUnit` dummy too (not just the `translate%` counterpart): `relate%` builds
+   the witness through `UnitR`/`UnitRel`, so this exercises the universe-polymorphic registration end to end. -/
+noncomputable def natPredRel := relate% natPred
 
 /- PARAMETERIZED TYPES: a `List Nat` rebuilds element-by-element as a `List Unary` (the type former `List`
    crosses via `ListR`, the constructors `nil`/`cons` are term primitives, the element numerals expand). -/

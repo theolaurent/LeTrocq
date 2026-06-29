@@ -6,24 +6,23 @@ so the native translation meets it whenever it crosses such a `match`. It regist
 type — NOT as a hardcoded kernel primitive: `UnitRel` is its parametricity relation (a TYPE FORMER, so
 `paramType` can cross `PUnit`) and `UnitR` is the relatedness of its unique element (a TERM primitive).
 
+Both are UNIVERSE-POLYMORPHIC (over the dummy's universe). The dummy's level is content-free — nothing in the
+irrelevant `PUnit` would pin a fresh level mvar — so the translation reuses the OCCURRENCE's level for a
+homogeneous former (`relevelHomogeneous` in `LeTrocq.Translate`); it does NOT need these pinned at a fixed
+universe. (`Unit` itself reduces to `PUnit.{1}`, so the translation always meets the dummy as `PUnit`.)
+
 Only the TRANSLATION (`translate%` / `relate%`) needs it — the dummy appears in TERM position, never as a goal
 type — so there is no `(4,4)` relator and nothing for the solver/tactic path.
 -/
 import LeTrocq.Attr
 namespace LeTrocq.Std
 
-/- The matcher dummy is always `Unit` (= `PUnit.{1}`, `Type 0`): a nullary constructor's field-product is
-   `Unit`, whatever the motive's universe. So these are MONOMORPHIC at `PUnit.{1}` — a universe-polymorphic
-   `UnitRel`/`UnitR` would leave the dummy's level unconstrained (nothing in the irrelevant `PUnit` pins it),
-   and the registration path (which can't reuse an occurrence's level) would then produce a counterpart at the
-   wrong universe. Pinning the level here keeps `Quot`/`PUnit` plain `@[trocq]` registrations — no driver
-   primitive table. (`Unit` itself reduces to `PUnit.{1}`, so the translation always meets it as `PUnit`.) -/
-
 /-- the parametricity relation of `PUnit`: the trivial relation, inhabited for ANY pair (the dummy is
-    irrelevant, so all that matters is that related dummies exist). A TYPE FORMER keyed by `PUnit`. -/
-@[trocq] def UnitRel (_a _b : PUnit.{1}) : Type := PUnit.{1}
+    irrelevant, so all that matters is that related dummies exist). A TYPE FORMER keyed by `PUnit`. One
+    universe `u` (both sides share it, as `Param (A B : Sort u)` does) so the driver can re-level it. -/
+@[trocq] def UnitRel.{u} (_a _b : PUnit.{u}) : Type := PUnit
 
 /-- `PUnit.unit` relates to itself, inhabiting the trivial relation. A TERM primitive keyed by `PUnit.unit`. -/
-@[trocq] def UnitR : UnitRel PUnit.unit.{1} PUnit.unit.{1} := PUnit.unit.{1}
+@[trocq] def UnitR.{u} : UnitRel.{u} PUnit.unit.{u} PUnit.unit.{u} := PUnit.unit
 
 end LeTrocq.Std
