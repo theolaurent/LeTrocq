@@ -1,10 +1,10 @@
 /- The native parametricity translation: `translate% t` rebuilds a term over `B` (here `Unary`). -/
 import Lean
-import Trocq.Tactic
+import LeTrocq.Tactic
 import Examples.NatUnary
 import Examples.DepParam
-namespace Trocq.Tests
-open Trocq Trocq.Translate Trocq.Std Trocq.Examples
+namespace LeTrocq.Tests
+open LeTrocq LeTrocq.Translate LeTrocq.Std LeTrocq.Examples
 
 /- `fun n => n.succ.succ` over `Nat` ⤳ the NATIVE `fun u => u.s.s` over `Unary` (not iso-conjugation). -/
 example : (translate% (fun n : Nat => Nat.succ (Nat.succ n))) Unary.z = Unary.s (Unary.s Unary.z) := rfl
@@ -130,4 +130,4 @@ example : (translate% gList) (Quot.mk _ ([Unary.z] : List Unary)) = Unary.s (Una
 def gpoly (A : Type) : Quot (fun _ _ : A => False) → A := Quot.lift (fun a => a) (fun _ _ h => h.elim)
 noncomputable def gpolyRelatedness := relate% gpoly
 
-end Trocq.Tests
+end LeTrocq.Tests

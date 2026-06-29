@@ -10,9 +10,9 @@ The ARROW construction: building `Param … (A→B) (A'→B')` from witnesses fo
 (The arrow stays over `Type u`; relating `Prop` *bodies* goes through `Forall`/the universe combinators,
 whose `Param` arguments are `Sort`-general.)
 -/
-import Trocq.Hierarchy
+import LeTrocq.Hierarchy
 universe u v
-namespace Trocq
+namespace LeTrocq
 open MapClass
 
 /- ===================== the arrow relation (= Mathlib `Relator.LiftFun`) ===================== -/
@@ -167,4 +167,4 @@ def paramArrow {A B A' B' : Type u} (m n : MapClass)
     ((pb.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl)) :
       Param (mapDepArrow n).2.2 (mapDepArrow n).2.1 B B')
 
-end Trocq
+end LeTrocq

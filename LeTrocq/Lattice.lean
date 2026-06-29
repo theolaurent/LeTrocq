@@ -1,12 +1,12 @@
 /-
 The lattice algebra + dependency tables + class solver.
 
-The computational spine of the graded system (the port of Trocq's `elpi/class.elpi` +
+The computational spine of the graded system (the port of LeTrocq's `elpi/class.elpi` +
 `elpi/constraints/constraint-graph.elpi`). Pure, finite, no proofs/metaprogramming — validated
 against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators (`Core`) and
 the driver (`Solver`) build on top of this.
 -/
-namespace Trocq
+namespace LeTrocq
 
 /- ===================== map-class lattice  (0 < 1 < {2a,2b} < 3 < 4) ===================== -/
 inductive MapClass | map0 | map1 | map2a | map2b | map3 | map4
@@ -141,4 +141,4 @@ def solve (nVars : Nat) (seeds : List (Var × ParamClass)) (cs : List Cstr) : Ar
     a := a'
   return a
 
-end Trocq
+end LeTrocq

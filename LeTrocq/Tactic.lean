@@ -16,13 +16,13 @@ Everything reads its registries from the `@[trocq]` environment extension; every
 in both directions (forward, and backward via `Param.sym`), so a goal/term over either side of an equivalence
 resolves by head match. Nothing here is tied to a particular base.
 -/
-import Trocq.Solver
-import Trocq.Translate
+import LeTrocq.Solver
+import LeTrocq.Translate
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
-namespace Trocq
+namespace LeTrocq
 
-open MapClass Trocq.Translate
+open MapClass LeTrocq.Translate
 
 /-- the carrier builder injected into `Translate`'s `Ctx`: build `Param (4,4) ty ty'` for any carrier `ty`
     (used by `param`'s `Quot.lift` case). This is the surface's half of the `param`↔`transfer` recursion. -/
@@ -62,4 +62,4 @@ elab "relate% " t:term : term => do
   let (_, eR) ← param (← buildCtx carrierBuilder) [] (← instantiateMVars e)
   instantiateMVars eR
 
-end Trocq
+end LeTrocq

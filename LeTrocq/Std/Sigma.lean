@@ -1,5 +1,5 @@
 /-
-The Trocq STANDARD LIBRARY: `Sigma` (Σ, the dependent pair).
+The LeTrocq STANDARD LIBRARY: `Sigma` (Σ, the dependent pair).
 
 This goes beyond `List`/`Option`: `Sigma` is parameterized by a type FAMILY `β : α → Type`, not just a type.
 That is exactly the case the parametricity translation is built for — and it needs no new machinery, because
@@ -18,9 +18,9 @@ It registers on BOTH surfaces, base-agnostically:
 
 (A non-prelude dependent example using the same family machinery — a W-type — lives in `Examples/DepParam`.)
 -/
-import Trocq.Attr
-namespace Trocq.Std
-open Trocq MapClass
+import LeTrocq.Attr
+namespace LeTrocq.Std
+open LeTrocq MapClass
 
 /-- two dependent pairs are related iff their first components are `RA`-related and, OVER that relatedness,
     their second components are `RB`-related. The family relation `RB` is what `param` produces for `β`. -/
@@ -88,4 +88,4 @@ theorem SigmaR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
       R_in_mapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
         (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
 
-end Trocq.Std
+end LeTrocq.Std

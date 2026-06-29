@@ -1,9 +1,9 @@
 /- The class lattice, dependency tables, and the solver (validated against the paper). -/
 import Lean
-import Trocq.Lattice
+import LeTrocq.Lattice
 open Lean Lean.Elab Lean.Elab.Command
-namespace Trocq.Tests
-open Trocq MapClass ParamClass
+namespace LeTrocq.Tests
+open LeTrocq MapClass ParamClass
 
 /- lattice: 2a and 2b are incomparable; join = 3, meet = 1 -/
 example : MapClass.join map2a map2b = map3 := rfl
@@ -77,4 +77,4 @@ example : depPi    (map2a, map0) = ((map0,map4),(map2a,map0)) := rfl   -- Π dom
 example : depType  (map0, map1)  = ParamClass.bot := rfl              -- no axiom ⇒ trivial sort relation
 example : depType  (map0, map2b) = ParamClass.top := rfl              -- 2b ⇒ univalence ⇒ top
 
-end Trocq.Tests
+end LeTrocq.Tests

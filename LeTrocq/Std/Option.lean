@@ -1,13 +1,13 @@
 /-
-The Trocq STANDARD LIBRARY: `Option`.
+The LeTrocq STANDARD LIBRARY: `Option`.
 
-The same recipe as `List` (see `Trocq.Std.List`), smaller — one constructor pair, no recursion. `OptionR` is
+The same recipe as `List` (see `LeTrocq.Std.List`), smaller — one constructor pair, no recursion. `OptionR` is
 the inductive parametricity relation (a TYPE FORMER), `OptionNoneR`/`OptionSomeR` are the constructor TERM
 primitives, and `paramOptionR` is the `(4,4)` relator for the solver/tactic path.
 -/
-import Trocq.Attr
-namespace Trocq.Std
-open Trocq MapClass
+import LeTrocq.Attr
+namespace LeTrocq.Std
+open LeTrocq MapClass
 
 @[trocq] inductive OptionR (A A' : Type) (R : A → A' → Type) : Option A → Option A' → Type
   | none : OptionR A A' R none none
@@ -48,4 +48,4 @@ theorem OptionR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y 
         | some aR => exact congrArg some (pa.contra.R_in_map _ _ aR)
       R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-end Trocq.Std
+end LeTrocq.Std

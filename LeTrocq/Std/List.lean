@@ -1,5 +1,5 @@
 /-
-The Trocq STANDARD LIBRARY: `List`.
+The LeTrocq STANDARD LIBRARY: `List`.
 
 A type CONSTRUCTOR `List : Type → Type` is a *relator*: its witness lifts a relation on elements to a
 relation on lists. Following the standard parametricity translation, that lifted relation is itself an
@@ -18,11 +18,11 @@ works for ANY element equivalence):
 
 This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
 only because `List` is part of Lean's prelude. Contrast `Quot` (a kernel primitive the driver knows
-intrinsically — see `Trocq.Core.Quot`).
+intrinsically — see `LeTrocq.Core.Quot`).
 -/
-import Trocq.Attr
-namespace Trocq.Std
-open Trocq MapClass
+import LeTrocq.Attr
+namespace LeTrocq.Std
+open LeTrocq MapClass
 
 /-- two lists are related iff they are cons-by-cons related: same length, corresponding elements `R`-related.
     This is the canonical relational interpretation of the inductive `List`. Its first three parameters
@@ -75,4 +75,4 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
         | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
       R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-end Trocq.Std
+end LeTrocq.Std

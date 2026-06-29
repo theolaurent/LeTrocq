@@ -1,9 +1,9 @@
 /- Graded dependent-Π family — `paramForall` over the `Nat ≃ Unary` base, now at every output class. -/
 import Lean
-import Trocq.Core.Forall
+import LeTrocq.Core.Forall
 import Examples.NatUnary
-namespace Trocq.Tests
-open Trocq MapClass Trocq.Examples
+namespace LeTrocq.Tests
+open LeTrocq MapClass LeTrocq.Examples
 
 /- A constant codomain family exercises the Π plumbing (the relatedness `raa` is still threaded
    through `pb`); the result is the (degenerate-dependent) function space. Forward map at (1,0): -/
@@ -34,7 +34,7 @@ example : pf44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 example : pf44.contra.map (fun u => u) 5 = 5 := rfl                                       -- backward transport
 example : ∀ f f' r, pf44.cov.map_in_R f f' (pf44.cov.R_in_map f f' r) = r := pf44.cov.R_in_mapK
 
-/-- info: 'Trocq.Tests.pf44' depends on axioms: [Quot.sound] -/
+/-- info: 'LeTrocq.Tests.pf44' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms pf44
 
 /- ===================== THE PAYOFF: a genuine `Prop`-valued dependent goal ===================== -/
@@ -51,4 +51,4 @@ def pfProp : Param map1 map0 (∀ n : Nat, 0 ≤ n) (∀ u : Unary, 0 ≤ Unary.
 /- transfer an actual PROOF: the `Unary` proposition is obtained from the `Nat` one via the witness. -/
 example : (∀ u : Unary, 0 ≤ Unary.toNat u) := pfProp.cov.map (fun n => Nat.zero_le n)
 
-end Trocq.Tests
+end LeTrocq.Tests

@@ -17,18 +17,18 @@ elaborates to the native term `t'`.
   ⟦fun x=>b⟧ = (fun x'=>b', fun x x' xR => bR)
   ⟦A → B⟧    = (A'→B', RArrow R_A R_B)                  -- as a TYPE: returns the relation
 -/
-import Trocq.Core
-import Trocq.Attr
+import LeTrocq.Core
+import LeTrocq.Attr
 import Lean
 open Lean Lean.Meta
-namespace Trocq.Translate
+namespace LeTrocq.Translate
 
 /-- registration: type primitives ↦ (B-type, relation `A→B→Type`); term primitives ↦ (B-term, relatedness);
     PROP primitives (predicates) ↦ (B-predicate, equivalence combinator `… → PLift (p a ↔ p' a')`).
 
     `buildCarrier` is the SOLVER's witness builder, INJECTED as data (not imported): `param`'s `Quot.lift`
     case calls it to obtain the `Param` (hence the MAPS) of an ARBITRARY carrier — not just a registered base.
-    `Translate` does not depend on `Solver`; the caller (`Trocq.Solver`/the surface elaborators) supplies
+    `Translate` does not depend on `Solver`; the caller (`LeTrocq.Solver`/the surface elaborators) supplies
     `fun ty => (transfer ty (4,4)).1` here. This is how the genuine `Translate`↔`Solver` mutual recursion is
     expressed WITHOUT a global mutable hook — see `AGENTS.md`. -/
 structure Ctx where
@@ -182,21 +182,21 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
         | _ => ctx.buildCarrier T
       let pa ← carrierParam A
       let pb ← carrierParam B
-      let h' ← mkAppM ``Trocq.quotLiftResp #[pa, pb, rR, fR, hresp]
+      let h' ← mkAppM ``LeTrocq.quotLiftResp #[pa, pb, rR, fR, hresp]
       let fn ← mkAppM ``Quot.lift #[f', h']   -- α'/r'/β' inferred from `f'`/`h'` (unifies the levels)
       if args.size == 6 then
         let (q', qR) ← param ctx env args[5]!
-        return (mkApp fn q', ← mkAppM ``Trocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', args[5]!, q', qR])
+        return (mkApp fn q', ← mkAppM ``LeTrocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', args[5]!, q', qR])
       else
         -- the function `Quot.lift f h : Quot r → β`: relatedness is `fun q q' qR => quotLiftRel … q q' qR`.
-        let quotRel ← mkAppM ``Trocq.QuotRel #[A, A', αR, r, r', rR]
+        let quotRel ← mkAppM ``LeTrocq.QuotRel #[A, A', αR, r, r', rR]
         let quotR ← mkAppM ``Quot #[r]
         let quotR' ← mkAppM ``Quot #[r']
         let rel ← withLocalDeclD `q quotR fun q =>
           withLocalDeclD `q' quotR' fun q' =>
             withLocalDeclD `qR (mkApp2 quotRel q q') fun qR => do
               mkLambdaFVars #[q, q', qR]
-                (← mkAppM ``Trocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', q, q', qR])
+                (← mkAppM ``LeTrocq.quotLiftRel #[pa, pb, rR, fR, hresp, h', q, q', qR])
         return (fn, rel)
   match e with
   | .fvar id => do
@@ -333,4 +333,4 @@ def buildCtx (buildCarrier : Expr → MetaM Expr) : MetaM Ctx := do
     | .relator .. => pure ()
   return { types, terms, props, buildCarrier }
 
-end Trocq.Translate
+end LeTrocq.Translate

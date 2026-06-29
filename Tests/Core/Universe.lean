@@ -1,8 +1,8 @@
 /- The universe construction: `paramType` at the no-univalence ceiling (2a,2a). -/
 import Lean
-import Trocq.Core.Universe
-namespace Trocq.Tests
-open Trocq MapClass
+import LeTrocq.Core.Universe
+namespace LeTrocq.Tests
+open LeTrocq MapClass
 
 /- the universe combinator: forward map = `id`, and `map_in_R` produces a real `Param`: -/
 example : paramType.cov.map = id := rfl
@@ -22,9 +22,9 @@ example : ((paramTypeAtInner map2a map2a map3 map3 rfl rfl).cov.map_in_R Nat Nat
 example : (paramTypeAtInner map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 
 /- the Type-universe combinators are genuinely axiom-free (2a needs no univalence). -/
-/-- info: 'Trocq.paramType' does not depend on any axioms -/
+/-- info: 'LeTrocq.paramType' does not depend on any axioms -/
 #guard_msgs in #print axioms paramType
-/-- info: 'Trocq.paramRefl' does not depend on any axioms -/
+/-- info: 'LeTrocq.paramRefl' does not depend on any axioms -/
 #guard_msgs in #print axioms paramRefl
 
 /- the PROP universe combinator reaches the FULL (4,4) — completeness via `propext`, coherence free by
@@ -32,7 +32,7 @@ example : (paramTypeAtInner map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 example : paramProp.cov.map = id := rfl
 example : ∀ P P' r, paramProp.cov.map_in_R P P' (paramProp.cov.R_in_map P P' r) = r := paramProp.cov.R_in_mapK
 example : (paramPropAt map2a map0).cov.map = id := rfl
-/-- info: 'Trocq.paramProp' depends on axioms: [propext] -/
+/-- info: 'LeTrocq.paramProp' depends on axioms: [propext] -/
 #guard_msgs in #print axioms paramProp
 
-end Trocq.Tests
+end LeTrocq.Tests

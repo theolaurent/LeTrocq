@@ -1,19 +1,19 @@
-name = "trocq"
-defaultTargets = ["Trocq"]
+name = "letrocq"
+defaultTargets = ["LeTrocq"]
 testDriver = "test"
 
 # Treat every Lean warning (linter hits, deprecations, …) as a hard error, for ALL targets — so a plain
 # `lake build` / `lake test` fails locally exactly as it does in CI.
 leanOptions = [{ name = "warningAsError", value = true }]
 
-# A Lean-native reformulation of Trocq (modular parametricity / proof transfer).
+# A Lean-native reformulation of LeTrocq (modular parametricity / proof transfer).
 # Self-contained — no external dependencies (only the Lean core `Lean` library).
 #
-#   lake build   — build the library (Trocq/)
+#   lake build   — build the library (LeTrocq/)
 #   lake test    — run the test suite (Tests/) ; fails on any regression
 
 [[lean_lib]]
-name = "Trocq"
+name = "LeTrocq"
 
 # `Examples/` — worked examples of USING the library (e.g. registering the `Nat ≃ Unary` base).
 # Not part of the library; the tests import it to exercise the driver against a real registered base.

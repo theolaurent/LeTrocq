@@ -15,9 +15,9 @@ proof `raa` for the backward map — the domain's backward map must be RELATED. 
 at output cov `2a`+ the domain is needed at `map4`; then `R_in_map` gives `bwd a' = a` (so `subst`
 transports the codomain fiber) and `Map4Has.subsingleton` identifies the two relatedness proofs.
 -/
-import Trocq.Hierarchy
+import LeTrocq.Hierarchy
 universe u w v vb
-namespace Trocq
+namespace LeTrocq
 open MapClass
 
 /- ===================== the dependent Π relation ===================== -/
@@ -196,4 +196,4 @@ def paramForall {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} (m n : M
         (by cases m <;> cases n <;> rfl) :
       Param (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')))
 
-end Trocq
+end LeTrocq

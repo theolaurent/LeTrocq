@@ -1,13 +1,13 @@
 /-
 The `@[trocq]` attribute + its environment extension.
 
-Tagging a constant `w` with `@[trocq]` classifies it immediately (via `Trocq.parseEntry`, reading `w`'s
+Tagging a constant `w` with `@[trocq]` classifies it immediately (via `LeTrocq.parseEntry`, reading `w`'s
 type) and stores the resulting `RegKind` in the extension. So a malformed witness is rejected right at
 the tag site, and the surfaces (`transfer%` / `trocq` / `translate%`) just read pre-parsed entries.
 -/
-import Trocq.Registry
+import LeTrocq.Registry
 open Lean Lean.Meta
-namespace Trocq
+namespace LeTrocq
 
 /-- the classified `@[trocq]` witnesses (bases / relators / term primitives). -/
 initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
@@ -18,7 +18,7 @@ initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
 
 initialize registerBuiltinAttribute {
   name  := `trocq
-  descr := "register a Trocq relatedness witness (base equivalence / relator / term primitive)"
+  descr := "register a LeTrocq relatedness witness (base equivalence / relator / term primitive)"
   add   := fun decl _stx _kind => do
     let entry ← (parseEntry decl).run'
     modifyEnv (trocqExt.addEntry · entry)
@@ -27,4 +27,4 @@ initialize registerBuiltinAttribute {
 /-- the classified witnesses registered in the given environment. -/
 def trocqEntries (env : Environment) : Array RegKind := trocqExt.getState env
 
-end Trocq
+end LeTrocq

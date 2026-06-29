@@ -1,10 +1,10 @@
 /- The user surface: the `transfer%` term elaborator and the `trocq` tactic. -/
 import Lean
-import Trocq.Tactic
+import LeTrocq.Tactic
 import Examples.NatUnary
 import Examples.DepParam
-namespace Trocq.Tests
-open Trocq MapClass Trocq.Std Trocq.Examples
+namespace LeTrocq.Tests
+open LeTrocq MapClass LeTrocq.Std LeTrocq.Examples
 
 /- `transfer%` exposes the relatedness witness; its forward map is native function transport over the
    registered `Nat ≃ Unary` base — and it COMPUTES: -/
@@ -180,4 +180,4 @@ example :
     (transfer% (Tw Nat Unary (fun _ : Nat => Nat))).cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩
       = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
 
-end Trocq.Tests
+end LeTrocq.Tests

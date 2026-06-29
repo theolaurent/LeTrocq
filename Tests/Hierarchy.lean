@@ -1,9 +1,9 @@
 /- The graded hierarchy + weakening (the ⇓ forget maps) over the `Nat ≃ Unary` base. -/
 import Lean
-import Trocq.Hierarchy
+import LeTrocq.Hierarchy
 import Examples.NatUnary
-namespace Trocq.Tests
-open Trocq MapClass Trocq.Examples
+namespace LeTrocq.Tests
+open LeTrocq MapClass LeTrocq.Examples
 
 /- the forgets COMPUTE: the forward map survives every downgrade, by `rfl`. -/
 example : (RN.toRetraction.cov).map = Unary.ofNat := rfl
@@ -33,7 +33,7 @@ example (n : Nat) (u : Unary) : Subsingleton (RNU n u) := RN.cov.subsingleton n 
 example (n : Nat) (u : Unary) (p q : RNU n u) : p = q := (RN.cov.subsingleton n u).allEq p q
 
 /- the registered base is axiom-free (the 4→3 collapse via proof irrelevance, no univalence). -/
-/-- info: 'Trocq.Examples.RN' does not depend on any axioms -/
+/-- info: 'LeTrocq.Examples.RN' does not depend on any axioms -/
 #guard_msgs in #print axioms RN
 
-end Trocq.Tests
+end LeTrocq.Tests

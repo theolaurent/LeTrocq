@@ -11,9 +11,9 @@ The whole diamond `0 < 1 < {2a,2b} < 3 < 4` is generated from six covering edges
   4 ⟶ 3 ⟶ 2a ⟶ 1 ⟶ 0   and   3 ⟶ 2b ⟶ 1
 so `weaken` is their composition along the (unique-up-to-confluence) path.
 -/
-import Trocq.Lattice
+import LeTrocq.Lattice
 universe u v
-namespace Trocq
+namespace LeTrocq
 
 /- ===================== the six graded records (over `Sort u`, so `Prop` fits too) ===================== -/
 -- All six are annotated at the UNIFORM universe `Sort (max u (v+1))`, so `MapHas` is bare (no `ULift`).
@@ -142,4 +142,4 @@ def toFunction   (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map1 .map0  A 
 def toRel        (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map0 .map0  A B := p.weaken rfl rfl
 end Param
 
-end Trocq
+end LeTrocq

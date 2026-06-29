@@ -7,14 +7,14 @@ exactly what `Lattice`'s `requiresAxiom`/`depType` encode.
 
 The relation a `Param_Type` *carries* between `A` and `A'` is itself a `Param p q A A'` — and that INNER
 class `(p,q)` is **independent** of the (capped) outer class: it just records how strongly the bound type
-variable is related, which is whatever the body demands. This is Trocq's `Map_Type` table. The inner
+variable is related, which is whatever the body demands. This is LeTrocq's `Map_Type` table. The inner
 witness is built by weakening the reflexive identity `paramRefl` (the identity IS an equivalence, so it
 exists at the top class) down to `(p,q)`. `paramTypeAtInner` is the general form; `paramType`/`paramTypeAt`
 are the `(1,1)`-inner specializations kept for the simple cases.
 -/
-import Trocq.Hierarchy
+import LeTrocq.Hierarchy
 universe u
-namespace Trocq
+namespace LeTrocq
 open MapClass
 
 /-- every class is ≤ the top class. -/
@@ -91,4 +91,4 @@ def paramProp : Param map4 map4 Prop Prop where
 def paramPropAt (m n : MapClass) : Param m n Prop Prop :=
   paramProp.weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
-end Trocq
+end LeTrocq

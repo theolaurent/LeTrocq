@@ -3,7 +3,7 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
 
   FRONT HALF (`gen` + `runSolve`):
     walk the type, assign a class `Var` to every node, emit the `Cstr` edges
-    (`depArrow`/`depPi`/`depType`/`gev` from `Lattice`), seed the root, and run `Trocq.solve`.
+    (`depArrow`/`depPi`/`depType`/`gev` from `Lattice`), seed the root, and run `LeTrocq.solve`.
     Output: the MINIMAL class each occurrence needs. Reproduces the paper's `∀A:Type, A→A`
     inference *from the actual Expr* (domain `Type` → (2a,0), bound `A` → (1,1)).
 
@@ -17,13 +17,13 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
 
 The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
-import Trocq.Core
-import Trocq.Attr
-import Trocq.Translate
+import LeTrocq.Core
+import LeTrocq.Attr
+import LeTrocq.Translate
 import Lean
 open Lean Lean.Meta
-namespace Trocq.Solver
-open Trocq MapClass
+namespace LeTrocq.Solver
+open LeTrocq MapClass
 
 /- ===================== constraint-generation state ===================== -/
 structure GenState where
@@ -205,7 +205,7 @@ def runSolve (e : Expr) (root : ParamClass) : MetaM (Shape × Array ParamClass) 
   let st ← IO.mkRef {}
   let shape ← gen (← buildAtoms) (← buildConsts) st e
   let s ← st.get
-  return (shape, Trocq.solve s.next [(shape.var, root)] s.cstrs.toList)
+  return (shape, LeTrocq.solve s.next [(shape.var, root)] s.cstrs.toList)
 
 /- ===================== back half: assemble the witness from combinators + weakening ===================== -/
 def classToExpr : MapClass → Expr
@@ -303,10 +303,10 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
           | none => throwError "assemble: binder {k} not in scope"
       let resolved ← scopeKeys.mapM resolve
       let asmFvarsArr := (resolved.map (·.1)).toArray
-      let transEnv : Trocq.Translate.Env := resolved.map (·.2)
+      let transEnv : LeTrocq.Translate.Env := resolved.map (·.2)
       -- inject the solver itself as `Translate`'s carrier builder: the genuine `param`↔`transfer` mutual
       -- recursion, passed as DATA (no global hook) — `param`'s `Quot.lift` case calls this for any carrier.
-      let ctx ← Trocq.Translate.buildCtx (fun ty => return (← transfer ty (map4, map4)).1)
+      let ctx ← LeTrocq.Translate.buildCtx (fun ty => return (← transfer ty (map4, map4)).1)
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
       let mut tyArgs := typeArgShapes            -- (Option Nat × Shape), consumed left-to-right per TYPE/FAMILY arg
       let mut argExprs : Array Expr := #[]
@@ -344,7 +344,7 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
                 return (← mkLambdaFVars #[a'] bside, ← mkLambdaFVars #[a, a', aR] bodyWit)
             argExprs := argExprs ++ #[arg, famB', pbWit]
         | .term =>                                         -- TERM arg: native counterpart + relatedness
-            let (a', aR) ← Trocq.Translate.param ctx transEnv arg
+            let (a', aR) ← LeTrocq.Translate.param ctx transEnv arg
             argExprs := argExprs ++ #[arg, a', aR]
       weakenTo req relClass (mkAppN relator argExprs)
 
@@ -361,4 +361,4 @@ partial def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Ar
   return (← instantiateMVars wit, shape, sol)
 end
 
-end Trocq.Solver
+end LeTrocq.Solver

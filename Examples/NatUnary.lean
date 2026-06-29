@@ -1,7 +1,7 @@
 /-
 The worked example: register the base equivalence `Nat ≃ Unary` and a few operations over it.
 
-This is NOT part of the `Trocq` library — it is what a *user* writes: define your types, prove the
+This is NOT part of the `LeTrocq` library — it is what a *user* writes: define your types, prove the
 relatedness witnesses, tag them `@[trocq]`, and the driver (`transfer%` / `trocq` / `translate%`) picks
 them up from the environment extension. The tests import this module to exercise the machinery.
 
@@ -9,9 +9,9 @@ them up from the environment extension. The tests import this module to exercise
   • `R0`/`Rsucc` : term primitives `Nat.zero ↦ Unary.z`, `Nat.succ ↦ Unary.s`  (for `translate%`)
   • `PosR`   : a relator for the predicate `Pos`                (for the generic `app` rule)
 -/
-import Trocq
-namespace Trocq.Examples
-open Trocq MapClass
+import LeTrocq
+namespace LeTrocq.Examples
+open LeTrocq MapClass
 
 /- ===================== the base type and its conversions ===================== -/
 inductive Unary | z | s (n : Unary) deriving Repr
@@ -74,4 +74,4 @@ def Pos' (n : Nat)   : Prop := 0 ≤ n
   cov    := { map := fun h => by unfold Pos at h; unfold Pos'; have := uR.down; omega }
   contra := { map := fun h => by unfold Pos' at h; unfold Pos;  have := uR.down; omega }
 
-end Trocq.Examples
+end LeTrocq.Examples

@@ -12,8 +12,8 @@ relation". The parametricity relation is the standard one (related classes have 
 stated EXISTENTIALLY so it is automatically well-defined on both quotients and is `Prop`-truncated (hence a
 subsingleton, making the `(4,4)` coherence free).
 -/
-import Trocq.Hierarchy
-namespace Trocq
+import LeTrocq.Hierarchy
+namespace LeTrocq
 open MapClass
 
 /-- the parametricity relation of `Quot`: related classes have `RA`-related representatives. Existential, so
@@ -73,7 +73,7 @@ noncomputable def paramQuotR (A A' : Type) (pa : Param map4 map4 A A')
    Because `h'` is built from `pa`/`pb`, the lift's COUNTERPART depends on those equivalences. For a CONCRETE
    carrier they are closed (solver-built), so `translate%` rebuilds the lift. For a TYPE-VARIABLE carrier they
    are relatedness binders, so only `relate%` (which has them in scope) works — `translate%`'s pure B-side
-   counterpart cannot exist. See the ⚠ note at the `Quot.lift` case in `Trocq.Translate`. -/
+   counterpart cannot exist. See the ⚠ note at the `Quot.lift` case in `LeTrocq.Translate`. -/
 theorem quotLiftResp {A A' B B' : Type} (pa : Param map4 map4 A A') (pb : Param map4 map4 B B')
     {r : A → A → Prop} {r' : A' → A' → Prop} {f : A → B} {f' : A' → B'}
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b'))
@@ -100,4 +100,4 @@ noncomputable def quotLiftRel {A A' B B' : Type} (pa : Param map4 map4 A A') (pb
     obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := qR.down; subst ha; subst ha'
     exact ⟨fR a a' aR⟩)
 
-end Trocq
+end LeTrocq

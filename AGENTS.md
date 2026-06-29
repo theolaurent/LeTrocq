@@ -1,4 +1,4 @@
-# Instructions for AI agents working on Trocq
+# Instructions for AI agents working on LeTrocq
 
 ## HARD RULE: never use side effects to dodge a language restriction
 
@@ -15,10 +15,10 @@ Either way the dependency must be **explicit in a type signature**, never hidden
 
 Precedent: the `Translate`↔`Solver` mutual recursion (for `Quot.lift` over an arbitrary carrier) was once a
 global `carrierParamRef : IO.Ref`. It is now injected as `Ctx.buildCarrier : Expr → MetaM Expr` — see
-`Trocq/Translate.lean`, `Trocq/Solver.lean`, `Trocq/Tactic.lean`. Don't regress it.
+`LeTrocq/Translate.lean`, `LeTrocq/Solver.lean`, `LeTrocq/Tactic.lean`. Don't regress it.
 
 ## Build / test
 
 - `lake build` — warnings are errors.
-- `lake test` — also runs the axiom-footprint guard (`Trocq.*` may use only `propext`/`Classical.choice`/
+- `lake test` — also runs the axiom-footprint guard (`LeTrocq.*` may use only `propext`/`Classical.choice`/
   `Quot.sound`; a stray `sorry` or new axiom fails the build). Don't weaken the guard to make something pass.

@@ -12,10 +12,10 @@ A tagged constant `w` is one of four kinds, read off the conclusion of its (tele
 The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The
 `@[trocq]` attribute (`Attr.lean`) runs `parseEntry` eagerly and stores the resulting `RegKind`.
 -/
-import Trocq.Core
+import LeTrocq.Core
 import Lean
 open Lean Lean.Meta
-namespace Trocq
+namespace LeTrocq
 
 /-- install a registered witness in BOTH directions, keyed by head: the forward entry at `hA` always, and a
     backward entry at the B-side head `hB?` only when it is present and DISTINCT from `hA`. A homogeneous head
@@ -102,4 +102,4 @@ def parseEntry (w : Name) : MetaM RegKind := do
         return .term hA args[args.size - 1]!.getAppFn w
       else throwError "trocq: cannot classify {w} : {← inferType wit}"
 
-end Trocq
+end LeTrocq

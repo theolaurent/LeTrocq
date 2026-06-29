@@ -1,9 +1,9 @@
 /- The arrow construction: sample combinators + the graded `paramArrow`, over the `Nat ≃ Unary` base. -/
 import Lean
-import Trocq.Core.Arrow
+import LeTrocq.Core.Arrow
 import Examples.NatUnary
-namespace Trocq.Tests
-open Trocq MapClass Trocq.Examples
+namespace LeTrocq.Tests
+open LeTrocq MapClass LeTrocq.Examples
 
 /- ===================== sample combinators (fixed classes) ===================== -/
 def RN33 : Param map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
@@ -21,7 +21,7 @@ example : arrowNU.cov.map (fun n => n + 2) Unary.z = Unary.s (Unary.s Unary.z) :
 example : arrowNU_fun.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /- the minimal-class arrow gives the backward map (here: backward transport of `id`): -/
 example : arrowNU_low.contra.map (fun u => u) 5 = 5 := rfl
-/-- info: 'Trocq.paramArrow33' depends on axioms: [Quot.sound] -/
+/-- info: 'LeTrocq.paramArrow33' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms paramArrow33
 
 /- ===================== the graded family at several output classes (incl. (4,4)) ===================== -/
@@ -52,7 +52,7 @@ def arr2b : Param map2b map0 (Nat → Nat) (Unary → Unary) :=
   paramArrow map2b map0 (RN.weaken rfl rfl) (RN.weaken rfl rfl)
 example : arr2b.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 
-/-- info: 'Trocq.Tests.arr44' depends on axioms: [Quot.sound] -/
+/-- info: 'LeTrocq.Tests.arr44' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms arr44
 
-end Trocq.Tests
+end LeTrocq.Tests
