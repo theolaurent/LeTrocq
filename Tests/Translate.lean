@@ -4,7 +4,7 @@ import LeTrocq.Tactic
 import Examples.NatUnary
 import Examples.DepParam
 namespace LeTrocq.Tests
-open LeTrocq LeTrocq.Translate LeTrocq.Std LeTrocq.Examples
+open LeTrocq LeTrocq.Translate LeTrocq.ParamLib LeTrocq.Examples
 
 /- `fun n => n.succ.succ` over `Nat` ⤳ the NATIVE `fun u => u.s.s` over `Unary` (not iso-conjugation). -/
 example : (translate% (fun n : Nat => Nat.succ (Nat.succ n))) Unary.z = Unary.s (Unary.s Unary.z) := rfl
@@ -49,7 +49,7 @@ example : (translate% natDouble) (Unary.s (Unary.s Unary.z)) = Unary.s (Unary.s 
 
 /- NON-RECURSIVE `match`: a `match`-defined function compiles to an auto-generated matcher (built on
    `Nat.casesOn`, which unfolds to the registered `Nat.rec`); the matcher's dummy `PUnit` argument is handled
-   by the `@[trocq]`-registered trivial relation (`LeTrocq.Std.Unit`, universe-polymorphic — the driver reuses
+   by the `@[trocq]`-registered trivial relation (`LeTrocq.ParamLib.Unit`, universe-polymorphic — the driver reuses
    the occurrence's level), so the whole thing transports to native `Unary` code and computes. -/
 def natPred : Nat → Nat
   | 0 => 0

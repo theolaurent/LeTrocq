@@ -19,7 +19,7 @@ It registers on BOTH surfaces, base-agnostically:
 (A non-prelude dependent example using the same family machinery — a W-type — lives in `Examples/DepParam`.)
 -/
 import LeTrocq.Attr
-namespace LeTrocq.Std
+namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 
 /-- two dependent pairs are related iff their first components are `RA`-related and, OVER that relatedness,
@@ -88,4 +88,4 @@ theorem SigmaR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
       R_in_mapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
         (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
 
-end LeTrocq.Std
+end LeTrocq.ParamLib

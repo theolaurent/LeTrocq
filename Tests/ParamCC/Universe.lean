@@ -1,6 +1,6 @@
 /- The universe construction: `paramType` at the no-univalence ceiling (2a,2a). -/
 import Lean
-import LeTrocq.Core.Universe
+import LeTrocq.ParamCC.Universe
 namespace LeTrocq.Tests
 open LeTrocq MapClass
 

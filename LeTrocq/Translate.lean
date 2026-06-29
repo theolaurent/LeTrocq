@@ -17,7 +17,7 @@ elaborates to the native term `t'`.
   ⟦fun x=>b⟧ = (fun x'=>b', fun x x' xR => bR)
   ⟦A → B⟧    = (A'→B', RArrow R_A R_B)                  -- as a TYPE: returns the relation
 -/
-import LeTrocq.Core
+import LeTrocq.ParamCC
 import LeTrocq.Attr
 import Lean
 open Lean Lean.Meta
@@ -68,7 +68,7 @@ mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
-      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.Std`), else unfold the definition.
+      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.ParamLib`), else unfold the definition.
       -- A homogeneous former is re-leveled to the occurrence's universes (`relevelHomogeneous`).
       match ctx.types.find? c with
       | some (B, rel) => relevelHomogeneous c lvls B rel
@@ -132,7 +132,7 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | some (_, x', xR) => return (x', xR)
       | none => throwError "param: unbound variable"
   | .const c lvls => do
-      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.Std`), else unfold
+      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.ParamLib`), else unfold
       -- the definition. A homogeneous primitive is re-leveled to the occurrence's universes.
       match ctx.terms.find? c with
       | some (bTerm, wit) => relevelHomogeneous c lvls bTerm wit

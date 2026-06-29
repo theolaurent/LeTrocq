@@ -1,6 +1,6 @@
 /- Graded dependent-Π family — `paramForall` over the `Nat ≃ Unary` base, now at every output class. -/
 import Lean
-import LeTrocq.Core.Forall
+import LeTrocq.ParamCC.Forall
 import Examples.NatUnary
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Examples

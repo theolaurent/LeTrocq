@@ -4,7 +4,7 @@ import LeTrocq.Tactic
 import Examples.NatUnary
 import Examples.DepParam
 namespace LeTrocq.Tests
-open LeTrocq MapClass LeTrocq.Std LeTrocq.Examples
+open LeTrocq MapClass LeTrocq.ParamLib LeTrocq.Examples
 
 /- `transfer%` exposes the relatedness witness; its forward map is native function transport over the
    registered `Nat ≃ Unary` base — and it COMPUTES: -/

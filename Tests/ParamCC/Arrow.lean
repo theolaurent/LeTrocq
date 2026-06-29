@@ -1,6 +1,6 @@
 /- The arrow construction: sample combinators + the graded `paramArrow`, over the `Nat ≃ Unary` base. -/
 import Lean
-import LeTrocq.Core.Arrow
+import LeTrocq.ParamCC.Arrow
 import Examples.NatUnary
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Examples

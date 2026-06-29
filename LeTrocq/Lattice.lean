@@ -3,7 +3,7 @@ The lattice algebra + dependency tables + class solver.
 
 The computational spine of the graded system (the port of LeTrocq's `elpi/class.elpi` +
 `elpi/constraints/constraint-graph.elpi`). Pure, finite, no proofs/metaprogramming — validated
-against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators (`Core`) and
+against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators (`ParamCC`) and
 the driver (`Solver`) build on top of this.
 -/
 namespace LeTrocq

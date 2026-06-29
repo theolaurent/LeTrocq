@@ -18,7 +18,7 @@ Either way the dependency must be **explicit in a type signature**, never hidden
 Don't hardcode a universe level (`Type`, `Sort 1`, `.{0}`, `PUnit.{1}`, …) just to make something typecheck.
 Write definitions polymorphic over their universes (`Sort u` / auto-bound levels) so they apply at every
 level. If a generic mechanism can't carry the level (e.g. the translation reusing an occurrence's universe),
-fix the **mechanism**, not the definition. Precedent: `LeTrocq.Std.Unit`'s `UnitRel`/`UnitR` are universe-
+fix the **mechanism**, not the definition. Precedent: `LeTrocq.ParamLib.Unit`'s `UnitRel`/`UnitR` are universe-
 polymorphic; the driver reuses the occurrence's levels for homogeneous formers (`relevelHomogeneous` in
 `LeTrocq/Translate.lean`) rather than pinning `PUnit` at a fixed universe.
 

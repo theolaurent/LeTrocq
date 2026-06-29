@@ -21,7 +21,7 @@ subsingleton, making the `(4,4)` coherence free).
 (`Quot.lift`, the eliminator, is not supported — see the `Quot.lift` note in `LeTrocq.Translate`.)
 -/
 import LeTrocq.Attr
-namespace LeTrocq.Std
+namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 
 /-- the parametricity relation of `Quot`: related classes have `RA`-related representatives. Existential, so
@@ -75,4 +75,4 @@ open LeTrocq MapClass
         rw [pa.contra.R_in_map a' a aR]
       R_in_mapK := fun _ _ _ => rfl }
 
-end LeTrocq.Std
+end LeTrocq.ParamLib

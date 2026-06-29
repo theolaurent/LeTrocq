@@ -1,7 +1,7 @@
 /-
 A registered DEPENDENT parameterized type that is NOT in Lean's prelude: a W-type `WTree`.
 
-The prelude dependent pair `Sigma` ships with the library (`LeTrocq.Std.Sigma`); this file is the worked
+The prelude dependent pair `Sigma` ships with the library (`LeTrocq.ParamLib.Sigma`); this file is the worked
 EXAMPLE showing the same type-FAMILY relator machinery applies to a user's own inductive. `WTree A B` is a
 well-founded tree — a label `a : A` and `B a`-many subtrees — and like `Sigma` it is parameterized by a type
 family `B : A → Type`, handled by `param`'s λ-rule (which turns `B` into the related family `(B', RB)`).
@@ -16,7 +16,7 @@ It registers on BOTH surfaces, base-agnostically (the tests instantiate at `Nat 
 -/
 import LeTrocq
 namespace LeTrocq.Examples
-open LeTrocq LeTrocq.Std MapClass
+open LeTrocq LeTrocq.ParamLib MapClass
 
 /- ===================== a W-type (well-founded trees: a label `a : A` and `B a`-many subtrees) ===================== -/
 inductive WTree (A : Type) (B : A → Type) : Type
@@ -150,7 +150,7 @@ end
    `Tw` carries a phantom type parameter `C` BETWEEN the family's domain `A` and the family `B`. The relator
    framework reads `B`'s domain off its own binder type (`A`, the FIRST type arg), not "the preceding type
    arg" (`C`), so the right witness is used. `Tw A C B` is just `Sigma B`, so its relator IS the standard
-   library's `paramSigmaR` (`LeTrocq.Std`). -/
+   library's `paramSigmaR` (`LeTrocq.ParamLib`). -/
 def Tw (A _C : Type) (B : A → Type) : Type := Sigma B
 
 @[trocq] noncomputable def paramTwR (A A' : Type) (pa : Param map4 map4 A A')

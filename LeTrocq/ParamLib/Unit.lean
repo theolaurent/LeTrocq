@@ -15,7 +15,7 @@ Only the TRANSLATION (`translate%` / `relate%`) needs it — the dummy appears i
 type — so there is no `(4,4)` relator and nothing for the solver/tactic path.
 -/
 import LeTrocq.Attr
-namespace LeTrocq.Std
+namespace LeTrocq.ParamLib
 
 /-- the parametricity relation of `PUnit`: the trivial relation, inhabited for ANY pair (the dummy is
     irrelevant, so all that matters is that related dummies exist). A TYPE FORMER keyed by `PUnit`. One
@@ -25,4 +25,4 @@ namespace LeTrocq.Std
 /-- `PUnit.unit` relates to itself, inhabiting the trivial relation. A TERM primitive keyed by `PUnit.unit`. -/
 @[trocq] def UnitR.{u} : UnitRel.{u} PUnit.unit.{u} PUnit.unit.{u} := PUnit.unit
 
-end LeTrocq.Std
+end LeTrocq.ParamLib

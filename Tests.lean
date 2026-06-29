@@ -7,9 +7,9 @@ regression fails the build and hence `lake test`. `main` only runs if everything
 -/
 import Tests.Lattice
 import Tests.Hierarchy
-import Tests.Core.Arrow
-import Tests.Core.Forall
-import Tests.Core.Universe
+import Tests.ParamCC.Arrow
+import Tests.ParamCC.Forall
+import Tests.ParamCC.Universe
 import Tests.Solver
 import Tests.Tactic
 import Tests.Translate

@@ -12,7 +12,7 @@ A tagged constant `w` is one of four kinds, read off the conclusion of its (tele
 The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The
 `@[trocq]` attribute (`Attr.lean`) runs `parseEntry` eagerly and stores the resulting `RegKind`.
 -/
-import LeTrocq.Core
+import LeTrocq.ParamCC
 import Lean
 open Lean Lean.Meta
 namespace LeTrocq

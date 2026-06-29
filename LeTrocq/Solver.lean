@@ -17,7 +17,7 @@ THE DRIVER: solver-directed witness assembly. Two passes over a type `Expr`.
 
 The registered bases / relators come from the `@[trocq]` extension (`buildAtoms`/`buildConsts`).
 -/
-import LeTrocq.Core
+import LeTrocq.ParamCC
 import LeTrocq.Attr
 import LeTrocq.Translate
 import Lean
@@ -192,7 +192,7 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
   return m
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
-    prelude `Quot` relator (`LeTrocq.Std.paramQuotR`), which registers like any other — not a built-in. -/
+    prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotR`), which registers like any other — not a built-in. -/
 def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do

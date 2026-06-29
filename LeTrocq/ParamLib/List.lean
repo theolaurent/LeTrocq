@@ -18,10 +18,10 @@ works for ANY element equivalence):
 
 This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
 only because `List` is part of Lean's prelude — exactly like the kernel constants `Quot`/`PUnit`, which are
-themselves ordinary `@[trocq]` registrations now (see `LeTrocq.Std.Quot`/`LeTrocq.Std.Unit`).
+themselves ordinary `@[trocq]` registrations now (see `LeTrocq.ParamLib.Quot`/`LeTrocq.ParamLib.Unit`).
 -/
 import LeTrocq.Attr
-namespace LeTrocq.Std
+namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 
 /-- two lists are related iff they are cons-by-cons related: same length, corresponding elements `R`-related.
@@ -75,4 +75,4 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
         | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
       R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-end LeTrocq.Std
+end LeTrocq.ParamLib
