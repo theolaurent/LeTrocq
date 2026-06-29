@@ -9,8 +9,6 @@ The USER SURFACE: the four elaborators/tactics, on top of the driver (`Solver` +
     and refines `G` by the backward transport `G' → G`, leaving you to prove `G'`.
 
   • `translate% t`  ⤳ the native `B`-side counterpart `t'`; `relate% t` ⤳ its relatedness `tR : ⟦T⟧ t t'`.
-    These live HERE (not in `Translate`) because they hand `Translate.param` the solver's carrier builder
-    (`Solver.transfer`) via `Ctx` — so `Translate` need not depend on `Solver`. See `AGENTS.md`.
 
 Everything reads its registries from the `@[trocq]` environment extension; every registered base is available
 in both directions (forward, and backward via `Param.sym`), so a goal/term over either side of an equivalence
@@ -23,10 +21,6 @@ open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 namespace LeTrocq
 
 open MapClass LeTrocq.Translate
-
-/-- the carrier builder injected into `Translate`'s `Ctx`: build `Param (4,4) ty ty'` for any carrier `ty`
-    (used by `param`'s `Quot.lift` case). This is the surface's half of the `param`↔`transfer` recursion. -/
-def carrierBuilder (ty : Expr) : MetaM Expr := return (← Solver.transfer ty (map4, map4)).1
 
 /-- `transfer% T` ⤳ the relatedness witness `Param (4,4) T T'` (`T` a type over a registered base). -/
 elab "transfer% " t:term : term => do
@@ -52,14 +46,14 @@ elab "trocq" : tactic => do
 elab "translate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   synthesizeSyntheticMVarsNoPostponing
-  let (e', _) ← param (← buildCtx carrierBuilder) [] (← instantiateMVars e)
+  let (e', _) ← param (← buildCtx) [] (← instantiateMVars e)
   instantiateMVars e'
 
 /-- `relate% t` ⤳ the relatedness `tR : ⟦T⟧ t t'` — the proof the native counterpart is correct. -/
 elab "relate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   synthesizeSyntheticMVarsNoPostponing
-  let (_, eR) ← param (← buildCtx carrierBuilder) [] (← instantiateMVars e)
+  let (_, eR) ← param (← buildCtx) [] (← instantiateMVars e)
   instantiateMVars eR
 
 end LeTrocq

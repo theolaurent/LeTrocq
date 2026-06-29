@@ -18,6 +18,8 @@ import Tests.Translate
    and the named test witnesses, all in scope here since this is the test root — may depend ONLY on the three
    standard axioms `propext` / `Classical.choice` / `Quot.sound`. A stray `sorry`/`admit` adds `sorryAx`, and
    any new axiom adds itself; either fails this check, which runs at build time (so `lake test`/CI enforce it).
+   (`Classical.choice` enters only through Lean's auto-generated structure boilerplate, e.g. `*.noConfusion` —
+   no hand-written `LeTrocq.*` declaration uses it.)
    (`example … := rfl` checks separately guard the computational facts, which a `sorry` couldn't satisfy.) -/
 run_cmd Lean.Elab.Command.liftCoreM do
   let allowed : List Lean.Name := [``propext, ``Classical.choice, ``Quot.sound]

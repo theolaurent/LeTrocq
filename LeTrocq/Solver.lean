@@ -230,10 +230,6 @@ def mkUniv (req inner : ParamClass) : MetaM Expr := do
   mkAppM ``paramTypeAtInner #[classToExpr req.1, classToExpr req.2, classToExpr inner.1,
     classToExpr inner.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
 
--- `assemble` and `transfer` are genuinely MUTUALLY recursive: `transfer` runs `assemble`, and `assemble`'s
--- application node feeds `param`'s `Quot.lift` case a carrier builder that calls `transfer`. Expressed as a
--- real `mutual` block (no global mutable hook); `Translate.param` receives `transfer` injected via `Ctx`.
-mutual
 /-- assemble a witness AT the requested class `req`, dispatching each former to its graded combinator
     and asking each part only at the `dep*`-minimal class it needs — no over-provisioning.
     `env` maps a Π-binder's class var to its bound type variable's `(A, A', aR)` (source/target type +
@@ -294,19 +290,17 @@ partial def assemble (atoms : NameMap (Expr × Expr × ParamClass)) (consts : Na
       let some (relator, relClass) := consts.find? head | throwError "assemble: constant {head} not registered"
       let kinds ← relatorArgKinds relator
       -- resolve each in-scope binder to (its source fvar, its translation-`env` entry).
-      let resolve (k : Nat) : MetaM (Expr × (FVarId × Expr × Expr × Option Expr)) := do
+      let resolve (k : Nat) : MetaM (Expr × (FVarId × Expr × Expr)) := do
         match termEnv.find? (·.1 == k) with
-        | some (_, x, x', xR) => return (x, (x.fvarId!, x', xR, none))
+        | some (_, x, x', xR) => return (x, (x.fvarId!, x', xR))
         | none => match env.find? (·.1 == k) with
-          -- a TYPE binder: pass both its relation and its full `Param` `aR` (the latter for `Quot.lift`).
-          | some (_, A, A', aR) => return (A, (A.fvarId!, A', ← mkAppM ``Param.R #[aR], some aR))
+          -- a TYPE binder: pass its parametricity relation `Param.R aR`.
+          | some (_, A, A', aR) => return (A, (A.fvarId!, A', ← mkAppM ``Param.R #[aR]))
           | none => throwError "assemble: binder {k} not in scope"
       let resolved ← scopeKeys.mapM resolve
       let asmFvarsArr := (resolved.map (·.1)).toArray
       let transEnv : LeTrocq.Translate.Env := resolved.map (·.2)
-      -- inject the solver itself as `Translate`'s carrier builder: the genuine `param`↔`transfer` mutual
-      -- recursion, passed as DATA (no global hook) — `param`'s `Quot.lift` case calls this for any carrier.
-      let ctx ← LeTrocq.Translate.buildCtx (fun ty => return (← transfer ty (map4, map4)).1)
+      let ctx ← LeTrocq.Translate.buildCtx
       let args := argClosures.map (·.instantiateRev asmFvarsArr)
       let mut tyArgs := typeArgShapes            -- (Option Nat × Shape), consumed left-to-right per TYPE/FAMILY arg
       let mut argExprs : Array Expr := #[]
@@ -359,6 +353,5 @@ partial def transfer (e : Expr) (root : ParamClass) : MetaM (Expr × Shape × Ar
   for mid in st.result do
     unless (← isLevelMVarAssigned mid) do assignLevelMVar mid levelZero
   return (← instantiateMVars wit, shape, sol)
-end
 
 end LeTrocq.Solver

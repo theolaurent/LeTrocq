@@ -13,10 +13,6 @@ For genuine mutual recursion, use one of:
 Either way the dependency must be **explicit in a type signature**, never hidden behind a global side effect
 (which adds init-order coupling, hides the call graph, and turns a compile-time guarantee into a runtime one).
 
-Precedent: the `Translate`↔`Solver` mutual recursion (for `Quot.lift` over an arbitrary carrier) was once a
-global `carrierParamRef : IO.Ref`. It is now injected as `Ctx.buildCarrier : Expr → MetaM Expr` — see
-`LeTrocq/Translate.lean`, `LeTrocq/Solver.lean`, `LeTrocq/Tactic.lean`. Don't regress it.
-
 ## Build / test
 
 - `lake build` — warnings are errors.
