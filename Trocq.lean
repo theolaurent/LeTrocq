@@ -13,8 +13,6 @@ The library, module by module (each builds on the previous):
   • `Trocq.Translate`   — the native parametricity translation: `translate% t` rebuilds a term over `B`.
   • `Trocq.Std`         — the standard library: `@[trocq]` registrations for prelude parameterized types
                            (`List`, `Option`, `Sigma`), so `import Trocq` gives transfer over them out of the box.
-
-See `STATUS.md` for current progress and `lean-port-design.md` for the design rationale.
 -/
 import Trocq.Lattice
 import Trocq.Hierarchy

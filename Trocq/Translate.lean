@@ -154,12 +154,12 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
     let args := e.getAppArgs
     if args.size == 5 || args.size == 6 then
       let A := args[0]!; let r := args[1]!; let B := args[2]!; let f := args[3]!; let hresp := args[4]!
-      let (A', αR) ← (do let (A', αR) ← paramType ctx env A; pure (A', ← zeroResidualLevels αR))
+      let (A', αR) ← paramType ctx env A
       let (r', rR) ← param ctx env r
       let (f', fR) ← param ctx env f
       -- translate's relations carry fresh universe mvars; the solver builds the carriers' `Param`s (hence
       -- MAPS) at concrete level 0 for ANY carrier. Zero translate's residual levels too so they agree.
-      let (rR, fR) := (← zeroResidualLevels rR, ← zeroResidualLevels fR)
+      let (αR, rR, fR) := (← zeroResidualLevels αR, ← zeroResidualLevels rR, ← zeroResidualLevels fR)
       -- the carrier's `Param` (its MAPS): a type-VARIABLE carrier reads it from the `env` (threaded by the
       -- type-binder case of `.lam`); a concrete carrier has the solver build it on demand. For a type var the
       -- result `pT` is a relatedness binder — see the ⚠ note above: `h'` then refers to it, which is fine for
@@ -266,31 +266,33 @@ partial def paramProp (ctx : Ctx) (env : Env) (P : Expr) : MetaM (Expr × Expr) 
   | f => throwError "paramProp: unsupported proposition (head {f})"
 end
 
+/-- telescope a primitive's type into abstraction-theorem triples `[a,a',aR, b,b',bR, …]`, check the binder
+    count is a multiple of 3, and run `k` with the binders `xs` and their VALUE-SWAPPED reordering
+    `[a',a,aR, b',b,bR, …]` (the relatedness slot stays put). The shared frame of the backward builders. -/
+def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Expr → MetaM Expr) :
+    MetaM Expr := do
+  forallTelescope (← inferType wit) fun xs _ => do
+    unless xs.size % 3 == 0 do
+      throwError "trocq: {what} is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
+    let mut swapped : Array Expr := #[]
+    for j in [0 : xs.size / 3] do
+      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
+    k xs swapped
+
 /-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the
     BACKWARD-direction combinator. A primitive is `cWit : ∀ a a' (aR : R a a') …, R (c …) (c' …)`
     (binders in triples); this returns `fun a' a aR … => cWit a a' aR …`. Its relatedness binder keeps the
     type `R a a'`, which is *defeq* to the symmetric relation `R.sym a' a` the backward direction supplies —
     so the same proof term serves both directions, only the value arguments swap position. -/
-def symPrimitive (wit : Expr) : MetaM Expr := do
-  forallTelescope (← inferType wit) fun xs _ => do
-    unless xs.size % 3 == 0 do
-      throwError "trocq: term primitive is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
-    let mut swapped : Array Expr := #[]
-    for j in [0 : xs.size / 3] do
-      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
-    mkLambdaFVars swapped (mkAppN wit xs)
+def symPrimitive (wit : Expr) : MetaM Expr :=
+  withSwappedTriples "term primitive" wit fun xs swapped => mkLambdaFVars swapped (mkAppN wit xs)
 
 /-- the backward direction of a PROP primitive `pR : ∀ triples, PLift (p … ↔ p' …)`: like `symPrimitive`
     (swap each triple's value pair), but the conclusion is an `Iff`, so the proof is `Iff.symm`'d too. -/
-def symProp (wit : Expr) : MetaM Expr := do
-  forallTelescope (← inferType wit) fun xs _ => do
-    unless xs.size % 3 == 0 do
-      throwError "trocq: prop primitive is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
-    let mut swapped : Array Expr := #[]
-    for j in [0 : xs.size / 3] do
-      swapped := (swapped.push xs[3*j+1]!).push xs[3*j]! |>.push xs[3*j+2]!
-    mkLambdaFVars swapped
-      (← mkAppM ``PLift.up #[← mkAppM ``Iff.symm #[← mkAppM ``PLift.down #[mkAppN wit xs]]])
+def symProp (wit : Expr) : MetaM Expr :=
+  withSwappedTriples "prop primitive" wit fun xs swapped => do
+    let pf ← mkAppM ``PLift.up #[← mkAppM ``Iff.symm #[← mkAppM ``PLift.down #[mkAppN wit xs]]]
+    mkLambdaFVars swapped pf
 
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
     type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
