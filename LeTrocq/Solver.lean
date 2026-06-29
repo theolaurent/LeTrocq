@@ -191,13 +191,12 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
         (return (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1)))
   return m
 
-/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written), plus the
-    built-in relator for the kernel-primitive `Quot` (`paramQuotR`, at the top class — not `@[trocq]`). -/
+/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
+    prelude `Quot` relator (`LeTrocq.Std.paramQuotR`), which registers like any other — not a built-in. -/
 def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
     if let .relator hA witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
-  m := m.insert ``Quot (← mkConstWithFreshMVarLevels ``paramQuotR, (map4, map4))
   return m
 
 /-- run the front half (build registries, generate constraints, solve): shape + minimal class per `Var`. -/

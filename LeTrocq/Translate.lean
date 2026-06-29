@@ -48,32 +48,19 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
-/- ===================== kernel primitives (built-in, NOT `@[trocq]`-registered) =====================
-   The single table of constants the translation knows intrinsically: each maps a head to its `(counterpart,
-   relation/relatedness)`, given the occurrence's universe levels. The level policy is PER-PRIMITIVE, which is
-   why this is a table of functions rather than plain entries: `Quot`'s relation `QuotRel` has its own (fixed)
-   universes pinned later by its arguments, so it takes FRESH level mvars; `PUnit`'s relation is the trivial,
-   level-UNconstrained `UnitRel`, so its counterpart/relatedness must reuse the OCCURRENCE's levels (nothing
-   else pins them). Their relations live in `Core/Quot` and `Core/Unit`. Adding a primitive is one entry here
-   (plus its `Param` relator in `Solver.buildConsts` if it can also appear as a goal TYPE, as `Quot` does).
-   Only NON-eliminator heads belong here: a head whose translation is a fixed `(counterpart, relation)` pair.
-   `Quot.lift` (an eliminator) is NOT supported — translating it falls through to the generic constant path. -/
-def typePrimitives : List (Name × (List Level → MetaM (Expr × Expr))) :=
-  [ (``PUnit, fun lvls => return (.const ``PUnit lvls, .const ``UnitRel lvls)),
-    (``Quot,  fun _    => return (← mkConstWithFreshMVarLevels ``Quot, ← mkConstWithFreshMVarLevels ``QuotRel)) ]
-
-def termPrimitives : List (Name × (List Level → MetaM (Expr × Expr))) :=
-  [ (``PUnit.unit, fun lvls => return (.const ``PUnit.unit lvls, .const ``UnitR lvls)),
-    (``Quot.mk,    fun _    => return (← mkConstWithFreshMVarLevels ``Quot.mk, ← mkConstWithFreshMVarLevels ``QuotMkR)) ]
-
 mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
-      -- a kernel primitive (`PUnit`/`Quot`), else a registered former, else unfold the definition.
-      if let some mk := typePrimitives.lookup c then return ← mk lvls
+      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.Std`), else unfold the definition.
       match ctx.types.find? c with
-      | some p => return p
+      | some (B, rel) =>
+          -- HOMOGENEOUS former (B-side head = the occurrence head `c` — `List`/`Quot`/`PUnit`/…): rebuild the
+          -- B-side at the OCCURRENCE's levels. `Param` relates same-universe types, so this is sound, and it is
+          -- what gives a content-free former like `PUnit` a CONCRETE B-side universe — a fresh level mvar would
+          -- be left unpinned (nothing in the irrelevant `PUnit` constrains it) and default to the wrong level.
+          -- A heterogeneous entry (a BASE `Nat ↦ Unary`) keeps its stored closed B-side `B`.
+          if B.getAppFn.constName? == some c then return (.const c lvls, rel) else return (B, rel)
       | none =>
           let some val := (← getConstInfo c).value? | throwError "paramType: opaque/unregistered type {c}"
           paramType ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
@@ -134,9 +121,8 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | some (_, x', xR) => return (x', xR)
       | none => throwError "param: unbound variable"
   | .const c lvls => do
-      -- a kernel primitive (`PUnit.unit`/`Quot.mk`), else a registered term primitive, else unfold the
-      -- definition.
-      if let some mk := termPrimitives.lookup c then return ← mk lvls
+      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.Std`), else unfold
+      -- the definition.
       match ctx.terms.find? c with
       | some p => return p
       | none =>
