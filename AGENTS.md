@@ -16,5 +16,11 @@ Either way the dependency must be **explicit in a type signature**, never hidden
 ## Build / test
 
 - `lake build` — warnings are errors.
-- `lake test` — also runs the axiom-footprint guard (`LeTrocq.*` may use only `propext`/`Classical.choice`/
-  `Quot.sound`; a stray `sorry` or new axiom fails the build). Don't weaken the guard to make something pass.
+- `lake test` — also runs the axiom-footprint guard. EVERY `LeTrocq.*` decl is checked, so a stray `sorry`
+  or new axiom always fails the build; only the tolerated standard axioms differ by layer. OBJECT-LEVEL
+  `LeTrocq.*` (combinators, witnesses, registered bases, and every `Param` the driver GENERATES) may use only
+  `propext`/`Quot.sound` — no `Classical.choice`. The metaprogram modules (`Registry`/`Attr`/`Translate`/
+  `Solver`/`Tactic`) additionally tolerate `Classical.choice`: they run on `MetaM`, whose root API
+  (`Lean.Meta.inferType`, …) uses choice like every Lean tactic — compile-time tooling that never enters a
+  generated proof. Don't weaken the guard (don't broaden an axiom set, don't move object-level code into a
+  metaprogram module) to make something pass.
