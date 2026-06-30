@@ -112,4 +112,31 @@ example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
 example : (translate% (Quot.mk (fun _ _ : Nat => True) (2 : Nat)))
     = Quot.mk (fun _ _ : Unary => True) (Unary.s (Unary.s Unary.z)) := rfl
 
+/- CARTESIAN PRODUCT: `(1, 2) : Nat × Nat` rebuilds COMPONENTWISE over `Unary` (the two type parameters
+   each cross as a triple; `Prod.mk` is the term primitive). -/
+example : (translate% ((1, 2) : Nat × Nat)) = (Unary.s Unary.z, Unary.s (Unary.s Unary.z)) := rfl
+example : ProdR Nat Unary RNU Nat Unary RNU (1, 2) (Unary.s Unary.z, Unary.s (Unary.s Unary.z)) :=
+  relate% ((1, 2) : Nat × Nat)
+
+/- NON-DEPENDENT SUM: each injection crosses carrying its payload (the OTHER summand's type crosses too,
+   as the unused triple). -/
+example : (translate% (Sum.inl 1 : Nat ⊕ Nat)) = (Sum.inl (Unary.s Unary.z) : Unary ⊕ Unary) := rfl
+example : (translate% (Sum.inr 2 : Nat ⊕ Nat))
+    = (Sum.inr (Unary.s (Unary.s Unary.z)) : Unary ⊕ Unary) := rfl
+example : SumR Nat Unary RNU Nat Unary RNU (Sum.inl 1) (Sum.inl (Unary.s Unary.z)) :=
+  relate% (Sum.inl 1 : Nat ⊕ Nat)
+
+/- ARRAY: an array literal `#[…]` elaborates to `List.toArray […]`, so the translation crosses it through
+   the `List.toArray` term primitive — rebuilding element-by-element as the underlying list does. -/
+example : (translate% (#[1, 2] : Array Nat)) = #[Unary.s Unary.z, Unary.s (Unary.s Unary.z)] := rfl
+example : (translate% (#[] : Array Nat)) = (#[] : Array Unary) := rfl
+example : ArrayR Nat Unary RNU #[1, 2] #[Unary.s Unary.z, Unary.s (Unary.s Unary.z)] :=
+  relate% (#[1, 2] : Array Nat)
+
+/- BOOL is registered DIAGONALLY (no other equivalence for it is in scope), so a bool crosses to ITSELF and
+   its relatedness is the diagonal `BoolR` — exercising a ground inductive with nullary constructors. -/
+example : (translate% (fun b : Bool => b)) = (fun b : Bool => b) := rfl
+example : (translate% (true, false)) = (true, false) := rfl
+example : BoolR true true := relate% true
+
 end LeTrocq.Tests

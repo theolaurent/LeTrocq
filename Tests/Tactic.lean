@@ -172,6 +172,23 @@ example : ∀ t : WTree Unary (fun _ => Unary), WTriv t := by
 example : (transfer% (Quot (fun _ _ : Nat => True))).cov.map (Quot.mk _ (Nat.succ Nat.zero))
     = Quot.mk (fun _ _ : Unary => True) (Unary.s Unary.z) := rfl
 
+/- CARTESIAN PRODUCT in the tactic: `paramProdR` lifts the base through BOTH parameters; its forward map acts
+   componentwise — and it COMPUTES. (`Bool` rides along DIAGONALLY in the mixed `Nat × Bool`.) -/
+example : (transfer% (Nat × Nat)).cov.map (Nat.zero, Nat.succ Nat.zero) = (Unary.z, Unary.s Unary.z) := rfl
+example : (transfer% (Nat × Bool)).cov.map (Nat.zero, true) = (Unary.z, true) := rfl
+
+/- NON-DEPENDENT SUM: `paramSumR`'s forward map is `Sum.map` of the two base maps; each injection computes. -/
+example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inl Nat.zero) = (Sum.inl Unary.z : Unary ⊕ Unary) := rfl
+example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inr (Nat.succ Nat.zero))
+    = (Sum.inr (Unary.s Unary.z) : Unary ⊕ Unary) := rfl
+
+/- ARRAY: `paramArrayR` delegates to `paramListR` through `toList`; the forward map rebuilds the array. -/
+example : (transfer% (Array Nat)).cov.map #[Nat.zero, Nat.succ Nat.zero] = #[Unary.z, Unary.s Unary.z] := rfl
+
+/- BOOL is registered DIAGONALLY: `paramBoolR` is the identity equivalence, so `Bool` transfers to itself.
+   `transfer% (Bool → Bool)` transports a function over the diagonal — the forward map is the function itself. -/
+example : (transfer% (Bool → Bool)).cov.map (fun b => !b) true = false := rfl
+
 /- NON-ADJACENT family domain: `Tw Nat Unary β` puts a phantom `C := Unary` between the family's domain
    `A := Nat` and `β`. The driver reads `β`'s domain off its binder type (the `Nat` arg), NOT the preceding
    type arg (`Unary`), so it feeds `β` the `Nat ≃ Unary` witness — and the dependent map still COMPUTES.

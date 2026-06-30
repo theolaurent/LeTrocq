@@ -12,8 +12,10 @@ The library, module by module (each builds on the previous):
   • `LeTrocq.Solver`      — the driver: walk a type, solve for minimal classes, assemble the witness.
   • `LeTrocq.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
   • `LeTrocq.ParamLib`    — the parametricity library: `@[trocq]` registrations for prelude types
-                          (`List`, `Option`, `Sigma`, and the kernel constants `Quot`/`PUnit`), so
-                          `import LeTrocq` gives transfer over them out of the box.
+                          (`Bool`, `Nat`, `List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, and the kernel
+                          constants `Quot`/`PUnit`), so `import LeTrocq` gives transfer over them out of the
+                          box. The ground types (`Bool`/`Nat`) register the diagonal, overridable by a user
+                          equivalence (e.g. `Nat ≃ Unary`).
 -/
 import LeTrocq.Lattice
 import LeTrocq.Hierarchy
