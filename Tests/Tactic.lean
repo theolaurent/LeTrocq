@@ -189,6 +189,12 @@ example : (transfer% (Array Nat)).cov.map #[Nat.zero, Nat.succ Nat.zero] = #[Una
    `transfer% (Bool → Bool)` transports a function over the diagonal — the forward map is the function itself. -/
 example : (transfer% (Bool → Bool)).cov.map (fun b => !b) true = false := rfl
 
+/- EMPTY / UNIT (in `Type`): registered as `(4,4)` bases (`paramEmptyR`/`paramUnitR`), so they transfer as
+   leaves and compose with the formers. `Empty` is a pure solver leaf (no values); `Unit` rides trivially. -/
+example : (transfer% (Option Empty)).cov.map none = none := rfl
+example : (transfer% (Nat → Unit)).cov.map (fun _ => Unit.unit) Unary.z = Unit.unit := rfl
+example : (transfer% (Nat × Unit)).cov.map (Nat.zero, Unit.unit) = (Unary.z, Unit.unit) := rfl
+
 /- NON-ADJACENT family domain: `Tw Nat Unary β` puts a phantom `C := Unary` between the family's domain
    `A := Nat` and `β`. The driver reads `β`'s domain off its binder type (the `Nat` arg), NOT the preceding
    type arg (`Unary`), so it feeds `β` the `Nat ≃ Unary` witness — and the dependent map still COMPUTES.

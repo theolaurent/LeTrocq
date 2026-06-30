@@ -35,4 +35,13 @@ example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inr 2) = (Sum.inr 2 : Nat ⊕ N
 example : (transfer% (Array Nat)).cov.map #[1, 2, 3] = #[1, 2, 3] := rfl
 example : (translate% (#[1, 2] : Array Nat)) = (#[1, 2] : Array Nat) := rfl
 
+/- the EMPTY and UNIT types, in `Type` (`Empty`/`Unit`) and `Prop` (`False`/`True`): each is a parameter-less
+   `(4,4)` base, so it transfers to itself. `Empty`/`Unit` are `Type` leaves (testable via a `Type` former or
+   a value); `True`/`False` are `Prop` and can't sit under a `Type` former, so we confirm they assemble. -/
+example : (transfer% (List Unit)).cov.map [Unit.unit, Unit.unit] = [Unit.unit, Unit.unit] := rfl
+example : (transfer% (Option Empty)).cov.map none = none := rfl
+example : (transfer% True).cov.map True.intro = True.intro := rfl
+noncomputable example : Param map4 map4 False False := transfer% False
+noncomputable example : Param map4 map4 Empty Empty := transfer% Empty
+
 end LeTrocq.Tests.ParamLib
