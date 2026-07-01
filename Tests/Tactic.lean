@@ -209,4 +209,14 @@ example :
     (transfer% (Tw Nat Unary (fun _ : Nat => Nat))).cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩
       = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
 
+/- EQUALITY: `paramEqR` relates `a = b` to `a' = b'` over a related type (a relator whose first argument
+   carries the whole `Param`, not a bare relation). The type/goal path crosses `=`: `transfer%` builds the
+   witness for a type containing an equality, and `trocq` transfers a `Unary` equality goal to the `Nat`
+   side. (The `relate%` / `assembleProp` term-path for `Eq` is not wired yet — see the plan's follow-up.) -/
+example : (transfer% (∀ n : Nat, n = n)).cov.map (fun _ => rfl) = (fun _ : Unary => rfl) := rfl
+
+example : ∀ u : Unary, u = u := by
+  trocq                       -- ⊢ ∀ n : Nat, n = n
+  exact fun _ => rfl
+
 end LeTrocq.Tests

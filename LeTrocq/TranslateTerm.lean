@@ -49,11 +49,6 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
-/-- the logical connectives whose counterpart is themselves — they live identically on both sides, so `⟨·⟩`
-    leaves them alone and recurses into their arguments (their relatedness is handled by `[·]`'s prop rule). -/
-def isConnective (c : Name) : Bool :=
-  c == ``And || c == ``Or || c == ``Not || c == ``Iff || c == ``True || c == ``False
-
 /-- `⟨·⟩` — THE TERM TRANSLATION (DESIGN.md's `⟨·⟩`): rebuild `e`'s B-side counterpart leaf by leaf. A
     registered head maps to its counterpart (a term primitive `Nat.succ ↦ Unary.s`, a type former
     `List ↦ List`, or a `Prop` predicate `p ↦ p'`); a bound variable to its counterpart `x'`; a Π/λ/app/sort
@@ -74,7 +69,6 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) : MetaM Expr := do
       if let some (b, _) := ctx.terms.find? c then return b
       else if let some b := ctx.types.find? c then return b
       else if let some (b, _) := ctx.props.find? c then return b
-      else if isConnective c then return e
       else throwError "translate: unregistered constant {c}"
   | .app f a => return .app (← term ctx env f) (← term ctx env a)
   | .sort _ => return e

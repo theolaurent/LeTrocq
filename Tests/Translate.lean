@@ -75,9 +75,13 @@ example : (translate% (fun n : Nat => IsTrivN n)) = (fun u : Unary => IsTrivU u)
 /- the relatedness is `PLift (· ↔ ·)` — the refinement (previously `· → · → Type`). -/
 example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ↔ IsTrivU u) :=
   relate% (fun n : Nat => IsTrivN n)
-/- connectives compose congruently: `p n ∧ p n` transports via `and_congr`. -/
+/- connectives are ordinary `@[trocq]` prop primitives (`LeTrocq.ParamLib.Logic`), not hardcoded: `⟨And⟩`
+   resolves by registry lookup, and `[p n ∧ p n]` is `AndR … [p n] … [p n]` — the same abstraction theorem
+   as any predicate. -/
 example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
     = (fun u : Unary => IsTrivU u ∧ IsTrivU u) := rfl
+example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ∧ IsTrivN n ↔ IsTrivU u ∧ IsTrivU u) :=
+  relate% (fun n : Nat => IsTrivN n ∧ IsTrivN n)
 
 /- QUOTIENTS: `Quot {α} (r : α → α → Prop)` is a former over a type AND a relation `r` (a term arg, whose
    relatedness is the `↔` from the prop refinement). `Quot.mk r a` rebuilds as `Quot.mk r' a'` over `Unary`. -/

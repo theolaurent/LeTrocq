@@ -234,31 +234,22 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
           (← assembleTerm reg ((x.fvarId!, x', xR) :: senv) (b.instantiate1 x))
   | e => throwError "assemble: unsupported term {e}"
 
-/-- `[·]` on a PROPOSITION: its logical-equivalence relatedness `PLift (P ↔ P')`. Connectives combine their
-    parts congruently; a registered predicate `p` supplies its own (`[p a₁…] = pR a₁ ⟨a₁⟩ [a₁] …`). -/
+/-- `[·]` on a PROPOSITION: its logical-equivalence relatedness `PLift (P ↔ P')`. Every proposition head —
+    a connective (`And`/`Or`/…, registered in `LeTrocq.ParamLib.Logic`) or a user predicate `p` alike — is
+    resolved by the SAME `@[trocq]` prop-primitive lookup and fed the abstraction theorem
+    `[p a₁ … aₙ] = pR a₁ ⟨a₁⟩ [a₁] …` (a Prop argument's `[aᵢ]` recurses here). No connective is known
+    intrinsically. -/
 partial def assembleProp (reg : Reg) (senv : SEnv) (P : Expr) : MetaM Expr := do
   let args := P.getAppArgs
   match P.getAppFn with
   | .const c _ =>
-      if (c == ``True || c == ``False) && args.isEmpty then
-        mkAppM ``PLift.up #[← mkAppOptM ``Iff.rfl #[P]]
-      else if c == ``Not && args.size == 1 then
-        mkAppM ``PLift.up #[← mkAppM ``not_congr
-          #[← mkAppM ``PLift.down #[← assembleProp reg senv args[0]!]]]
-      else if (c == ``And || c == ``Or || c == ``Iff) && args.size == 2 then
-        let hL ← assembleProp reg senv args[0]!
-        let hR ← assembleProp reg senv args[1]!
-        let cong := if c == ``And then ``and_congr else if c == ``Or then ``or_congr else ``iff_congr
-        mkAppM ``PLift.up #[← mkAppM cong
-          #[← mkAppM ``PLift.down #[hL], ← mkAppM ``PLift.down #[hR]]]
-      else match reg.ctx.props.find? c with
-        | some (_, wit) =>
-            -- the abstraction theorem for a registered predicate `p`: `[p a₁ … aₙ] = pR a₁ ⟨a₁⟩ [a₁] …`.
-            let mut rel := wit
-            for a in args do
-              rel := mkApp3 rel a (← LeTrocq.Translate.term reg.ctx senv.toTEnv a) (← assembleTerm reg senv a)
-            return rel
-        | none => throwError "assemble: unregistered/opaque proposition head {c}"
+      match reg.ctx.props.find? c with
+      | some (_, wit) =>
+          let mut rel := wit
+          for a in args do
+            rel := mkApp3 rel a (← LeTrocq.Translate.term reg.ctx senv.toTEnv a) (← assembleTerm reg senv a)
+          return rel
+      | none => throwError "assemble: unregistered/opaque proposition head {c}"
   | f => throwError "assemble: unsupported proposition (head {f})"
 end
 
