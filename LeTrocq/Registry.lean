@@ -5,8 +5,8 @@ A tagged constant `w` is one of four kinds, read off the conclusion of its (tele
   • BASE       `w : Param m n A B`      (A,B closed consts, no binders)  — an equivalence of types.
   • RELATOR    `w : ∀ …, Param m n (P …) (P' …)`                        — relates an applied head `P`.
   • TYPEFORMER `w : ∀ params, F args → F' args' → Sort`  (concl a SORT) — the parametricity RELATION of a
-                parameterized type `F` (e.g. `List`/`Option`); the native translation uses it to cross
-                `F a`. Its constructors/recursor register separately as ordinary TERM primitives.
+                parameterized type `F` (e.g. `List`/`Option`); its two head constants give `⟨·⟩` the
+                counterpart `F ↦ F'`. Its constructors/recursor register separately as TERM primitives.
   • TERM       `w : ∀ …, R … (c …) (c' …)`  (R a bare relation)        — relates a term head `c ↦ c'`.
 
 The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The

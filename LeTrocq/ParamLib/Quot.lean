@@ -4,7 +4,7 @@ The LeTrocq STANDARD LIBRARY: `Quot` (the kernel quotient).
 `Quot`/`Quot.mk` are kernel constants, but their parametricity registers like any other prelude type — NOT as
 a hardcoded driver primitive. It registers on BOTH surfaces, base-agnostically:
 
-  • the native TRANSLATION (`translate%` / `relate%`): `QuotRel` is the parametricity RELATION (a TYPE FORMER,
+  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): `QuotRel` is the parametricity RELATION (a TYPE FORMER,
     so `paramType` can cross `Quot r`), and the constructor `Quot.mk` is a TERM primitive whose relatedness is
     `QuotMkR`. (Universe-wise this works because `Quot`/`Quot.mk` register through the same
     `mkConstWithFreshMVarLevels` path the driver already used for them.)
@@ -18,7 +18,7 @@ relation". The parametricity relation is the standard one (related classes have 
 stated EXISTENTIALLY so it is automatically well-defined on both quotients and is `Prop`-truncated (hence a
 subsingleton, making the `(4,4)` coherence free).
 
-(`Quot.lift`, the eliminator, is not supported — see the `Quot.lift` note in `LeTrocq.Translate`.)
+(`Quot.lift`, the eliminator, is not supported — see the `Quot.lift` note in `LeTrocq.TranslateTerm`.)
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib

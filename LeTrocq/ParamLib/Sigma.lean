@@ -8,7 +8,7 @@ That is exactly the case the parametricity translation is built for — and it n
 family relation `RB` as a parameter and uses it in its constructors.
 
 It registers on BOTH surfaces, base-agnostically:
-  • the native TRANSLATION (`translate%` / `relate%`): the inductive relation `SigmaR` (a TYPE FORMER) + the
+  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): the inductive relation `SigmaR` (a TYPE FORMER) + the
     constructor `SigmaMkR` as a TERM primitive;
   • the `trocq` / `transfer%` tactic: a `(4,4)` relator `paramSigmaR`. The driver's relator framework
     supports a FAMILY argument — the `β`'s relatedness is a whole family of `Param`s

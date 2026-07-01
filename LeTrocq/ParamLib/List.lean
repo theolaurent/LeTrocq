@@ -7,7 +7,7 @@ INDUCTIVE — one constructor per the original's, each carrying the relations of
 pairs an element relation with the tail relation). It registers on BOTH surfaces, each base-agnostic (it
 works for ANY element equivalence):
 
-  • the native TRANSLATION (`translate%` / `relate%`): `ListR` is the parametricity RELATION (a TYPE FORMER,
+  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): `ListR` is the parametricity RELATION (a TYPE FORMER,
     so `paramType` can cross `List a`), and the constructors `List.nil` / `List.cons` are TERM primitives
     whose relatedness is `ListR.nil` / `ListR.cons`. A list over `A` then rebuilds element-by-element over `B`.
 

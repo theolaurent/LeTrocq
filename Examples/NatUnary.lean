@@ -39,7 +39,7 @@ def RNU : Nat → Unary → Type := fun n u => PLift (u.toNat = n)
 /-- the base read backward, `Unary ≃ Nat` (the `trocq` tactic also gets this for free via `Param.sym`). -/
 def RNsym : Param map4 map4 Unary Nat := RN.sym
 
-/- ===================== term primitives (for the native translation) ===================== -/
+/- ===================== term primitives (for the term translation `⟨·⟩` / `[·]`) ===================== -/
 @[trocq] def R0 : RNU Nat.zero Unary.z := PLift.up rfl
 @[trocq] def Rsucc (n : Nat) (u : Unary) (h : RNU n u) : RNU (Nat.succ n) (Unary.s u) :=
   PLift.up (by show u.toNat + 1 = Nat.succ n; rw [h.down])

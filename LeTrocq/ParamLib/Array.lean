@@ -9,7 +9,7 @@ underlying lists.
 
   • TYPE FORMER `ArrayR` — so `paramType` can cross `Array a`.
   • TERM primitive `ListToArrayR` keyed by `List.toArray` — an array literal `#[…]` elaborates to
-    `List.toArray […]`, so this is the head the native translation actually meets.
+    `List.toArray […]`, so this is the head the term translation `⟨·⟩` actually meets.
   • the `(4,4)` relator `paramArrayR` (for `trocq` / `transfer%`).
 -/
 import LeTrocq.ParamLib.List

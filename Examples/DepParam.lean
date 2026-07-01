@@ -7,7 +7,7 @@ well-founded tree — a label `a : A` and `B a`-many subtrees — and like `Sigm
 family `B : A → Type`, handled by `param`'s λ-rule (which turns `B` into the related family `(B', RB)`).
 
 It registers on BOTH surfaces, base-agnostically (the tests instantiate at `Nat ≃ Unary`):
-  • the native TRANSLATION (`translate%` / `relate%`): the inductive relation `WTreeR` (a TYPE FORMER) + the
+  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): the inductive relation `WTreeR` (a TYPE FORMER) + the
     constructor `WTreeMkR` as a TERM primitive;
   • the `trocq` / `transfer%` tactic: a `(4,4)` relator `paramWTreeR`, whose family argument `pb` is a whole
     family of `Param`s `∀ a a' (aR : pa.R a a'), Param … (B a) (B' a')`. The relator proofs are dependent

@@ -8,14 +8,14 @@ The USER SURFACE: the four elaborators/tactics, on top of the driver (`Solver` +
   • `trocq`  transfers the current goal `G` to its counterpart `G'` (seeded at the comap class (0,1))
     and refines `G` by the backward transport `G' → G`, leaving you to prove `G'`.
 
-  • `translate% t`  ⤳ the native `B`-side counterpart `t'`; `relate% t` ⤳ its relatedness `tR : ⟦T⟧ t t'`.
+  • `translate% t`  ⤳ the native `B`-side counterpart `t'`; `relate% t` ⤳ its relatedness `tR : 〚T〛 t t'`.
 
 Everything reads its registries from the `@[trocq]` environment extension; every registered base is available
 in both directions (forward, and backward via `Param.sym`), so a goal/term over either side of an equivalence
 resolves by head match. Nothing here is tied to a particular base.
 -/
 import LeTrocq.Transfer
-import LeTrocq.Translate
+import LeTrocq.TranslateTerm
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
 namespace LeTrocq
@@ -42,18 +42,16 @@ elab "trocq" : tactic => do
   g.assign (.app backMap newGoal)
   replaceMainGoal [newGoal.mvarId!]
 
-/-- `translate% t` ⤳ the native `B`-side counterpart `t'` (rebuilt over `B`, not iso-conjugation). -/
+/-- `translate% t` ⤳ the `B`-side counterpart `⟨t⟩` (rebuilt over `B` leaf-by-leaf, not iso-conjugation). -/
 elab "translate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   synthesizeSyntheticMVarsNoPostponing
-  let (e', _) ← param (← buildCtx) [] (← instantiateMVars e)
-  instantiateMVars e'
+  instantiateMVars (← Translate.term (← buildCtx) [] (← instantiateMVars e))
 
-/-- `relate% t` ⤳ the relatedness `tR : ⟦T⟧ t t'` — the proof the native counterpart is correct. -/
+/-- `relate% t` ⤳ the relatedness `[t] : 〚T〛 t ⟨t⟩` — the proof the counterpart is correct. -/
 elab "relate% " t:term : term => do
   let e ← Lean.Elab.Term.elabTerm t none
   synthesizeSyntheticMVarsNoPostponing
-  let (_, eR) ← param (← buildCtx) [] (← instantiateMVars e)
-  instantiateMVars eR
+  instantiateMVars (← Transfer.relate (← instantiateMVars e))
 
 end LeTrocq

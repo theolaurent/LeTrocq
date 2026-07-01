@@ -8,11 +8,15 @@ The library, module by module (each builds on the previous):
                           `ParamCC/` (`Arrow`, `Forall`, `Universe`).
   • `LeTrocq.Registry`    — classify a witness (base / relator / term primitive) from its type.
   • `LeTrocq.Attr`        — the `@[trocq]` attribute + env extension storing the classified witnesses.
-  • `LeTrocq.Translate`   — the native parametricity translation: `translate% t` rebuilds a term over `B`.
+  • `LeTrocq.TranslateTerm` — the term translation `⟨·⟩`: rebuild a term's `B`-side counterpart, leaf by leaf
+                          (module `LeTrocq.TranslateTerm`, namespace `LeTrocq.Translate`).
   • `LeTrocq.Solver`      — the grading solver: walk a type, solve for minimal classes, hand back the
                           class-annotated `GradedShape` (the grading annotations).
-  • `LeTrocq.Transfer`    — the graded translation: assemble the witness from the original term + the
-                          solver's `GradedShape` (the graded form of the type-former translation).
+  • `LeTrocq.Transfer`    — the graded relational translation `[·]`: the relatedness witness from the
+                          original term + the solver's `GradedShape`, relying on `Translate`'s `⟨·⟩`. Its
+                          type half is graded (combinators at the solved class); its term half is the
+                          abstraction theorem (`[t u] = [t] u ⟨u⟩ [u]`). ONE relational translation, no
+                          separate "native" pass. Drives `relate%` (terms) and `transfer%`/`trocq` (types).
   • `LeTrocq.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
   • `LeTrocq.ParamLib`    — the parametricity library: `@[trocq]` registrations for prelude types
                           (`Bool`, `Nat`, `List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, the empty/unit
@@ -26,7 +30,7 @@ import LeTrocq.Hierarchy
 import LeTrocq.ParamCC
 import LeTrocq.Registry
 import LeTrocq.Attr
-import LeTrocq.Translate
+import LeTrocq.TranslateTerm
 import LeTrocq.Solver
 import LeTrocq.Transfer
 import LeTrocq.Tactic

@@ -8,7 +8,7 @@ parameter and two NULLARY constructors. `BoolR` is the parametricity RELATION (t
 cross `Bool` literals, and `trocq`/`transfer%` cross a `Bool` leaf in a goal.
 
 (A bare reflexive base `Param (4,4) Bool Bool` would serve the solver alone; the inductive relation + the
-constructor primitives are what additionally let the native translation rebuild `Bool` VALUES.)
+constructor primitives are what additionally let the term translation `⟨·⟩` rebuild `Bool` VALUES.)
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib

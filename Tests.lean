@@ -34,7 +34,7 @@ run_cmd Lean.Elab.Command.liftCoreM do
   let mods := env.header.moduleNames
   -- the metaprogramming layer (irreducibly `Classical.choice`-using via `MetaM`); everything else is math.
   let metaModules : List Lean.Name :=
-    [`LeTrocq.Registry, `LeTrocq.Attr, `LeTrocq.Translate, `LeTrocq.Solver, `LeTrocq.Transfer, `LeTrocq.Tactic]
+    [`LeTrocq.Registry, `LeTrocq.Attr, `LeTrocq.TranslateTerm, `LeTrocq.Solver, `LeTrocq.Transfer, `LeTrocq.Tactic]
   let baseAllowed : List Lean.Name := [``propext, ``Quot.sound]
   for (name, _) in env.constants.toList do
     if (`LeTrocq).isPrefixOf name then
