@@ -17,8 +17,8 @@ works for ANY element equivalence):
     once the relation is a subsingleton — which it is, since the element relation is (class 4).
 
 This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
-only because `List` is part of Lean's prelude — exactly like the kernel constants `Quot`/`PUnit`, which are
-themselves ordinary `@[trocq]` registrations now (see `LeTrocq.ParamLib.Quot`/`LeTrocq.ParamLib.Unit`).
+only because `List` is part of Lean's prelude — exactly like the kernel constant `Quot`, which is itself an
+ordinary `@[trocq]` registration now (see `LeTrocq.ParamLib.Quot`).
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib
