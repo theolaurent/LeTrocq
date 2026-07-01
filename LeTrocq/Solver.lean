@@ -51,19 +51,17 @@ inductive Shape
   | pi     (v domV rV : Nat) (body : Shape)              -- `∀ A : Type, …`
   | sort   (v rV : Nat)
   | usevar (v rV : Nat)                                  -- use of a bound TYPE variable (`rV` names the binder)
-  | piTerm (v bId : Nat) (dom : Shape) (body : Shape)    -- `∀ (x : T), …` over any buildable domain `T`
+  | piTerm (v : Nat) (dom : Shape) (body : Shape)        -- `∀ (x : T), …` over any buildable domain `T`
   | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
            (kinds : Array ArgKind)                       -- the relator's per-argument kinds (all args)
-           (typeArgShapes : List (Option Nat × Shape))   -- a sub-shape per TYPE/FAMILY arg (in arg order);
-                                                          --   `none` = a type arg, `some bid` = a family arg
-                                                          --   whose body is built under element binder `bid`
+           (typeArgShapes : List Shape)                  -- one sub-shape per TYPE/FAMILY arg, in arg order
 
 def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piTerm v _ _ _ | .app v _ _ _ => v
+  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piTerm v _ _ | .app v _ _ _ => v
 
 /- ===================== the class-annotated shape (the solver's OUTPUT / the front↔back contract) ===================== -/
 /- the grading annotations the translation consumes: the shape with every node's grade RESOLVED. Fvar-free
-   (a Π/type binder is named by a stable `bId`, referenced by `usevar`/`piTerm`/`family`) and term-free
+   (a type binder is named by a stable `bId`, referenced by `usevar`) and term-free
    (argument terms are read from the original term). This is all the graded translation needs from the solver. -/
 mutual
 inductive GradedShape where
@@ -72,12 +70,12 @@ inductive GradedShape where
   | pi     (cls domCls inner : ParamClass) (bId : Nat) (body : GradedShape)  -- ∀ A:Type; `inner` = bound var's grade
   | sort   (cls inner : ParamClass)
   | usevar (cls : ParamClass) (bId : Nat)                                    -- use of type-var `bId`, at grade `cls`
-  | piTerm (cls : ParamClass) (bId : Nat) (dom body : GradedShape)
+  | piTerm (cls : ParamClass) (dom body : GradedShape)
   | app    (cls : ParamClass) (head : Name) (args : List GradedArg)          -- routing only, no arg terms
 /-- one relator argument in a `GradedShape.app`, aligned with the original term's arguments in order. -/
 inductive GradedArg where
   | type   (sub : GradedShape)
-  | family (elemBid domIdx : Nat) (sub : GradedShape)
+  | family (domIdx : Nat) (sub : GradedShape)
   | term
 end
 
@@ -135,12 +133,12 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
             -- ARGUMENT): a registered base atom, an arrow, a relator application (`List Unary`, …), even a
             -- compound over outer binders. The body's `app` nodes then consume the bound term variable as a
             -- TERM argument whose relatedness is the Π-domain witness — no special base handling needed.
-            let v ← fresh; let bId ← fresh
+            let v ← fresh
             let sd ← gen atoms consts st A
             withLocalDeclD n A fun x => do
               let sb ← gen atoms consts st (B.instantiate1 x)
               emit (.depPi v sd.var sb.var)
-              return .piTerm v bId sd sb
+              return .piTerm v sd sb
       else
         let v ← fresh
         let sd ← gen atoms consts st A
@@ -156,21 +154,20 @@ partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap
       unless args.size == kinds.size do
         throwError "gen: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
       -- TYPE arg: recurse to build its sub-shape (so the solver builds its `Param`), forcing class ≥ the
-      -- relator's. FAMILY arg `B : X → Type`: introduce an element `a : X` and gen the body `B a`; the
-      -- element is named by `elemBid` (the translation reintroduces it), so nothing leaks into the shape.
-      let mut tyArgs : Array (Option Nat × Shape) := #[]
+      -- relator's. FAMILY arg `B : X → Type`: introduce an element `a : X` and gen the body `B a` (the
+      -- element is reintroduced by the translation, so nothing leaks into the shape).
+      let mut tyArgs : Array Shape := #[]
       for i in [0 : args.size] do
         match kinds[i]! with
         | .type cls =>
             let sub ← gen atoms consts st args[i]!
             emit (.ge sub.var cls)
-            tyArgs := tyArgs.push (none, sub)
+            tyArgs := tyArgs.push sub
         | .family cls _ =>
-            let elemBid ← fresh
             let famDom := (← whnf (← inferType args[i]!)).bindingDomain!
             let sub ← withLocalDeclD `a famDom fun a => gen atoms consts st (args[i]!.beta #[a])
             emit (.ge sub.var cls)
-            tyArgs := tyArgs.push (some elemBid, sub)
+            tyArgs := tyArgs.push sub
         | .term => pure ()
       let v ← fresh; return .app v head kinds tyArgs.toList
   | .const name _ => do
@@ -198,15 +195,15 @@ partial def bake (sol : Array ParamClass) : Shape → GradedShape
   | .pi v domV rV body    => .pi sol[v]! sol[domV]! sol[rV]! rV (bake sol body)
   | .sort v rV            => .sort sol[v]! sol[rV]!
   | .usevar v rV          => .usevar sol[v]! rV                       -- `bId` = the binder's relation var `rV`
-  | .piTerm v bId dom body => .piTerm sol[v]! bId (bake sol dom) (bake sol body)
+  | .piTerm v dom body    => .piTerm sol[v]! (bake sol dom) (bake sol body)
   | .app v head kinds tyShapes => .app sol[v]! head (bakeArgs sol kinds.toList tyShapes)
 /-- align the relator's per-argument kinds with the type/family sub-shapes (term args carry nothing). -/
-partial def bakeArgs (sol : Array ParamClass) : List ArgKind → List (Option Nat × Shape) → List GradedArg
+partial def bakeArgs (sol : Array ParamClass) : List ArgKind → List Shape → List GradedArg
   | [], _ => []
-  | .term :: ks, ts                       => .term :: bakeArgs sol ks ts
-  | .type _ :: ks, (_, sub) :: ts         => .type (bake sol sub) :: bakeArgs sol ks ts
-  | .family _ domIdx :: ks, (some eb, sub) :: ts => .family eb domIdx (bake sol sub) :: bakeArgs sol ks ts
-  | _ :: ks, ts                           => .term :: bakeArgs sol ks ts   -- unreachable: gen keeps them aligned
+  | .term :: ks, ts                   => .term :: bakeArgs sol ks ts
+  | .type _ :: ks, sub :: ts          => .type (bake sol sub) :: bakeArgs sol ks ts
+  | .family _ domIdx :: ks, sub :: ts => .family domIdx (bake sol sub) :: bakeArgs sol ks ts
+  | _ :: ks, ts                       => .term :: bakeArgs sol ks ts   -- unreachable: gen keeps them aligned
 end
 
 /- ===================== registries from the `@[trocq]` extension ===================== -/

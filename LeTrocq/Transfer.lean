@@ -49,9 +49,10 @@ def mkUniv (req inner : ParamClass) : MetaM Expr := do
     classToExpr inner.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
 
 /- ===================== the graded relational translation `[·]` ===================== -/
-/-- the term-half env: `fvar ↦ (counterpart x', witness-or-relatedness)`. For a TYPE binder the third slot is
-    the bound type's `Param` *witness* (`assembleType` returns it; a term-primitive consuming the bound type
-    is fed its `.R`); for a TERM binder it is the bare relatedness `xR`. -/
+/-- the shared `[·]` environment, threaded through EVERY arm (both halves): `fvar ↦ (counterpart x',
+    witness-or-relatedness)`. For a TYPE binder the third slot is the bound type's `Param` *witness*
+    (`assembleType` returns it; a term-primitive consuming the bound type is fed its `.R`); for a TERM binder
+    it is the bare relatedness `xR`. -/
 abbrev SEnv := List (FVarId × Expr × Expr)
 
 /-- project an `SEnv` to the counterpart environment `⟨·⟩` (`Translate.term`) consumes. -/
@@ -65,18 +66,18 @@ structure Reg where
 
 mutual
 /-- `[·]` on a TYPE — the graded, `GradedShape`-driven half: build the `Param` witness node by node, each at
-    the class the solver resolved (`node.cls`), no re-inference. `env` maps a Π/type-binder's `bId` to its
-    bound type variable's `(A, A', aR, srcCls)` (relatedness `aR : Param srcCls A A'`, and the class it sits
-    at, for weakening a use down to its local grade); `termEnv` maps a term-binder's `bId` to `(x, x', xR)`.
-    A relator's TERM arguments are handed to the term-half `assembleTerm` (`[t u] = [t] u ⟨u⟩ [u]`). -/
-partial def assemble (reg : Reg)
-    (env : List (Nat × (Expr × Expr × Expr × ParamClass)))
-    (termEnv : List (Nat × (Expr × Expr × Expr))) (term : Expr) : GradedShape → MetaM Expr
+    the class the solver resolved (`node.cls`), no re-inference. ONE environment `senv` (`fvar ↦ (counterpart,
+    witness/relatedness)`) is threaded through BOTH halves — every in-scope binder, type and term alike, lives
+    there for the term half to read. Type binders ADDITIONALLY record `bId ↦ (witness, srcCls)` in `tyEnv`,
+    because a shape `.usevar` names its binder by the solver's `bId` (not an fvar) and must weaken the bound
+    type's witness down to its local grade. A relator's TERM arguments go to `assembleTerm` (`[t u] = [t] u ⟨u⟩ [u]`). -/
+partial def assemble (reg : Reg) (senv : SEnv) (tyEnv : List (Nat × (Expr × ParamClass)))
+    (term : Expr) : GradedShape → MetaM Expr
   | .atom cls name => do
       let some (_, wit, regC) := reg.atoms.find? name | throwError "assemble: atom {name} not registered"
       weakenTo cls regC wit
   | .usevar cls bId => do
-      let some (_, _, _, aR, src) := env.find? (·.1 == bId)
+      let some (_, aR, src) := tyEnv.find? (·.1 == bId)
         | throwError "assemble: bound type variable (bId {bId}) not in scope"
       -- the universe combinator supplied the bound var's witness at its solved class `src`; weaken to the use.
       weakenTo cls src aR
@@ -85,44 +86,41 @@ partial def assemble (reg : Reg)
       let .forallE _ A B _ := term | throwError "assemble: arrow shape but term is {term}"
       mkAppM ``paramArrow
         #[classToExpr cls.1, classToExpr cls.2,
-          ← assemble reg env termEnv A dom,
-          ← assemble reg env termEnv (B.instantiate1 (mkConst ``True)) cod]
+          ← assemble reg senv tyEnv A dom,
+          ← assemble reg senv tyEnv (B.instantiate1 (mkConst ``True)) cod]
   | .pi cls domCls inner bId body => do
       let .forallE _ _ B _ := term | throwError "assemble: pi shape but term is {term}"
       -- the domain `Type` carries the bound variable at its solved inner class (the `Map_Type` inner).
       let domWit ← mkUniv domCls inner
-      -- codomain FAMILY: fun (A A' : Type) (aR : domWit.R A A') => ⟨body witness, with bId ↦ (A,A',aR)⟩
+      -- codomain FAMILY: fun (A A' : Type) (aR : domWit.R A A') => ⟨body witness⟩; record the binder in `senv`
+      -- (by fvar, for the term half) and `tyEnv` (by `bId`, for `.usevar`).
       let pb ← withLocalDeclD `A (.sort (.succ .zero)) fun A =>
         withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
           let raaTy ← mkAppM ``Param.R #[domWit, A, A']
           withLocalDeclD `aR raaTy fun aR => do
             mkLambdaFVars #[A, A', aR]
-              (← assemble reg ((bId, (A, A', aR, inner)) :: env) termEnv (B.instantiate1 A) body)
+              (← assemble reg ((A.fvarId!, A', aR) :: senv) ((bId, (aR, inner)) :: tyEnv)
+                (B.instantiate1 A) body)
       mkAppM ``paramForall #[classToExpr cls.1, classToExpr cls.2, domWit, pb]
-  | .piTerm cls bId dom body => do
+  | .piTerm cls dom body => do
       let .forallE _ A B _ := term | throwError "assemble: piTerm shape but term is {term}"
       -- build `T`'s witness from its sub-shape, read the two sides `T`/`T'` off its `Param` type (`whnf`
       -- first — a weaken-free witness can carry a projection rather than a bare `Param … T T'`).
-      let domWit ← assemble reg env termEnv A dom
+      let domWit ← assemble reg senv tyEnv A dom
       let domTy := (← whnf (← instantiateMVars (← inferType domWit))).getAppArgs
       let pb ← withLocalDeclD `x domTy[2]! fun x =>
         withLocalDeclD `x' domTy[3]! fun x' => do
           let xRTy ← mkAppM ``Param.R #[domWit, x, x']
           withLocalDeclD `xR xRTy fun xR => do
             mkLambdaFVars #[x, x', xR]
-              (← assemble reg env ((bId, (x, x', xR)) :: termEnv) (B.instantiate1 x) body)
+              (← assemble reg ((x.fvarId!, x', xR) :: senv) tyEnv (B.instantiate1 x) body)
       mkAppM ``paramForall #[classToExpr cls.1, classToExpr cls.2, domWit, pb]
   | .app cls head gargs => do
       -- the abstraction theorem `[head a₁ … aₙ] = [head] a₁ ⟨a₁⟩ [a₁] … aₙ ⟨aₙ⟩ [aₙ]`. Arguments come from
       -- the TERM (`getAppArgs`); routing (type/family/term) from the shape. A TYPE arg's `Param` is built by
       -- recursively assembling its sub-shape; a FAMILY arg's is the `Param` family `fun a a' aR => ⟨B a ≃ B' a'⟩`;
-      -- a TERM arg's `(⟨aᵢ⟩, [aᵢ])` come from the term-half `⟨·⟩`/`[·]`. Then weaken the whole to `cls`.
+      -- a TERM arg's `(⟨aᵢ⟩, [aᵢ])` come from the term-half `⟨·⟩`/`[·]` over the threaded `senv`. Then weaken to `cls`.
       let some (relator, relClass) := reg.consts.find? head | throwError "assemble: constant {head} not registered"
-      -- the in-scope binders as an `SEnv` for the term-half: term binders `x ↦ (x', xR)`, type binders
-      -- `A ↦ (A', aR)` (the WITNESS; `assembleTerm`/`⟨·⟩` project `.R`/take `x'` as needed).
-      let mut senv : SEnv := []
-      for (_, x, x', xR) in termEnv do senv := (x.fvarId!, x', xR) :: senv
-      for (_, A, A', aR, _) in env do senv := (A.fvarId!, A', aR) :: senv
       let args := term.getAppArgs
       let gargsArr := gargs.toArray
       let mut argExprs : Array Expr := #[]
@@ -131,18 +129,18 @@ partial def assemble (reg : Reg)
         let arg := args[i]!
         match gargsArr[i]! with
         | .type sub =>                                     -- TYPE arg: build its `Param` from the sub-shape
-            let tR ← assemble reg env termEnv arg sub
+            let tR ← assemble reg senv tyEnv arg sub
             let tgt := (← whnf (← instantiateMVars (← inferType tR))).getAppArgs[3]!
             argExprs := argExprs ++ #[arg, tgt, tR]
             argWits := argWits.set! i (some tR)
-        | .family elemBid domIdx sub =>                    -- FAMILY arg: build the `Param` family + its B-side
+        | .family domIdx sub =>                            -- FAMILY arg: build the `Param` family + its B-side
             let some paWit := argWits[domIdx]!
               | throwError "assemble: family argument {i} of {head} has no domain type argument (#{domIdx})"
             let paTy := (← whnf (← instantiateMVars (← inferType paWit))).getAppArgs
             let (famB', pbWit) ← withLocalDeclD `a paTy[2]! fun a => withLocalDeclD `a' paTy[3]! fun a' => do
               let aRTy ← mkAppM ``Param.R #[paWit, a, a']
               withLocalDeclD `aR aRTy fun aR => do
-                let bodyWit ← assemble reg env ((elemBid, (a, a', aR)) :: termEnv) (arg.beta #[a]) sub
+                let bodyWit ← assemble reg ((a.fvarId!, a', aR) :: senv) tyEnv (arg.beta #[a]) sub
                 -- the B-side family `B' : A' → Type` must depend only on `a'`, never on `a`/`aR`.
                 let bside := (← whnf (← instantiateMVars (← inferType bodyWit))).getAppArgs[3]!
                 if bside.hasAnyFVar (fun id => id == a.fvarId! || id == aR.fvarId!) then
@@ -168,6 +166,12 @@ partial def assembleType (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
       let gs ← Solver.gradeShape T (map0, map0)
       assemble reg [] [] T gs
 
+/-- `〚·〛 := [·].R` (DESIGN.md's `〚A〛 := A.R`): the RELATION of a type `T`, projected off the graded witness
+    `[·]` (`assembleType`) builds. All a TERM position ever consumes of a type, and grade-invariant — so
+    `assembleType`'s cheapest `(0,0)` solve suffices. -/
+partial def assembleRel (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
+  mkAppM ``Param.R #[← assembleType reg senv T]
+
 /-- `[·]` on a TERM (the abstraction theorem): its relatedness `[e] : 〚T〛 e ⟨e⟩`. Counterparts `⟨·⟩` come
     from `Translate.term`; a TYPE-valued sub-term contributes its relation `(assembleType …).R`; a `Prop`
     goes through `assembleProp`. Bottoms out at registered TERM primitives (`ctx.terms`). -/
@@ -175,7 +179,7 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
   let ty ← inferType e
   if let .sort lvl := ty then
     if (← instantiateLevelMVars lvl) == levelZero then return ← assembleProp reg senv e
-    else return ← mkAppM ``Param.R #[← assembleType reg senv e]
+    else return ← assembleRel reg senv e
   if let some n := LeTrocq.Translate.natNumeral? e then
     if (← whnf ty).isConstOf ``Nat then return ← assembleTerm reg senv (LeTrocq.Translate.natExpr n)
   match e with
@@ -194,9 +198,9 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
       return mkApp3 fR a a' aR
   | .lam n A b _ => do
       let A' ← LeTrocq.Translate.term reg.ctx senv.toTEnv A
-      -- the bound variable's relatedness lives in `[A].R` (= `〚A〛`): for a type binder the parametricity
-      -- relation, for a term/base binder the bare relatedness. `[A]` is the graded witness (via `assembleType`).
-      let relA ← mkAppM ``Param.R #[← assembleType reg senv A]
+      -- the bound variable's relatedness is `〚A〛 = [A].R`: for a type binder the parametricity relation, for
+      -- a term/base binder the bare relatedness. (`assembleRel` projects it off the graded witness `[A]`.)
+      let relA ← assembleRel reg senv A
       withLocalDeclD n A fun x =>
       withLocalDeclD (n.appendAfter "'") A' fun x' =>
       withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xR => do
