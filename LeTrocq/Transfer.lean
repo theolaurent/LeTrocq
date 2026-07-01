@@ -81,7 +81,15 @@ partial def assemble (reg : Reg) (senv : SEnv) (tyEnv : List (Nat × (Expr × Pa
         | throwError "assemble: bound type variable (bId {bId}) not in scope"
       -- the universe combinator supplied the bound var's witness at its solved class `src`; weaken to the use.
       weakenTo cls src aR
-  | .sort cls inner => mkUniv cls inner
+  | .sort cls inner => do
+      -- `Prop` (Sort 0) reaches the full `(4,4)` via `paramProp` (completeness = `propext`, coherence free by
+      -- proof irrelevance); only the `Type` universe is capped at the `(2a,2a)` no-univalence ceiling (`mkUniv`).
+      match term with
+      | .sort lvl =>
+          if (← instantiateLevelMVars lvl) == levelZero then
+            mkAppM ``paramPropAt #[classToExpr cls.1, classToExpr cls.2]
+          else mkUniv cls inner
+      | _ => mkUniv cls inner
   | .arrow cls dom cod => do
       let .forallE _ A B _ := term | throwError "assemble: arrow shape but term is {term}"
       mkAppM ``paramArrow

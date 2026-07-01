@@ -15,6 +15,12 @@ example : (transfer% (Nat → Nat)).R = RArrow RN.R RN.R := rfl
 /- a nested arrow transports too: -/
 example : (transfer% (Nat → Nat → Nat)).cov.map (· + ·) Unary.z (Unary.s Unary.z) = Unary.s Unary.z := rfl
 
+/- `Prop` as a leaf type routes through `paramProp` (NOT the `Type` universe combinator, which would stall at
+   the `(2a,2a)` ceiling): it reaches the full `(4,4)` — completeness `propext`, coherence free by proof
+   irrelevance — so a `Prop`-valued codomain transfers, and the transported predicate COMPUTES. -/
+example : (transfer% Prop).R = fun P P' => PLift (P ↔ P') := rfl
+example : (transfer% (Nat → Prop)).cov.map (fun n => n = 0) = fun u => Unary.toNat u = 0 := rfl
+
 /- `trocq` proves a `Unary`-side goal by transferring it to the (easier) `Nat`-side counterpart. -/
 example : Unary → Unary := by
   trocq          -- ⊢ Nat → Nat
