@@ -4,7 +4,7 @@ import LeTrocq
 import Examples.NatUnary
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 namespace LeTrocq.Tests
-open LeTrocq LeTrocq.Solver MapClass LeTrocq.Examples
+open LeTrocq LeTrocq.Solver LeTrocq.Transfer MapClass LeTrocq.Examples
 
 def flagshipTy := ∀ A : Type, A → A
 
@@ -26,7 +26,7 @@ run_cmd Command.liftTermElabM do
    (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (wit, _, _) ← transfer e (map1, map0)
+  let wit ← transfer e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -34,7 +34,7 @@ run_cmd Command.liftTermElabM do
 /- a NESTED arrow `Nat → Nat → Nat` at root (1,0): multi-level assembly, each node at its own class. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (← mkArrow (mkConst ``Nat) (mkConst ``Nat))
-  let (wit, _, _) ← transfer e (map1, map0)
+  let wit ← transfer e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred2, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -57,7 +57,7 @@ example : True := by
 def flagshipTy2 := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let (wit, _, _) ← transfer e (map0, map1)
+  let wit ← transfer e (map0, map1)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWit, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -75,7 +75,7 @@ example : True := by
    (`paramTypeAtInner`), so it assembles; under the old (1,1)-only `paramType` this would have failed. -/
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let (wit, _, _) ← transfer e (map2b, map0)
+  let wit ← transfer e (map2b, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWit2b, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -87,7 +87,7 @@ example : True := by
    the full equivalence (the `(4,4)` coherence `R_in_mapK` holds by subsingleton). -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (wit, _, _) ← transfer e (map4, map4)
+  let wit ← transfer e (map4, map4)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred44, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -99,11 +99,11 @@ example : True := by
 /- `Nat → Nat` transferred at several intermediate root classes — each generated witness computes. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (w3, _, _) ← transfer e (map3, map3)
+  let w3 ← transfer e (map3, map3)
   addDecl (.defnDecl { name := `LeTrocq.Tests.tr33, levelParams := [],
                        type := ← instantiateMVars (← inferType w3), value := ← instantiateMVars w3,
                        hints := .opaque, safety := .safe })
-  let (w2a, _, _) ← transfer e (map2a, map0)
+  let w2a ← transfer e (map2a, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.tr2a, levelParams := [],
                        type := ← instantiateMVars (← inferType w2a), value := ← instantiateMVars w2a,
                        hints := .opaque, safety := .safe })
@@ -113,7 +113,7 @@ example : LeTrocq.Tests.tr2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /- a HIGHER-ORDER domain `(Nat → Nat) → Nat` transfers at (1,0): assembly nests through the arrow domain. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (← mkArrow (mkConst ``Nat) (mkConst ``Nat)) (mkConst ``Nat)
-  let (wit, _, _) ← transfer e (map1, map0)
+  let wit ← transfer e (map1, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.trHO, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })

@@ -14,7 +14,7 @@ Everything reads its registries from the `@[trocq]` environment extension; every
 in both directions (forward, and backward via `Param.sym`), so a goal/term over either side of an equivalence
 resolves by head match. Nothing here is tied to a particular base.
 -/
-import LeTrocq.Solver
+import LeTrocq.Transfer
 import LeTrocq.Translate
 import Lean
 open Lean Lean.Meta Lean.Elab Lean.Elab.Term Lean.Elab.Tactic
@@ -27,14 +27,14 @@ elab "transfer% " t:term : term => do
   let tE ← elabType t
   -- force pending elaboration (e.g. a type-family argument's body) so `gen` sees a fully-formed type.
   synthesizeSyntheticMVarsNoPostponing
-  let (wit, _, _) ← Solver.transfer (← instantiateMVars tE) (map4, map4)
+  let wit ← Transfer.transfer (← instantiateMVars tE) (map4, map4)
   return (← instantiateMVars wit)
 
 /-- `trocq` transfers the goal across the registered base and leaves you the (easier) counterpart. -/
 elab "trocq" : tactic => do
   let g ← getMainGoal
   let goalTy ← g.getType
-  let (wit, _, _) ← Solver.transfer goalTy (map0, map1)
+  let wit ← Transfer.transfer goalTy (map0, map1)
   let goalTy' := (← instantiateMVars (← inferType wit)).getAppArgs[3]!
   -- backward transport `G' → G` = the contra map at class (0,1) (`MapHas map1` is `Map1Has`).
   let backMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.contra #[wit]]

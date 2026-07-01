@@ -9,7 +9,10 @@ The library, module by module (each builds on the previous):
   • `LeTrocq.Registry`    — classify a witness (base / relator / term primitive) from its type.
   • `LeTrocq.Attr`        — the `@[trocq]` attribute + env extension storing the classified witnesses.
   • `LeTrocq.Translate`   — the native parametricity translation: `translate% t` rebuilds a term over `B`.
-  • `LeTrocq.Solver`      — the driver: walk a type, solve for minimal classes, assemble the witness.
+  • `LeTrocq.Solver`      — the grading solver: walk a type, solve for minimal classes, hand back the
+                          class-annotated `GradedShape` (the grading annotations).
+  • `LeTrocq.Transfer`    — the graded translation: assemble the witness from the original term + the
+                          solver's `GradedShape` (the graded form of the type-former translation).
   • `LeTrocq.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
   • `LeTrocq.ParamLib`    — the parametricity library: `@[trocq]` registrations for prelude types
                           (`Bool`, `Nat`, `List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, the empty/unit
@@ -25,5 +28,6 @@ import LeTrocq.Registry
 import LeTrocq.Attr
 import LeTrocq.Translate
 import LeTrocq.Solver
+import LeTrocq.Transfer
 import LeTrocq.Tactic
 import LeTrocq.ParamLib
