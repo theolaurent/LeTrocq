@@ -13,7 +13,7 @@ exists at the top class) down to `(p,q)`. `paramTypeAtInner` is the general form
 are the `(1,1)`-inner specializations kept for the simple cases.
 -/
 import LeTrocq.Hierarchy
-universe u
+universe u w
 namespace LeTrocq
 open MapClass
 
@@ -45,7 +45,7 @@ def paramId (A : Sort u) : Param.{u,0} map1 map1 A A := paramIdAt map1 map1 A
 /-- the universe combinator at the ceiling (2a,2a), carrying INNER relation class `(p,q)` (the
     `Map_Type` table). `map_in_R : A = A' → Param p q A A'` is `Eq.rec` of `paramIdAt` — no univalence;
     the inner class `(p,q)` is free (it records how the bound type variable must be related). -/
-def paramTypeInner (p q : MapClass) : Param map2a map2a (Type 0) (Type 0) where
+def paramTypeInner (p q : MapClass) : Param map2a map2a (Type w) (Type w) where
   R := fun A A' => Param p q A A'
   cov :=
     { map := id
@@ -57,16 +57,16 @@ def paramTypeInner (p q : MapClass) : Param map2a map2a (Type 0) (Type 0) where
 /-- the universe combinator at outer class `≤ (2a,2a)` with inner relation class `(p,q)`. -/
 def paramTypeAtInner (m n p q : MapClass)
     (hm : MapClass.le m map2a = true) (hn : MapClass.le n map2a = true) :
-    Param m n (Type 0) (Type 0) :=
+    Param m n (Type w) (Type w) :=
   (paramTypeInner p q).weaken hm hn
 
 /-- the universe combinator at (2a,2a) with the simplest inner class (1,1). -/
-def paramType : Param map2a map2a (Type 0) (Type 0) := paramTypeInner map1 map1
+def paramType : Param map2a map2a (Type w) (Type w) := paramTypeInner map1 map1
 
 /-- the universe combinator at any class `≤ (2a,2a)`, inner class (1,1). -/
 def paramTypeAt (m n : MapClass)
     (hm : MapClass.le m map2a = true) (hn : MapClass.le n map2a = true) :
-    Param m n (Type 0) (Type 0) :=
+    Param m n (Type w) (Type w) :=
   paramTypeAtInner m n map1 map1 hm hn
 
 /-- the PROP universe combinator at the TOP class `(4,4)`. Unlike the `Type` universe (capped at `2a`

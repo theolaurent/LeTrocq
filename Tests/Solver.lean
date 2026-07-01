@@ -83,6 +83,35 @@ example : True := by
   have : Param .map2b .map0 (∀ A : Type, A → A) (∀ A : Type, A → A) := LeTrocq.Tests.flagshipWit2b
   trivial
 
+/- UNIVERSE POLYMORPHISM: the universe combinator now carries the ACTUAL level, so `∀ A : Type w, A → A`
+   transfers at any `w`, not just `w = 0`. Under the old `Type 0`-pinned binder this mismatched the real
+   `Type 2` binder and assembly failed. -/
+def flagshipTy2Lvl2 := ∀ A : Type 2, A → A
+run_cmd Command.liftTermElabM do
+  let e := (← getConstInfo ``flagshipTy2Lvl2).value!
+  let wit ← transfer e (map0, map1)
+  addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWitLvl2, levelParams := [],
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param .map0 .map1 (∀ A : Type 2, A → A) (∀ A : Type 2, A → A) := LeTrocq.Tests.flagshipWitLvl2
+  trivial
+
+/- and a genuinely universe-POLYMORPHIC input (a level PARAM `u`, not a literal): the level arrives as a
+   `Level.param` and is PRESERVED (`defaultFreeLevels` zeroes only mvars). The generated witness is itself
+   universe-polymorphic — instantiated here at level 5. -/
+universe u
+def flagshipTyU := ∀ A : Type u, A → A
+run_cmd Command.liftTermElabM do
+  let ci ← getConstInfo ``flagshipTyU
+  let wit ← transfer ci.value! (map0, map1)
+  addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWitU, levelParams := ci.levelParams,
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param .map0 .map1 (∀ A : Type 5, A → A) (∀ A : Type 5, A → A) := LeTrocq.Tests.flagshipWitU.{5}
+  trivial
+
 /- (4,4) end-to-end: `Nat → Nat` transferred at the TOP class — now possible since the arrow propagates
    the full equivalence (the `(4,4)` coherence `R_in_mapK` holds by subsingleton). -/
 run_cmd Command.liftTermElabM do

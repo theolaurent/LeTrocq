@@ -41,12 +41,24 @@ def weakenTo (tgt src : ParamClass) (p : Expr) : MetaM Expr := do
   if tgt == src then return p
   mkAppM ``Param.weaken #[← leProof tgt.1 src.1, ← leProof tgt.2 src.2, p]
 
-/-- the universe combinator at outer class `req`, carrying inner relation class `inner`. -/
-def mkUniv (req inner : ParamClass) : MetaM Expr := do
+/-- the universe combinator for `Type w` at outer class `req`, carrying inner relation class `inner`. The
+    level `w` is PINNED explicitly (`mkConst … [w]`) because it is phantom in `paramTypeAtInner`'s result —
+    no argument carries it, so `mkAppM` could only leave it a free mvar (later wrongly zeroed). -/
+def mkUniv (w : Level) (req inner : ParamClass) : MetaM Expr := do
   unless MapClass.le req.1 map2a && MapClass.le req.2 map2a do
     throwError "assemble: `Type` at {repr req} exceeds the universe ceiling (2a) — needs univalence"
-  mkAppM ``paramTypeAtInner #[classToExpr req.1, classToExpr req.2, classToExpr inner.1,
-    classToExpr inner.2, ← leProof req.1 map2a, ← leProof req.2 map2a]
+  let hm ← leProof req.1 map2a
+  let hn ← leProof req.2 map2a
+  return mkAppN (mkConst ``paramTypeAtInner [w])
+    #[classToExpr req.1, classToExpr req.2, classToExpr inner.1, classToExpr inner.2, hm, hn]
+
+/-- recover `w` from a universe-binder domain `Type w = Sort (w+1)`; a bare `Sort u`/`Prop` domain is out of
+    scope for the `Type`-universe path. -/
+def typeLevelOf (dom : Expr) : MetaM Level := do
+  let .sort l := dom | throwError "assemble: universe-binder domain is not a sort: {dom}"
+  match (← instantiateLevelMVars l) with
+  | .succ w => return w
+  | l       => throwError "assemble: universe binder over `Sort {l}` — only `Type w` domains supported"
 
 /- ===================== the graded relational translation `[·]` ===================== -/
 /-- the shared `[·]` environment, threaded through EVERY arm (both halves): `fvar ↦ (counterpart x',
@@ -83,13 +95,13 @@ partial def assemble (reg : Reg) (senv : SEnv) (tyEnv : List (Nat × (Expr × Pa
       weakenTo cls src aR
   | .sort cls inner => do
       -- `Prop` (Sort 0) reaches the full `(4,4)` via `paramProp` (completeness = `propext`, coherence free by
-      -- proof irrelevance); only the `Type` universe is capped at the `(2a,2a)` no-univalence ceiling (`mkUniv`).
-      match term with
-      | .sort lvl =>
-          if (← instantiateLevelMVars lvl) == levelZero then
-            mkAppM ``paramPropAt #[classToExpr cls.1, classToExpr cls.2]
-          else mkUniv cls inner
-      | _ => mkUniv cls inner
+      -- proof irrelevance); `Type w` (Sort (w+1)) uses the level-`w` universe combinator, capped at the
+      -- `(2a,2a)` no-univalence ceiling (`mkUniv`). The level is read straight off the sort term.
+      let .sort lvl := term | throwError "assemble: sort shape but term is {term}"
+      match (← instantiateLevelMVars lvl) with
+      | .zero   => mkAppM ``paramPropAt #[classToExpr cls.1, classToExpr cls.2]
+      | .succ w => mkUniv w cls inner
+      | l       => throwError "assemble: unsupported sort `Sort {l}` (only `Prop` / `Type w`)"
   | .arrow cls dom cod => do
       let .forallE _ A B _ := term | throwError "assemble: arrow shape but term is {term}"
       mkAppM ``paramArrow
@@ -97,13 +109,16 @@ partial def assemble (reg : Reg) (senv : SEnv) (tyEnv : List (Nat × (Expr × Pa
           ← assemble reg senv tyEnv A dom,
           ← assemble reg senv tyEnv (B.instantiate1 (mkConst ``True)) cod]
   | .pi cls domCls inner bId body => do
-      let .forallE _ _ B _ := term | throwError "assemble: pi shape but term is {term}"
-      -- the domain `Type` carries the bound variable at its solved inner class (the `Map_Type` inner).
-      let domWit ← mkUniv domCls inner
+      let .forallE _ Adom B _ := term | throwError "assemble: pi shape but term is {term}"
+      -- the bound type variable ranges over `Adom = Type w`; recover `w` for the universe combinator, and
+      -- reuse `Adom` as the (homogeneous) type of BOTH the A- and A'-binders below.
+      let w ← typeLevelOf Adom
+      -- the domain `Type w` carries the bound variable at its solved inner class (the `Map_Type` inner).
+      let domWit ← mkUniv w domCls inner
       -- codomain FAMILY: fun (A A' : Type) (aR : domWit.R A A') => ⟨body witness⟩; record the binder in `senv`
       -- (by fvar, for the term half) and `tyEnv` (by `bId`, for `.usevar`).
-      let pb ← withLocalDeclD `A (.sort (.succ .zero)) fun A =>
-        withLocalDeclD `A' (.sort (.succ .zero)) fun A' => do
+      let pb ← withLocalDeclD `A Adom fun A =>
+        withLocalDeclD `A' Adom fun A' => do
           let raaTy ← mkAppM ``Param.R #[domWit, A, A']
           withLocalDeclD `aR raaTy fun aR => do
             mkLambdaFVars #[A, A', aR]
