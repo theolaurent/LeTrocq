@@ -5,14 +5,14 @@ Unlike the `Solver` (which builds a graded `Param` *witness* for a TYPE), this i
 abstraction theorem: for any term `t : T` it produces BOTH
   • the native counterpart `t' : T'` (rebuilt over `B` leaf-by-leaf — NOT `iso ∘ t ∘ iso⁻¹`), and
   • the relatedness `tR : ⟦T⟧ t t'`.
-It recurses structurally (`.lam`, `.app`, `∀`, sort), bottoms out at registered PRIMITIVES, and unfolds
-any other constant's definition. A **type-valued term** (a recursor's motive `M : Nat → Sort`, or any type
-family) is routed through the type-level translation — this is how RECURSORS transport: a recursor is a
-registered primitive (`Nat.rec ↦ Unary.rec`) whose motive argument is itself translated. `translate% e`
-elaborates to the native term `t'`.
+It recurses structurally (`.lam`, `.app`, `∀`, sort) and bottoms out at registered PRIMITIVES; an
+unregistered constant is an ERROR — the translation never unfolds a definition. A **type-valued term** (a
+recursor's motive `M : Nat → Sort`, or any type family) is routed through the type-level translation, so an
+INLINE recursor transports via its registered primitive (`Nat.rec ↦ Unary.rec`) with its motive itself
+translated. `translate% e` elaborates to the native term `t'`.
 
 `⟦·⟧` is mutually defined on terms (`param`) and types (`paramType`, which returns the relation `R_T`):
-  ⟦c⟧        = registered witness, else ⟦unfold c⟧
+  ⟦c⟧        = registered witness (else error — never unfolds)
   ⟦f a⟧      = (f' a', fR a a' aR)                      -- abstraction theorem
   ⟦fun x=>b⟧ = (fun x'=>b', fun x x' xR => bR)
   ⟦A → B⟧    = (A'→B', RArrow R_A R_B)                  -- as a TYPE: returns the relation
@@ -68,13 +68,12 @@ mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
   | .const c lvls => do
-      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.ParamLib`), else unfold the definition.
-      -- A homogeneous former is re-leveled to the occurrence's universes (`relevelHomogeneous`).
+      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.ParamLib`); an unregistered type
+      -- is an error — the translation never unfolds. A homogeneous former is re-leveled to the occurrence's
+      -- universes (`relevelHomogeneous`).
       match ctx.types.find? c with
       | some (B, rel) => relevelHomogeneous c lvls B rel
-      | none =>
-          let some val := (← getConstInfo c).value? | throwError "paramType: opaque/unregistered type {c}"
-          paramType ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
+      | none => throwError "paramType: unregistered type {c}"
   | .fvar id => do
       match env.find? (·.1 == id) with
       | some (_, A', relA) => return (A', relA)
@@ -132,13 +131,12 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       | some (_, x', xR) => return (x', xR)
       | none => throwError "param: unbound variable"
   | .const c lvls => do
-      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.ParamLib`), else unfold
-      -- the definition. A homogeneous primitive is re-leveled to the occurrence's universes.
+      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.ParamLib`); an
+      -- unregistered constant is an error — the translation never unfolds. A homogeneous primitive is
+      -- re-leveled to the occurrence's universes.
       match ctx.terms.find? c with
       | some (bTerm, wit) => relevelHomogeneous c lvls bTerm wit
-      | none =>
-          let some val := (← getConstInfo c).value? | throwError "param: opaque/unregistered constant {c}"
-          param ctx env (val.instantiateLevelParams (← getConstInfo c).levelParams lvls)
+      | none => throwError "param: unregistered constant {c}"
   | .app f a => do
       let (f', fR) ← param ctx env f
       let (a', aR) ← param ctx env a

@@ -12,11 +12,6 @@ example : (translate% (fun n : Nat => Nat.succ n)) (Unary.s Unary.z) = Unary.s (
 /- a constant is translated too: `Nat.zero` ⤳ `Unary.z`. -/
 example : (translate% (Nat.succ Nat.zero)) = Unary.s Unary.z := rfl
 
-/- STRUCTURAL: an unregistered constant is unfolded and translated through its definition.
-   `double` bottoms out only at the registered primitives `Nat.succ`/`Nat.zero`. -/
-def double (n : Nat) : Nat := Nat.succ (Nat.succ n)
-example : (translate% double) Unary.z = Unary.s (Unary.s Unary.z) := rfl
-
 /- `relate%` exposes the RELATEDNESS — the proof that the native term really is the counterpart.
    Here: `(fun n => n.succ)` relates to the native `(fun u => u.s)` under the base relation `RNU`. -/
 example : RArrow RNU RNU (fun n : Nat => Nat.succ n) (fun u : Unary => Unary.s u) :=
@@ -37,29 +32,6 @@ example : (translate% (fun (A : Type) (a : A) => a)) Unary (Unary.s Unary.z) = U
 example :
     (translate% (fun (A : Type) (f : A → A) (a : A) => f (f a))) Unary Unary.s Unary.z
       = Unary.s (Unary.s Unary.z) := rfl
-
-/- RECURSORS: a function defined by recursion on `Nat` (via `Nat.rec`) transports to NATIVE `Unary` recursion.
-   The registered recursor primitive `NatRecR` lets the translation cross `Nat.rec ↦ Unary.rec`; the motive
-   `fun _ => Nat` is itself transported (to `fun _ => Unary`) since `param` routes type-valued terms through
-   the type translation. The native `Unary`-recursive function then COMPUTES. -/
-def natDouble (n : Nat) : Nat := Nat.rec (motive := fun _ => Nat) 0 (fun _ ih => ih.succ.succ) n
-example : (translate% natDouble) Unary.z = Unary.z := rfl
-example : (translate% natDouble) (Unary.s Unary.z) = Unary.s (Unary.s Unary.z) := rfl
-example : (translate% natDouble) (Unary.s (Unary.s Unary.z)) = Unary.s (Unary.s (Unary.s (Unary.s Unary.z))) := rfl
-
-/- NON-RECURSIVE `match`: a `match`-defined function compiles to an auto-generated matcher (built on
-   `Nat.casesOn`, which unfolds to the registered `Nat.rec`); the matcher's dummy `PUnit` argument is handled
-   by the `@[trocq]`-registered trivial relation (`LeTrocq.ParamLib.Unit`, universe-polymorphic — the driver reuses
-   the occurrence's level), so the whole thing transports to native `Unary` code and computes. -/
-def natPred : Nat → Nat
-  | 0 => 0
-  | n + 1 => n
-example : (translate% natPred) Unary.z = Unary.z := rfl
-example : (translate% natPred) (Unary.s Unary.z) = Unary.z := rfl
-example : (translate% natPred) (Unary.s (Unary.s Unary.z)) = Unary.s Unary.z := rfl
-/- the RELATEDNESS path crosses the `PUnit` dummy too (not just the `translate%` counterpart): `relate%` builds
-   the witness through `UnitR`/`UnitRel`, so this exercises the universe-polymorphic registration end to end. -/
-noncomputable def natPredRel := relate% natPred
 
 /- PARAMETERIZED TYPES: a `List Nat` rebuilds element-by-element as a `List Unary` (the type former `List`
    crosses via `ListR`, the constructors `nil`/`cons` are term primitives, the element numerals expand). -/
