@@ -116,8 +116,8 @@ equivalence: `[P] : PLift (P ↔ P')`.
 
     ⟨·⟩    LeTrocq.Translate.term          (TranslateTerm.lean)
     [·]    LeTrocq.Transfer.assemble       (types — graded, builds the records)     (Transfer.lean)
-           LeTrocq.Transfer.assembleTerm   (terms — the abstraction theorem)
-           LeTrocq.Transfer.assembleProp   (propositions — logical equivalence)
+           LeTrocq.Transfer.assembleTerm   (terms — the abstraction theorem; a proposition is a Sort 0
+                                            type, so its `PLift (P ↔ P')` is projected off the `Param`)
     〚·〛    LeTrocq.Transfer.assembleRel    (= Param.R ∘ assembleType)
     Param  LeTrocq.Param / MapClass        (the record + the class diamond)         (Hierarchy.lean, Lattice.lean)
     grade  LeTrocq.Solver.gradeShape       (the solver) + the dependency tables     (Solver.lean, Lattice.lean)

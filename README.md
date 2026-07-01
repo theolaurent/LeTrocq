@@ -37,10 +37,11 @@ example : Unary → Unary := by
 ## Registering your own equivalence
 
 Prove a witness and tag it `@[trocq]`; the driver reads it from the environment. A witness is
-classified by its type into a **base** (`Param m n A B`), a **relator** (`∀ …, Param … (F …) (F' …)`),
-a **type former** (the parametricity relation of a parameterized type), a **term primitive**, or a
-**prop primitive** (`PLift (p ↔ p')`). See `Examples/NatUnary.lean` (a base) and
-`LeTrocq/ParamLib/` (prelude types) for the recipes. Ground types register an *overridable* diagonal.
+classified by its type into a **base** (`Param m n A B`), a **relator** (`∀ …, Param … (F …) (F' …)` — also
+how a `Prop` predicate or connective registers, since a proposition is just a `Sort 0` type), a **type
+former** (the parametricity relation of a parameterized type), or a **term primitive**. See
+`Examples/NatUnary.lean` (a base) and `LeTrocq/ParamLib/` (prelude types) for the recipes. Ground types
+register an *overridable* diagonal.
 
 ## How it works
 

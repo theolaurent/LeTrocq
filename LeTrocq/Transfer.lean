@@ -10,9 +10,10 @@ It has two mutually-recursive halves — as DESIGN.md itself splits `[Πx:A.B]` 
     already resolved (`node.cls`) — it never re-derives a grade. `assembleType` is its entry for a type
     embedded in a term (a bound type variable, or a closed type graded fresh at the trivial `(0,0)`, since a
     term position consumes only the grade-invariant relation `.R`).
-  • the TERM half (`assembleTerm`/`assembleProp`) is the abstraction theorem: `[t u] = [t] u ⟨u⟩ [u]`,
-    `[λx:A.t] = fun x x' xR => [t]`, bottoming at registered TERM/PROP primitives; every counterpart it
-    needs comes from `⟨·⟩`.
+  • the TERM half (`assembleTerm`) is the abstraction theorem: `[t u] = [t] u ⟨u⟩ [u]`,
+    `[λx:A.t] = fun x x' xR => [t]`, bottoming at registered TERM primitives; every counterpart it needs comes
+    from `⟨·⟩`. A PROPOSITION is just a `Sort 0` type — `[P] : PLift (P ↔ P')` is the relator/type witness
+    `assemble` builds, projected by `iffOfParam` — so there is no separate `Prop` arm.
 
 There is ONE relational translation (this file) and ONE term translation (`Translate.term`); the previous
 separate "native" pass is gone. `transfer`/`relate` are the type/term entry points.
@@ -199,12 +200,24 @@ partial def assembleRel (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
   mkAppM ``Param.R #[← assembleType reg senv T]
 
 /-- `[·]` on a TERM (the abstraction theorem): its relatedness `[e] : 〚T〛 e ⟨e⟩`. Counterparts `⟨·⟩` come
-    from `Translate.term`; a TYPE-valued sub-term contributes its relation `(assembleType …).R`; a `Prop`
-    goes through `assembleProp`. Bottoms out at registered TERM primitives (`ctx.terms`). -/
+    from `Translate.term`; a TYPE-valued sub-term contributes its relation `(assembleType …).R`. A PROPOSITION
+    `P` is just a `Sort 0` type: its relatedness `[P] : 〚Prop〛 P P' = PLift (P ↔ P')` is the `(1,1)` `Param`
+    witness the relator path builds, projected via `iffOfParam` — no separate `Prop` arm. Bottoms out at
+    registered TERM primitives (`ctx.terms`). -/
 partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
   let ty ← inferType e
   if let .sort lvl := ty then
-    if (← instantiateLevelMVars lvl) == levelZero then return ← assembleProp reg senv e
+    if (← instantiateLevelMVars lvl) == levelZero then
+      -- a PROPOSITION: build its `(1,1)` `Param` witness through the ordinary relator/type path, then project
+      -- to `PLift (P ↔ P')`. A bound `Prop` variable's relatedness already sits in `senv` as that `PLift`.
+      match e with
+      | .fvar id =>
+          match senv.find? (·.1 == id) with
+          | some (_, _, w) => return w
+          | none => throwError "assemble: unbound proposition variable {e}"
+      | _ =>
+          let w ← assemble reg senv [] e (← Solver.gradeShape e (map1, map1))
+          return ← mkAppM ``PLift.up #[← mkAppM ``iffOfParam #[w]]
     else return ← assembleRel reg senv e
   if let some n := LeTrocq.Translate.natNumeral? e then
     if (← whnf ty).isConstOf ``Nat then return ← assembleTerm reg senv (LeTrocq.Translate.natExpr n)
@@ -233,24 +246,6 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
         mkLambdaFVars #[x, x', xR]
           (← assembleTerm reg ((x.fvarId!, x', xR) :: senv) (b.instantiate1 x))
   | e => throwError "assemble: unsupported term {e}"
-
-/-- `[·]` on a PROPOSITION: its logical-equivalence relatedness `PLift (P ↔ P')`. Every proposition head —
-    a connective (`And`/`Or`/…, registered in `LeTrocq.ParamLib.Logic`) or a user predicate `p` alike — is
-    resolved by the SAME `@[trocq]` prop-primitive lookup and fed the abstraction theorem
-    `[p a₁ … aₙ] = pR a₁ ⟨a₁⟩ [a₁] …` (a Prop argument's `[aᵢ]` recurses here). No connective is known
-    intrinsically. -/
-partial def assembleProp (reg : Reg) (senv : SEnv) (P : Expr) : MetaM Expr := do
-  let args := P.getAppArgs
-  match P.getAppFn with
-  | .const c _ =>
-      match reg.ctx.props.find? c with
-      | some (_, wit) =>
-          let mut rel := wit
-          for a in args do
-            rel := mkApp3 rel a (← LeTrocq.Translate.term reg.ctx senv.toTEnv a) (← assembleTerm reg senv a)
-          return rel
-      | none => throwError "assemble: unregistered/opaque proposition head {c}"
-  | f => throwError "assemble: unsupported proposition (head {f})"
 end
 
 /-- the registries + `⟨·⟩` context, built once from the `@[trocq]` environment extension. -/

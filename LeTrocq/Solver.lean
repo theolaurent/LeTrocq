@@ -223,7 +223,7 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
 def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
-    if let .relator hA witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
+    if let .relator hA _hB witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
   return m
 
 /-- run the front half (build registries, generate constraints, solve): shape + minimal class per `Var`.

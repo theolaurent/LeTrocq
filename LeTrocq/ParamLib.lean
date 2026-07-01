@@ -14,7 +14,8 @@ The LeTrocq STANDARD LIBRARY: `@[trocq]` registrations for the prelude types in 
   • `LeTrocq.ParamLib.Empty`  — `Empty`/`False`     (the empty types, in `Type` and `Prop`)
   • `LeTrocq.ParamLib.Unit`   — `Unit`/`True`       (the unit types, in `Type` and `Prop`)
   • `LeTrocq.ParamLib.Eq`     — `Eq`    (propositional equality, as a relator over the related type)
-  • `LeTrocq.ParamLib.Logic`  — `True`/`False`/`Not`/`And`/`Or`/`Iff`  (the connectives, as prop primitives)
+  • `LeTrocq.ParamLib.Logic`  — `Not`/`And`/`Or`/`Iff`  (the connectives, as `Prop` relators; `True`/`False`
+                          are atoms via `Unit`/`Empty`)
 
 These are ordinary user-level registrations (each could live verbatim in a downstream project); they ship
 with the library only because their types are in the prelude. The driver knows NO type intrinsically — even

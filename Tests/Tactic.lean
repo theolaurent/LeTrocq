@@ -210,14 +210,17 @@ example :
       = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
 
 /- EQUALITY: `paramEqR` relates `a = b` to `a' = b'` over a related type (a relator whose first argument
-   carries the whole `Param`, not a bare relation). The type/goal path crosses `=`: `transfer%` builds the
-   witness for a type containing an equality, and `trocq` transfers a `Unary` equality goal to the `Nat`
-   side. (The `relate%` / `assembleProp` term-path for `Eq` is not wired yet — see the plan's follow-up.) -/
+   carries the whole `Param`, not a bare relation). Both surfaces cross `=`: `transfer%`/`trocq` (type/goal),
+   and — since a proposition is a `Sort 0` type — `relate%` (term), whose `[a = b] : PLift (a=b ↔ a'=b')` is
+   projected off the `paramEqR` witness. -/
 example : (transfer% (∀ n : Nat, n = n)).cov.map (fun _ => rfl) = (fun _ : Unary => rfl) := rfl
 
 example : ∀ u : Unary, u = u := by
   trocq                       -- ⊢ ∀ n : Nat, n = n
   exact fun _ => rfl
+
+example : ∀ (n : Nat) (n' : Unary), RN.R n n' → PLift (n = n ↔ n' = n') :=
+  relate% (fun n : Nat => n = n)
 
 /- CONNECTIVES IN GOALS: `And`/`Or`/`Not`/`Iff` are `(4,4)` relators (`LeTrocq.ParamLib.Logic`), so the
    SOLVER path crosses them — a goal headed by a connective transfers, its `Prop` parts each recursing as a

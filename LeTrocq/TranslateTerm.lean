@@ -22,14 +22,13 @@ import Lean
 open Lean Lean.Meta
 namespace LeTrocq.Translate
 
-/-- the `⟨·⟩` registration (COUNTERPARTS only): type formers/bases ↦ B-side head; term primitives ↦
-    (B-term, relatedness witness); PROP predicates ↦ (B-predicate, equivalence combinator). The second
-    component of `terms`/`props` (the relatedness) is what `[·]` reads; `⟨·⟩` uses only the first. Type
-    formers need no relatedness here — a type's relatedness is the graded `Param` witness `[·]` builds. -/
+/-- the `⟨·⟩` registration (COUNTERPARTS only): type formers/bases/relators ↦ B-side head; term primitives ↦
+    (B-term, relatedness witness). The second component of `terms` (the relatedness) is what `[·]` reads; `⟨·⟩`
+    uses only the first. A `Prop`'s counterpart comes from its RELATOR entry in `types` (`And ↦ And`,
+    `Pos ↦ Pos'`); its relatedness is the graded `Param` witness `[·]` builds. -/
 structure Ctx where
   types : NameMap Expr
   terms : NameMap (Expr × Expr)
-  props : NameMap (Expr × Expr)
 
 /-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. (The graded
     translation `[·]` in `LeTrocq.Transfer` carries the relatedness separately; `⟨·⟩` needs only `x'`.) -/
@@ -68,7 +67,6 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) : MetaM Expr := do
       -- the counterpart as its first component (the B-side term/type/predicate head).
       if let some (b, _) := ctx.terms.find? c then return b
       else if let some b := ctx.types.find? c then return b
-      else if let some (b, _) := ctx.props.find? c then return b
       else throwError "translate: unregistered constant {c}"
   | .app f a => return .app (← term ctx env f) (← term ctx env a)
   | .sort _ => return e
@@ -101,13 +99,6 @@ def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Ex
 def symPrimitive (wit : Expr) : MetaM Expr :=
   withSwappedTriples "term primitive" wit fun xs swapped => mkLambdaFVars swapped (mkAppN wit xs)
 
-/-- the backward direction of a PROP primitive `pR : ∀ triples, PLift (p … ↔ p' …)`: like `symPrimitive`
-    (swap each triple's value pair), but the conclusion is an `Iff`, so the proof is `Iff.symm`'d too. -/
-def symProp (wit : Expr) : MetaM Expr :=
-  withSwappedTriples "prop primitive" wit fun xs swapped => do
-    let pf ← mkAppM ``PLift.up #[← mkAppM ``Iff.symm #[← mkAppM ``PLift.down #[mkAppN wit xs]]]
-    mkLambdaFVars swapped pf
-
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
     type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
     `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
@@ -115,9 +106,8 @@ def symProp (wit : Expr) : MetaM Expr :=
 def buildCtx : MetaM Ctx := do
   let mut types := mkNameMap _
   let mut terms := mkNameMap _
-  let mut props := mkNameMap _
-  -- every BASE / TERM / PROP primitive installs in both directions via `insertBidir` (the shared
-  -- forward/backward + homogeneous-skip policy); the backward witness is the relevant `sym*`.
+  -- every BASE / TERM installs in both directions via `insertBidir` (the shared forward/backward +
+  -- homogeneous-skip policy); the backward witness is `symPrimitive`.
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB _witName _ =>
@@ -128,16 +118,17 @@ def buildCtx : MetaM Ctx := do
         let wit ← mkConstWithFreshMVarLevels witName
         terms ← insertBidir terms hA bTerm.constName? (bTerm, wit)
           (return (← mkConstWithFreshMVarLevels hA, ← symPrimitive wit))
-    | .propPrim hA hB witName =>
-        let wit ← mkConstWithFreshMVarLevels witName
-        props ← insertBidir props hA (some hB) (← mkConstWithFreshMVarLevels hB, wit)
-          (return (← mkConstWithFreshMVarLevels hA, ← symProp wit))
     | .typeFormer hA hB _relName =>
         -- a parameterized type former `F`: `⟨·⟩` maps its head `F ↦ F'` (`⟨F a⟩ = F' ⟨a⟩`, via the `.app`
-        -- rule). The former's parametricity RELATION is not needed for `⟨·⟩`; `[·]` crosses `F a` through
-        -- `F`'s registered RELATOR (whose `.R` is that relation). ONE entry, forward only.
+        -- rule). ONE entry, forward only.
         types := types.insert hA (← mkConstWithFreshMVarLevels hB)
+    | .relator hA (some hB) _witName _cls =>
+        -- a RELATOR ALSO supplies `⟨·⟩` the head counterpart `P ↦ P'` (read off its conclusion): this is how a
+        -- connective (`And ↦ And`) or a `Prop` predicate (`Pos ↦ Pos'`) — which have no type former — get a
+        -- counterpart. Both directions; homogeneous heads (`List ↦ List`) coincide with the type former's entry.
+        types ← insertBidir types hA (some hB)
+          (← mkConstWithFreshMVarLevels hB) (mkConstWithFreshMVarLevels hA)
     | .relator .. => pure ()
-  return { types, terms, props }
+  return { types, terms }
 
 end LeTrocq.Translate

@@ -34,7 +34,7 @@ def insertBidir {α} (m : NameMap α) (hA : Name) (hB? : Option Name)
 /-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
     `(a, a', aR)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
     (the error names `what`/`wit`) and return the triples in order. The single home of the `3·j` indexing
-    that the solver (`relatorArgKinds`) and the translation (`symPrimitive`/`symProp`) both walk. -/
+    that the solver (`relatorArgKinds`) and the translation (`symPrimitive`) both walk. -/
 def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (Expr × Expr × Expr)) := do
   unless xs.size % 3 == 0 do
     throwError "trocq: {what} is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
@@ -59,9 +59,8 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
     universe-polymorphic witnesses register and instantiate correctly. -/
 inductive RegKind
   | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  | relator    (headA : Name) (witName : Name) (cls : ParamClass)
+  | relator    (headA : Name) (headB? : Option Name) (witName : Name) (cls : ParamClass)
   | typeFormer (headA headB : Name) (relName : Name)
-  | propPrim   (headA headB : Name) (witName : Name)
   | term       (headA : Name) (bTerm : Expr) (witName : Name)
   deriving Inhabited
 
@@ -87,14 +86,11 @@ def parseEntry (w : Name) : MetaM RegKind := do
       if bs.isEmpty && A.isConst && B.isConst then
         return .base A.constName! B.constName! A B w cls
       else
+        -- a RELATOR `∀ …, Param m n (P …) (P' …)`. Its B-side head (`P'`) is read off the conclusion too, so
+        -- the relator ALSO supplies `⟨·⟩` the counterpart `P ↦ P'` (needed for connectives / `Prop` predicates,
+        -- which have no separate type former). Homogeneous heads (`List ↦ List`) coincide, harmlessly.
         let some hA := A.getAppFn.constName? | throwError "trocq: relator {w} has no head constant"
-        return .relator hA w cls
-    else if concl.getAppFn.isConstOf ``PLift && args.size == 1 && args[0]!.getAppFn.isConstOf ``Iff then
-      -- a PROP primitive `pR : ∀ …, PLift (p … ↔ p' …)` relating two predicates `p ↦ p'` by equivalence.
-      let iff := args[0]!.getAppArgs
-      let some hA := iff[0]!.getAppFn.constName? | throwError "trocq: prop primitive {w} has no A-side head"
-      let some hB := iff[1]!.getAppFn.constName? | throwError "trocq: prop primitive {w} has no B-side head"
-      return .propPrim hA hB w
+        return .relator hA B.getAppFn.constName? w cls
     else
       if args.size ≥ 2 then
         let some hA := args[args.size - 2]!.getAppFn.constName?

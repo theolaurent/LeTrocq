@@ -64,20 +64,20 @@ example : SigmaR Nat Unary RNU (fun _ => Nat) (fun _ => Unary) (fun _ _ _ => RNU
 example : (translate% (fun (a : Nat) (f : Nat → WTree Nat (fun _ => Nat)) => @WTree.mk Nat (fun _ => Nat) a f))
     = (fun (a : Unary) (f : Unary → WTree Unary (fun _ => Unary)) => @WTree.mk Unary (fun _ => Unary) a f) := rfl
 
-/- PROP-RELATION REFINEMENT: a `Prop`-valued component now relates by LOGICAL EQUIVALENCE `↔` (matching the
-   `Prop` universe / `paramProp`), not the old generic proof-relevant `· → · → Type`. A registered predicate
-   `p ↦ p'` supplies its own equivalence, and `translate%` rebuilds it over `Unary`. -/
+/- PROP-RELATION REFINEMENT: a `Prop`-valued predicate is a RELATOR like any type (its counterpart `p ↦ p'`
+   read off the relator, its relatedness the `PLift (· ↔ ·)` projected off the `Param`). `translate%` rebuilds
+   it over `Unary`; `relate%` gives the equivalence. -/
 def IsTrivN (_ : Nat)   : Prop := True
 def IsTrivU (_ : Unary) : Prop := True
-@[trocq] def IsTrivR (n : Nat) (u : Unary) (_ : RNU n u) : PLift (IsTrivN n ↔ IsTrivU u) := PLift.up Iff.rfl
+@[trocq] def IsTrivR (n : Nat) (u : Unary) (_ : RNU n u) : Param .map4 .map4 (IsTrivN n) (IsTrivU u) :=
+  paramOfIff (⟨fun _ => trivial, fun _ => trivial⟩ : IsTrivN n ↔ IsTrivU u)
 
 example : (translate% (fun n : Nat => IsTrivN n)) = (fun u : Unary => IsTrivU u) := rfl
-/- the relatedness is `PLift (· ↔ ·)` — the refinement (previously `· → · → Type`). -/
+/- the relatedness is `PLift (· ↔ ·)`, projected off the predicate's `Param` witness. -/
 example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ↔ IsTrivU u) :=
   relate% (fun n : Nat => IsTrivN n)
-/- connectives are ordinary `@[trocq]` prop primitives (`LeTrocq.ParamLib.Logic`), not hardcoded: `⟨And⟩`
-   resolves by registry lookup, and `[p n ∧ p n]` is `AndR … [p n] … [p n]` — the same abstraction theorem
-   as any predicate. -/
+/- connectives are ordinary `@[trocq]` RELATORS (`LeTrocq.ParamLib.Logic`), not hardcoded: `⟨And⟩` resolves by
+   registry lookup, and `[p n ∧ p n]` projects off the `paramAndR` witness — the same path as any type. -/
 example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
     = (fun u : Unary => IsTrivU u ∧ IsTrivU u) := rfl
 example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ∧ IsTrivN n ↔ IsTrivU u ∧ IsTrivU u) :=

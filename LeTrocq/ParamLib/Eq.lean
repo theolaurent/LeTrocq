@@ -4,8 +4,8 @@ The LeTrocq STANDARD LIBRARY: `Eq` (propositional equality).
 `a = b` relates to `a' = b'` whenever the underlying type is related by a full equivalence and the two
 sides are related pointwise (`aR : pa.R a a'`, `bR : pa.R b b'`). Unlike `List`/`Prod`, equality's
 parametricity needs MORE than the bare element relation — it needs the type's `map`/`R_in_map`, i.e. that
-the map is a bijection — so `Eq` registers as a RELATOR (whose type argument carries the whole `Param`),
-NOT as a prop primitive (which would only expose `.R`).
+the map is a bijection — so `Eq`'s type argument is carried as a whole `Param` (not just its `.R` relation),
+which the RELATOR classification provides.
 
 The forward `a = b → a' = b'` transports along `pa.cov` (`map a = a'`, `map b = b'`, so `a = b` gives
 `a' = b'`); the backward direction is the mirror through `pa.contra`. Registered at the top class `(4,4)`:
