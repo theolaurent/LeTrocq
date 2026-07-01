@@ -15,6 +15,7 @@ coherence is free.
 (Monomorphic at `Type`, like the other prelude relators; a `Sort`-polymorphic `Eq` witness is future work.)
 -/
 import LeTrocq.Attr
+import LeTrocq.ParamCC.Universe
 namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 
@@ -25,22 +26,10 @@ theorem eqCorr {A A' : Type} (pa : Param map4 map4 A A')
   ⟨fun h => by rw [← pa.cov.R_in_map a a' aR, ← pa.cov.R_in_map b b' bR, h],
    fun h => by rw [← pa.contra.R_in_map a' a aR, ← pa.contra.R_in_map b' b bR, h]⟩
 
-/-- `a = b ≃ a' = b'` at the top class. Its two related objects are `Prop`s, so `R_in_map` (both proofs of
-    the same proposition are equal) and the coherence are free by proof irrelevance. A RELATOR keyed by
-    `Eq`: its first triple is the TYPE argument (a `Param`), the next two are the term arguments. -/
+/-- `a = b ≃ a' = b'` at the top class, carrying `〚Prop〛 = PLift (·↔·)` (via `paramOfIff`). A RELATOR keyed
+    by `Eq`: its first triple is the TYPE argument (a `Param`), the next two are the term arguments. -/
 @[trocq] def paramEqR (A A' : Type) (pa : Param map4 map4 A A')
     (a : A) (a' : A') (aR : pa.R a a') (b : A) (b' : A') (bR : pa.R b b') :
-    Param map4 map4 (a = b) (a' = b') where
-  R := fun _ _ => PLift ((a = b) ↔ (a' = b'))
-  cov :=
-    { map := fun h => (eqCorr pa aR bR).mp h
-      map_in_R := fun _ _ _ => PLift.up (eqCorr pa aR bR)
-      R_in_map := fun _ _ _ => rfl
-      R_in_mapK := fun _ _ _ => rfl }
-  contra :=
-    { map := fun h => (eqCorr pa aR bR).mpr h
-      map_in_R := fun _ _ _ => PLift.up (eqCorr pa aR bR)
-      R_in_map := fun _ _ _ => rfl
-      R_in_mapK := fun _ _ _ => rfl }
+    Param map4 map4 (a = b) (a' = b') := paramOfIff (eqCorr pa aR bR)
 
 end LeTrocq.ParamLib

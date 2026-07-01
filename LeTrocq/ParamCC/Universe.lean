@@ -91,4 +91,27 @@ def paramProp : Param map4 map4 Prop Prop where
 def paramPropAt (m n : MapClass) : Param m n Prop Prop :=
   paramProp.weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
+/-- read the equivalence `P ↔ P'` off a `Param map1 map1` between two propositions (its forward/backward
+    maps). The inverse of `paramOfIff` on the map level — used by the connective relators to turn their
+    `Param` component arguments back into the `iff`s their congruence lemmas consume. -/
+def iffOfParam {P P' : Prop} (p : Param map1 map1 P P') : P ↔ P' := ⟨p.cov.map, p.contra.map⟩
+
+/-- lift a logical equivalence `P ↔ P'` to a `Param (4,4)` between the two PROPOSITIONS, carrying the
+    equivalence as its relation `PLift (P ↔ P')` (= `〚Prop〛`, `paramProp.R`). Completeness is proof
+    irrelevance (`R_in_map`/coherence are `rfl`), so it reaches the top class with no axiom beyond the given
+    `iff`. This is the shared builder for every `Prop`-valued relator (`Eq`, the connectives): a relator maps
+    its parts' equivalences to the whole's, then hands the result here. -/
+def paramOfIff {P P' : Prop} (i : P ↔ P') : Param.{0,0} map4 map4 P P' where
+  R := fun _ _ => PLift (P ↔ P')
+  cov :=
+    { map := i.mp
+      map_in_R := fun _ _ _ => PLift.up i
+      R_in_map := fun _ _ _ => rfl
+      R_in_mapK := fun _ _ _ => rfl }
+  contra :=
+    { map := i.mpr
+      map_in_R := fun _ _ _ => PLift.up i
+      R_in_map := fun _ _ _ => rfl
+      R_in_mapK := fun _ _ _ => rfl }
+
 end LeTrocq

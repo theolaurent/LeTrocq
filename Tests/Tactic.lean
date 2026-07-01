@@ -219,4 +219,19 @@ example : ∀ u : Unary, u = u := by
   trocq                       -- ⊢ ∀ n : Nat, n = n
   exact fun _ => rfl
 
+/- CONNECTIVES IN GOALS: `And`/`Or`/`Not`/`Iff` are `(4,4)` relators (`LeTrocq.ParamLib.Logic`), so the
+   SOLVER path crosses them — a goal headed by a connective transfers, its `Prop` parts each recursing as a
+   `Param` component (like `Prod`). Nesting works (`(· ∧ ·) ∨ ¬¬·`). -/
+example : ∀ u : Unary, Pos u ∧ Pos u := by
+  trocq                       -- ⊢ ∀ n : Nat, Pos' n ∧ Pos' n
+  exact fun n => ⟨Nat.zero_le n, Nat.zero_le n⟩
+
+example : ∀ u : Unary, Pos u ∨ Pos u := by
+  trocq
+  exact fun n => Or.inl (Nat.zero_le n)
+
+example : ∀ u : Unary, (Pos u ∧ Pos u) ∨ ¬ ¬ Pos u := by
+  trocq                       -- ⊢ ∀ n : Nat, (Pos' n ∧ Pos' n) ∨ ¬¬ Pos' n
+  exact fun n => Or.inl ⟨Nat.zero_le n, Nat.zero_le n⟩
+
 end LeTrocq.Tests
