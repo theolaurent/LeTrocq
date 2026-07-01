@@ -15,12 +15,13 @@ Either way the dependency must be **explicit in a type signature**, never hidden
 
 ## RULE: keep definitions universe-polymorphic
 
-Don't hardcode a universe level (`Type`, `Sort 1`, `.{0}`, `PUnit.{1}`, …) just to make something typecheck.
-Write definitions polymorphic over their universes (`Sort u` / auto-bound levels) so they apply at every
-level. If a generic mechanism can't carry the level (e.g. the translation reusing an occurrence's universe),
-fix the **mechanism**, not the definition. Precedent: `LeTrocq.ParamLib.Unit`'s `UnitRel`/`UnitR` are universe-
-polymorphic; the driver reuses the occurrence's levels for homogeneous formers (`relevelHomogeneous` in
-`LeTrocq/Translate.lean`) rather than pinning `PUnit` at a fixed universe.
+Don't hardcode a universe level (`Type`, `Sort 1`, `.{0}`, …) just to make something typecheck. Write
+definitions polymorphic over their universes (`Sort u` / auto-bound levels) so they apply at every level —
+unless the only consumers are inherently monomorphic, in which case a fixed level is honest, not a dodge. If
+a generic mechanism can't carry the level, fix the **mechanism**, not the definition. Precedent: the core
+records `Param`/`MapHas`/`Map*Has` (`LeTrocq/Hierarchy.lean`) are written over `Sort u` (with `R : A → B →
+Type v`), so a `Prop` object fits with no `ULift`; `paramRefl`/`paramProp` and the universe combinators stay
+level-polymorphic likewise.
 
 ## Build / test
 

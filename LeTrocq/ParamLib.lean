@@ -12,11 +12,11 @@ The LeTrocq STANDARD LIBRARY: `@[trocq]` registrations for the prelude types in 
   • `LeTrocq.ParamLib.Sigma`  — `Sigma`  (Σ, dependent — exercises the type-FAMILY relator machinery)
   • `LeTrocq.ParamLib.Quot`   — `Quot`   (the kernel quotient: type former + constructor + `(4,4)` relator)
   • `LeTrocq.ParamLib.Empty`  — `Empty`/`False`     (the empty types, in `Type` and `Prop`)
-  • `LeTrocq.ParamLib.Unit`   — `PUnit`/`True`      (the unit types, in `Type` and `Prop`; also the matcher dummy)
+  • `LeTrocq.ParamLib.Unit`   — `Unit`/`True`       (the unit types, in `Type` and `Prop`)
 
 These are ordinary user-level registrations (each could live verbatim in a downstream project); they ship
 with the library only because their types are in the prelude. The driver knows NO type intrinsically — even
-the kernel constants `Quot`/`PUnit` register here via `@[trocq]`. Non-prelude examples of registration
+the kernel constant `Quot` registers here via `@[trocq]`. Non-prelude examples of registration
 (a W-type) stay under `Examples/`.
 -/
 import LeTrocq.ParamLib.Bool

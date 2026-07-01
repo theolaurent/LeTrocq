@@ -48,31 +48,15 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
-/-- re-instantiate a HOMOGENEOUS registration (B-side head = the occurrence head `c` — `List`/`Quot`/`PUnit`
-    and their constructors) at the OCCURRENCE's universe levels `lvls`. `Param` relates same-universe types, so
-    reusing `lvls` is sound — and it is what lets a UNIVERSE-POLYMORPHIC, content-free primitive like `PUnit`
-    get a CONCRETE B-side universe instead of an unpinned fresh one (nothing in the irrelevant `PUnit` would pin
-    a fresh mvar, so it would default to the wrong level). `side` is the B-side former/counterpart; `wit` its
-    relation/relatedness, re-leveled to `lvls` too when its universe arity matches (the witness is polymorphic
-    over the same universes, in order — a monomorphic witness keeps its fixed universes). A heterogeneous entry
-    (a BASE `Nat ↦ Unary`, whose two sides are different closed types) is returned unchanged. -/
-def relevelHomogeneous (c : Name) (lvls : List Level) (side wit : Expr) : MetaM (Expr × Expr) := do
-  unless side.getAppFn.constName? == some c do return (side, wit)
-  let wit ← match wit.getAppFn.constName? with
-    | some wn => if ((← getConstInfo wn).levelParams).length == lvls.length then pure (.const wn lvls)
-                 else pure wit
-    | none    => pure wit
-  return (.const c lvls, wit)
-
 mutual
 /-- translate a TYPE `A` to `(A', R_A)` where `R_A : A → A' → Type` is the parametricity relation. -/
 partial def paramType (ctx : Ctx) (env : Env) : Expr → MetaM (Expr × Expr)
-  | .const c lvls => do
-      -- a registered type former (incl. prelude `Quot`/`PUnit`, see `LeTrocq.ParamLib`); an unregistered type
-      -- is an error — the translation never unfolds. A homogeneous former is re-leveled to the occurrence's
-      -- universes (`relevelHomogeneous`).
+  | .const c _ => do
+      -- a registered type former (incl. prelude `Quot`, see `LeTrocq.ParamLib`); an unregistered type is an
+      -- error — the translation never unfolds. The B-side former carries fresh universe mvars; they are pinned
+      -- by the argument the `.app` rule feeds it (and any genuinely free residual defaults to 0 in the driver).
       match ctx.types.find? c with
-      | some (B, rel) => relevelHomogeneous c lvls B rel
+      | some (B, rel) => return (B, rel)
       | none => throwError "paramType: unregistered type {c}"
   | .fvar id => do
       match env.find? (·.1 == id) with
@@ -130,12 +114,11 @@ partial def param (ctx : Ctx) (env : Env) (e : Expr) : MetaM (Expr × Expr) := d
       match env.find? (·.1 == id) with
       | some (_, x', xR) => return (x', xR)
       | none => throwError "param: unbound variable"
-  | .const c lvls => do
-      -- a registered term primitive (incl. prelude `Quot.mk`/`PUnit.unit`, see `LeTrocq.ParamLib`); an
-      -- unregistered constant is an error — the translation never unfolds. A homogeneous primitive is
-      -- re-leveled to the occurrence's universes.
+  | .const c _ => do
+      -- a registered term primitive (incl. prelude `Quot.mk`, see `LeTrocq.ParamLib`); an unregistered
+      -- constant is an error — the translation never unfolds.
       match ctx.terms.find? c with
-      | some (bTerm, wit) => relevelHomogeneous c lvls bTerm wit
+      | some (bTerm, wit) => return (bTerm, wit)
       | none => throwError "param: unregistered constant {c}"
   | .app f a => do
       let (f', fR) ← param ctx env f
