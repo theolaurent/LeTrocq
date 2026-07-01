@@ -21,6 +21,7 @@ poly multi-universe use of `PUnit` is the matcher dummy, which is the translatio
 built-in `True` case).
 -/
 import LeTrocq.Attr
+import LeTrocq.ParamCC
 namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 

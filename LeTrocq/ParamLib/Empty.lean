@@ -11,6 +11,7 @@ mentioning `Empty`/`False` as a leaf transfers — e.g. `Empty` in a codomain, o
 connectives `True`/`False`); this base is what the `trocq`/`transfer%` SOLVER additionally needs.
 -/
 import LeTrocq.Attr
+import LeTrocq.ParamCC
 namespace LeTrocq.ParamLib
 open LeTrocq MapClass
 
