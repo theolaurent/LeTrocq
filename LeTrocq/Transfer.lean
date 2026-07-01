@@ -154,8 +154,11 @@ partial def assemble (reg : Reg) (senv : SEnv) (tyEnv : List (Nat × (Expr × Pa
       weakenTo cls relClass (mkAppN relator argExprs)
 
 /-- `[·]` on a TYPE embedded in a term: its `Param` witness. A bound type variable resolves from the env;
-    any other (closed) type is graded fresh at the trivial class `(0,0)` — its relation `.R` is all a term
-    position consumes, and `.R` is invariant under the grade, so the cheapest class suffices. -/
+    any other type is graded fresh at the trivial class `(0,0)` — its relation `.R` is all a term position
+    consumes, and `.R` is invariant under the grade, so the cheapest class suffices. The ambient `senv` is
+    threaded into the assemble so a DEPENDENT type over a λ-bound TERM resolves — e.g. `Boxed b` / `Vec n`
+    with `b`/`n` bound by an outer λ: the solver skips the term index, and `senv` supplies its relatedness.
+    (A dependent type over a λ-bound TYPE variable still needs the solver to be seeded — not handled here.) -/
 partial def assembleType (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
   match T with
   | .fvar id =>
@@ -164,7 +167,7 @@ partial def assembleType (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
       | none => throwError "assemble: unbound type variable {T}"
   | _ =>
       let gs ← Solver.gradeShape T (map0, map0)
-      assemble reg [] [] T gs
+      assemble reg senv [] T gs
 
 /-- `〚·〛 := [·].R` (DESIGN.md's `〚A〛 := A.R`): the RELATION of a type `T`, projected off the graded witness
     `[·]` (`assembleType`) builds. All a TERM position ever consumes of a type, and grade-invariant — so
