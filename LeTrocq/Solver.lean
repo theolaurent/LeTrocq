@@ -1,20 +1,13 @@
 /-
-THE GRADING SOLVER: walk a type `Expr`, infer the MINIMAL class every occurrence needs, and hand back a
-`GradedShape` — the shape tree with every node's grade resolved. This is the front half only; it knows
-nothing about building witnesses (that is `LeTrocq.Transfer`, the graded translation, which consumes a
-`GradedShape` together with the original term).
+THE `@[trocq]` REGISTRIES + relator argument-routing — the pure lookups the graded translation
+(`LeTrocq.Transfer`) reads. This is NOT a grading solver anymore: grading is done inline by `Transfer.assemble`,
+which pushes a demanded class top-down through the `depArrow`/`depPi`/`depType` tables (no constraint graph, no
+fixpoint — see bidir_solver.md). What remains here is the registry side of the front↔back contract:
 
-  walk (`gen`):   assign a class `Var` to every node, emit the `Cstr` edges (`depArrow`/`depPi`/`depType`/
-                  `gev`/`ge` from `Lattice`) that relate them, and record a `Shape`.
-  solve (`solve`): seed the root, run the monotone least-fixpoint — the minimal class per `Var`.
-  bake:           fold the solution into the `Shape`, producing the class-annotated `GradedShape`. The
-                  `GradedShape` is fvar-free (binders referenced by a stable id) and term-free (argument
-                  terms are read from the ORIGINAL term during translation) — so it is exactly "the result
-                  of the solver": grading annotations, nothing more.
-
-`Shape`/`GenState` and the constraint machinery are the solver's INTERNALS; the public product is
-`gradeShape : Expr → ParamClass → GradedShape`. The registered bases / relators come from the `@[trocq]`
-extension (`buildAtoms`/`buildConsts`).
+  • `buildAtoms`  — the type-atom registry from every `@[trocq]` BASE (both directions, via `Param.sym`).
+  • `buildConsts` — the relator registry from every `@[trocq]` RELATOR (keyed by the applied head).
+  • `relatorArgKinds` — read a relator's per-argument routing (`type` / `family` / `term`) off its type, so the
+    abstraction-theorem `app` rule in `Transfer.assemble` knows how to consume each argument.
 -/
 import LeTrocq.Attr
 import Lean
@@ -37,51 +30,9 @@ inductive ArgKind
   | term
   deriving Inhabited
 
-/- ===================== constraint-generation state + the internal shape tree ===================== -/
-structure GenState where
-  next    : Nat := 0
-  cstrs   : Array Cstr := #[]
-  binders : List (FVarId × Nat) := []   -- type-variable binders (`∀ A : Type`) → their relation class var
-
-/-- the solver's internal shape tree: each node remembers its class `Var` (resolved by `solve`, folded in
-    by `bake`). Carries no argument terms — those live in the original term the translation re-walks. -/
-inductive Shape
-  | atom   (v : Nat) (name : Name)
-  | arrow  (v : Nat) (dom cod : Shape)
-  | pi     (v domV rV : Nat) (body : Shape)              -- `∀ A : Type, …`
-  | sort   (v rV : Nat)
-  | usevar (v rV : Nat)                                  -- use of a bound TYPE variable (`rV` names the binder)
-  | piTerm (v : Nat) (dom : Shape) (body : Shape)        -- `∀ (x : T), …` over any buildable domain `T`
-  | app    (v : Nat) (head : Name)                       -- `head arg₁ … argₙ`, registered relator `head`
-           (kinds : Array ArgKind)                       -- the relator's per-argument kinds (all args)
-           (typeArgShapes : List Shape)                  -- one sub-shape per TYPE/FAMILY arg, in arg order
-
-def Shape.var : Shape → Nat
-  | .atom v _ | .arrow v _ _ | .pi v _ _ _ | .sort v _ | .usevar v _ | .piTerm v _ _ | .app v _ _ _ => v
-
-/- ===================== the class-annotated shape (the solver's OUTPUT / the front↔back contract) ===================== -/
-/- the grading annotations the translation consumes: the shape with every node's grade RESOLVED. Fvar-free
-   (a type binder is named by a stable `bId`, referenced by `usevar`) and term-free
-   (argument terms are read from the original term). This is all the graded translation needs from the solver. -/
-mutual
-inductive GradedShape where
-  | atom   (cls : ParamClass) (name : Name)
-  | arrow  (cls : ParamClass) (dom cod : GradedShape)
-  | pi     (cls domCls inner : ParamClass) (bId : Nat) (body : GradedShape)  -- ∀ A:Type; `inner` = bound var's grade
-  | sort   (cls inner : ParamClass)
-  | usevar (cls : ParamClass) (bId : Nat)                                    -- use of type-var `bId`, at grade `cls`
-  | piTerm (cls : ParamClass) (dom body : GradedShape)
-  | app    (cls : ParamClass) (head : Name) (args : List GradedArg)          -- routing only, no arg terms
-/-- one relator argument in a `GradedShape.app`, aligned with the original term's arguments in order. -/
-inductive GradedArg where
-  | type   (sub : GradedShape)
-  | family (domIdx : Nat) (sub : GradedShape)
-  | term
-end
-
-instance : Inhabited GradedShape := ⟨.sort default default⟩
-instance : Inhabited GradedArg := ⟨.term⟩
-
+/-- read a relator's per-argument routing off its type (see `ArgKind`). Consumed by `Transfer.assemble`'s
+    abstraction-theorem `app` rule: it walks the relator's actual arguments and, per this routing, builds each
+    one's `Param` (a TYPE arg / a FAMILY arg) or sends it to the term half (a TERM arg). -/
 def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
   forallTelescopeReducing (← inferType wit) fun bs _ => do
     let triples ← chunkTriples "relator" wit bs
@@ -114,98 +65,6 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
         | none => kinds := kinds.push .term
     return kinds
 
-/- ===================== front half: generate constraints from a type Expr ===================== -/
-partial def gen (atoms : NameMap (Expr × Expr × ParamClass)) (consts : NameMap (Expr × ParamClass))
-    (st : IO.Ref GenState) : Expr → MetaM Shape
-  | .forallE n A B _ => do
-      if B.hasLooseBVar 0 then
-        match A with
-        | .sort _ =>                                       -- ∀ (A : Type), … (a type binder)
-            let v ← fresh; let domV ← fresh; let rV ← fresh
-            emit (.depType domV rV)
-            withLocalDeclD n A fun x => do
-              st.modify fun s => { s with binders := (x.fvarId!, rV) :: s.binders }
-              let sb ← gen atoms consts st (B.instantiate1 x)
-              emit (.depPi v domV sb.var)
-              return .pi v domV rV sb
-        | _ =>                                             -- ∀ (x : T), … over ANY buildable domain type `T`
-            -- gen the domain `T` to a sub-shape (so the solver builds its `Param`, exactly as for a type
-            -- ARGUMENT): a registered base atom, an arrow, a relator application (`List Unary`, …), even a
-            -- compound over outer binders. The body's `app` nodes then consume the bound term variable as a
-            -- TERM argument whose relatedness is the Π-domain witness — no special base handling needed.
-            let v ← fresh
-            let sd ← gen atoms consts st A
-            withLocalDeclD n A fun x => do
-              let sb ← gen atoms consts st (B.instantiate1 x)
-              emit (.depPi v sd.var sb.var)
-              return .piTerm v sd sb
-      else
-        let v ← fresh
-        let sd ← gen atoms consts st A
-        let sc ← gen atoms consts st (B.instantiate1 (mkConst ``True))
-        emit (.depArrow v sd.var sc.var)
-        return .arrow v sd sc
-  | e@(.app ..) => do                                     -- `head arg₁ … argₙ`: a registered relator applied
-      let some head := e.getAppFn.constName?
-        | throwError "gen: application head {e.getAppFn} is not a constant"
-      let some (wit, _) := consts.find? head | throwError "gen: unregistered relator {head}"
-      let kinds ← relatorArgKinds wit
-      let args := e.getAppArgs
-      unless args.size == kinds.size do
-        throwError "gen: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
-      -- TYPE arg: recurse to build its sub-shape (so the solver builds its `Param`), forcing class ≥ the
-      -- relator's. FAMILY arg `B : X → Type`: introduce an element `a : X` and gen the body `B a` (the
-      -- element is reintroduced by the translation, so nothing leaks into the shape).
-      let mut tyArgs : Array Shape := #[]
-      for i in [0 : args.size] do
-        match kinds[i]! with
-        | .type cls =>
-            let sub ← gen atoms consts st args[i]!
-            emit (.ge sub.var cls)
-            tyArgs := tyArgs.push sub
-        | .family cls _ =>
-            let famDom := (← whnf (← inferType args[i]!)).bindingDomain!
-            let sub ← withLocalDeclD `a famDom fun a => gen atoms consts st (args[i]!.beta #[a])
-            emit (.ge sub.var cls)
-            tyArgs := tyArgs.push sub
-        | .term => pure ()
-      let v ← fresh; return .app v head kinds tyArgs.toList
-  | .const name _ => do
-      let v ← fresh
-      if atoms.contains name then return .atom v name
-      else throwError "gen: unregistered base atom {name}"
-  | .sort _ => do
-      let v ← fresh; let rV ← fresh; emit (.depType v rV); return .sort v rV
-  | .fvar id => do
-      match (← st.get).binders.find? (·.1 == id) with
-      | some (_, bv) => let p ← fresh; emit (.gev bv p); return .usevar p bv
-      | none => throwError "gen: unbound fvar"
-  | e => throwError "gen: unsupported {e}"
-where
-  fresh : MetaM Nat := do let s ← st.get; st.set { s with next := s.next + 1 }; return s.next
-  emit (c : Cstr) : MetaM Unit := st.modify fun s => { s with cstrs := s.cstrs.push c }
-
-/- ===================== bake: fold the solution into the shape (the annotations) ===================== -/
-mutual
-/-- fold the solved class assignment `sol` into a `Shape`, resolving every node's `Var` to its `ParamClass`.
-    Pure: the grading is fully computed; this just reads it off. -/
-partial def bake (sol : Array ParamClass) : Shape → GradedShape
-  | .atom v name          => .atom sol[v]! name
-  | .arrow v dom cod      => .arrow sol[v]! (bake sol dom) (bake sol cod)
-  | .pi v domV rV body    => .pi sol[v]! sol[domV]! sol[rV]! rV (bake sol body)
-  | .sort v rV            => .sort sol[v]! sol[rV]!
-  | .usevar v rV          => .usevar sol[v]! rV                       -- `bId` = the binder's relation var `rV`
-  | .piTerm v dom body    => .piTerm sol[v]! (bake sol dom) (bake sol body)
-  | .app v head kinds tyShapes => .app sol[v]! head (bakeArgs sol kinds.toList tyShapes)
-/-- align the relator's per-argument kinds with the type/family sub-shapes (term args carry nothing). -/
-partial def bakeArgs (sol : Array ParamClass) : List ArgKind → List Shape → List GradedArg
-  | [], _ => []
-  | .term :: ks, ts                   => .term :: bakeArgs sol ks ts
-  | .type _ :: ks, sub :: ts          => .type (bake sol sub) :: bakeArgs sol ks ts
-  | .family _ domIdx :: ks, sub :: ts => .family domIdx (bake sol sub) :: bakeArgs sol ks ts
-  | _ :: ks, ts                       => .term :: bakeArgs sol ks ts   -- unreachable: gen keeps them aligned
-end
-
 /- ===================== registries from the `@[trocq]` extension ===================== -/
 /-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`), so a
     type built over either side of an equivalence resolves by head match. -/
@@ -225,19 +84,5 @@ def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
   for e in trocqEntries (← getEnv) do
     if let .relator hA _hB witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
   return m
-
-/-- run the front half (build registries, generate constraints, solve): shape + minimal class per `Var`.
-    The low-level primitive — exposes the raw `Shape` and solution for inspection/testing. -/
-def runSolve (e : Expr) (root : ParamClass) : MetaM (Shape × Array ParamClass) := do
-  let st ← IO.mkRef {}
-  let shape ← gen (← buildAtoms) (← buildConsts) st e
-  let s ← st.get
-  return (shape, LeTrocq.solve s.next [(shape.var, root)] s.cstrs.toList)
-
-/-- THE SOLVER'S PRODUCT: infer the minimal class of every occurrence of `e` at output class `root`, and
-    return the class-annotated `GradedShape` the graded translation (`LeTrocq.Transfer`) consumes. -/
-def gradeShape (e : Expr) (root : ParamClass) : MetaM GradedShape := do
-  let (shape, sol) ← runSolve e root
-  return bake sol shape
 
 end LeTrocq.Solver

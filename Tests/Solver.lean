@@ -1,29 +1,17 @@
-/- The driver: Expr → constraints → solve → assembled witness, end to end. -/
+/- The driver: Expr → demand-driven `assemble` → witness, end to end. `Transfer.assemble` walks the type once,
+   pushing a demanded class top-down through the dependency tables and building each node's `Param` at the minimal
+   class the demand dictates (no constraint graph, no fixpoint — bidir_solver.md). -/
 import Lean
 import LeTrocq
 import Examples.NatUnary
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 namespace LeTrocq.Tests
-open LeTrocq LeTrocq.Solver LeTrocq.Transfer MapClass LeTrocq.Examples
+open LeTrocq LeTrocq.Transfer MapClass LeTrocq.Examples
 
 def flagshipTy := ∀ A : Type, A → A
 
-/- FRONT HALF: the Expr → constraint → solve inference reproduces the paper's minimal classes. -/
-run_cmd Command.liftTermElabM do
-  -- `Nat → Nat` at (0,1): the two occurrences get DIFFERENT minimal classes.
-  let e1 ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let (_, sol1) ← runSolve e1 (map0, map1)
-  if sol1 = #[(map0,map1),(map1,map0),(map0,map1)] then pure ()
-  else throwError "front-half regressed (Nat→Nat): {repr sol1}"
-  -- the flagship `∀ A : Type, A → A` at (0,1): vars [Π, Type, A, →, use, use].
-  let e2 := (← getConstInfo ``flagshipTy).value!
-  let (_, sol2) ← runSolve e2 (map0, map1)
-  if sol2 = #[(map0,map1),(map2a,map0),(map1,map1),(map0,map1),(map1,map0),(map0,map1)] then pure ()
-  else throwError "flagship inference regressed (∀A:Type,A→A): {repr sol2}"
-
-/- BACK HALF: generate the witness for `Nat → Nat` at root (1,0), then hard-check it.
-   With the rewired driver this is built by the GRADED `paramArrow` at the per-node minimal class
-   (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
+/- generate the witness for `Nat → Nat` at root (1,0), then hard-check it. It is built by the GRADED `paramArrow`
+   at the per-node minimal class (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
   let wit ← transfer e (map1, map0)
@@ -70,9 +58,9 @@ example : True := by
 /-- info: 'LeTrocq.Tests.flagshipWit' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms LeTrocq.Tests.flagshipWit
 
-/- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0) forces the bound variable `A` to class
-   (2b,2a) — ABOVE the old fixed (1,1) ceiling. The universe combinator now carries that inner class
-   (`paramTypeAtInner`), so it assembles; under the old (1,1)-only `paramType` this would have failed. -/
+/- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0). The OUTER class of the universe is `depPi (2b,0).1 =
+   (0,2a)` (≤ the (2a,2a) ceiling, so it assembles without univalence); the bound variable `A` is offered at
+   INNER class (4,4) — the pinned top, independent of the capped outer (`paramTypeAtInner` carries it). -/
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
   let wit ← transfer e (map2b, map0)

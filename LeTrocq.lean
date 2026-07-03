@@ -10,13 +10,15 @@ The library, module by module (each builds on the previous):
   • `LeTrocq.Attr`        — the `@[trocq]` attribute + env extension storing the classified witnesses.
   • `LeTrocq.TranslateTerm` — the term translation `⟨·⟩`: rebuild a term's `B`-side counterpart, leaf by leaf
                           (module `LeTrocq.TranslateTerm`, namespace `LeTrocq.Translate`).
-  • `LeTrocq.Solver`      — the grading solver: walk a type, solve for minimal classes, hand back the
-                          class-annotated `GradedShape` (the grading annotations).
-  • `LeTrocq.Transfer`    — the graded relational translation `[·]`: the relatedness witness from the
-                          original term + the solver's `GradedShape`, relying on `Translate`'s `⟨·⟩`. Its
-                          type half is graded (combinators at the solved class); its term half is the
-                          abstraction theorem (`[t u] = [t] u ⟨u⟩ [u]`). ONE relational translation, no
-                          separate "native" pass. Drives `relate%` (terms) and `transfer%`/`trocq` (types).
+  • `LeTrocq.Solver`      — the `@[trocq]` registries the translation reads (`buildAtoms`/`buildConsts`) plus
+                          `relatorArgKinds` (a relator's per-argument routing). NOT a grading solver anymore —
+                          grading is inline in `Transfer` (bidir_solver.md).
+  • `LeTrocq.Transfer`    — the graded relational translation `[·]`, a single demand-driven pass: `assemble`
+                          walks a type top-down, pushing the demanded class through the dependency tables to the
+                          minimal class each part needs and building it with its graded combinator (no constraint
+                          graph, no fixpoint). Its term half (`assembleTerm`) is the abstraction theorem
+                          (`[t u] = [t] u ⟨u⟩ [u]`). ONE relational translation, no separate "native" pass. Drives
+                          `relate%` (terms) and `transfer%`/`trocq` (types).
   • `LeTrocq.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
   • `LeTrocq.ParamLib`    — the parametricity library: `@[trocq]` registrations for prelude types
                           (`Bool`, `Nat`, `List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, the empty/unit

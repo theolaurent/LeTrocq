@@ -1,4 +1,6 @@
-/- The class lattice, dependency tables, and the solver (validated against the paper). -/
+/- The class lattice and dependency tables (validated against the paper). The grading itself is no longer a
+   constraint solver — it is `Transfer.assemble` pushing a demand top-down through these tables — so what is
+   tested here is the pure table/lattice algebra those demands flow through. -/
 import Lean
 import LeTrocq.Lattice
 open Lean Lean.Elab Lean.Elab.Command
@@ -22,29 +24,11 @@ example : depArrow (map1, map0) = ((map0,map1), (map1,map0)) := rfl
 example : depArrow (map0, map1) = ((map1,map0), (map0,map1)) := rfl   -- symmetric
 example : depPi    (map4, map0) = ((map0,map4), (map4,map0)) := rfl
 
-/- the SOLVER (run compiled, asserted by hand — `solve`'s for-loop doesn't reduce by `rfl`). -/
-run_cmd Command.liftTermElabM do
-  -- (1) `A → B` at (0,1): dom→(1,0), cod→(0,1).
-  let r1 := solve 3 [(0, (map0,map1))] [.depArrow 0 1 2]
-  if r1 = #[(map0,map1),(map1,map0),(map0,map1)] then pure ()
-  else throwError "solver regressed (A→B @ (0,1)): {repr r1}"
-  -- (2) the flagship `∀ A : Type, A → A` at (0,1): domain Type→(2a,0), bound A→(1,1).
-  let cs : List Cstr := [.depPi 0 1 2, .depType 1 3, .depArrow 2 4 5, .gev 3 4, .gev 3 5]
-  let r2 := solve 6 [(0, (map0,map1))] cs
-  if r2 = #[(map0,map1),(map2a,map0),(map0,map1),(map1,map1),(map1,map0),(map0,map1)] then pure ()
-  else throwError "solver regressed (∀A:Type,A→A @ (0,1)): {repr r2}"
-  -- (3) nested `A → (B → C)` at (0,1): both arrows split into (1,0)/(0,1).
-  let r3 := solve 5 [(0,(map0,map1))] [.depArrow 0 1 2, .depArrow 2 3 4]
-  if r3 = #[(map0,map1),(map1,map0),(map0,map1),(map1,map0),(map0,map1)] then pure ()
-  else throwError "solver regressed (nested arrow): {repr r3}"
-  -- (4) seeded at the TOP class: an arrow propagates (4,4) to both parts.
-  let r4 := solve 3 [(0,(map4,map4))] [.depArrow 0 1 2]
-  if r4 = #[(map4,map4),(map4,map4),(map4,map4)] then pure ()
-  else throwError "solver regressed (top): {repr r4}"
-  -- (5) a `gev` chain raises a shared variable to the join of its uses.
-  let r5 := solve 3 [(1,(map1,map0)), (2,(map0,map2a))] [.gev 0 1, .gev 0 2]
-  if r5[0]! = (map1, map2a) then pure ()
-  else throwError "solver regressed (gev join): {repr r5}"
+/- The demand-driven grading (`Transfer.assemble`) pushes a demanded class through these tables directly, so its
+   per-node classes are exactly what the tables return: e.g. an arrow at `(0,1)` splits into `depArrow (0,1) =
+   ((1,0),(0,1))` (dom then cod), and the flagship `∀ A : Type, A → A` at `(0,1)` builds its domain `Type` at
+   `depPi (0,1) = ((2a,0),(0,1))`. Those table facts are checked directly below; the end-to-end assembly (that the
+   generated `Param` really lands at each class and computes) is exercised in `Tests/Solver.lean`. -/
 
 /- ===================== lattice laws (`MapClass`) ===================== -/
 example : ∀ a : MapClass, MapClass.le a a = true := by intro a; cases a <;> rfl

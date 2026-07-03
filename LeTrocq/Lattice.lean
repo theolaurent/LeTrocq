@@ -1,10 +1,11 @@
 /-
-The lattice algebra + dependency tables + class solver.
+The lattice algebra + dependency tables.
 
-The computational spine of the graded system (the port of LeTrocq's `elpi/class.elpi` +
-`elpi/constraints/constraint-graph.elpi`). Pure, finite, no proofs/metaprogramming — validated
-against the paper's tables with `rfl`/`#eval` below. The proof-heavy combinators (`ParamCC`) and
-the driver (`Solver`) build on top of this.
+The computational spine of the graded system (the port of Trocq's `elpi/class.elpi`). Pure, finite,
+no proofs/metaprogramming — validated against the paper's tables with `rfl`/`#eval` below. The
+grading itself is no longer a constraint solver: `Transfer.assemble` pushes a demanded class top-down
+through the `depArrow`/`depPi`/`depType` tables here (bidir_solver.md). The proof-heavy combinators
+(`ParamCC`) and the driver (`Transfer`) build on top of this.
 -/
 namespace LeTrocq
 
@@ -108,37 +109,5 @@ def depArrow (c : ParamClass) : ParamClass × ParamClass :=
     combinator needs an equivalence-strength relation exactly when the output needs an axiom. -/
 def depType (c : ParamClass) : ParamClass :=
   if ParamClass.requiresAxiom c then ParamClass.top else ParamClass.bot
-
-/- ===================== the class solver (monotone least-fixpoint) ===================== -/
-abbrev Var := Nat
-inductive Cstr
-  | ge       (x : Var) (c : ParamClass)   -- x ≥ constant
-  | gev      (x y : Var)                   -- x ≥ y
-  | depPi    (out a b : Var)               -- a,b ≥ depPi(out)
-  | depArrow (out a b : Var)
-  | depType  (out r : Var)                 -- r ≥ depType(out)
-deriving Repr
-
-def stepCstr (asn : Array ParamClass) : Cstr → Array ParamClass
-  | .ge x c        => asn.set! x (ParamClass.join asn[x]! c)
-  | .gev x y       => asn.set! x (ParamClass.join asn[x]! asn[y]!)
-  | .depType out r => asn.set! r (ParamClass.join asn[r]! (depType asn[out]!))
-  | .depPi out a b =>
-      let (cd, ce) := depPi asn[out]!
-      (asn.set! a (ParamClass.join asn[a]! cd)).set! b (ParamClass.join asn[b]! ce)
-  | .depArrow out a b =>
-      let (cd, ce) := depArrow asn[out]!
-      (asn.set! a (ParamClass.join asn[a]! cd)).set! b (ParamClass.join asn[b]! ce)
-
-/-- least fixpoint: seed some vars, propagate `≥`-constraints upward until stable.
-    Returns the MINIMAL class assignment satisfying every constraint. -/
-def solve (nVars : Nat) (seeds : List (Var × ParamClass)) (cs : List Cstr) : Array ParamClass := Id.run do
-  let mut a : Array ParamClass := Array.replicate nVars ParamClass.bot
-  for (x, c) in seeds do a := a.set! x c
-  for _ in [0 : nVars * 6 + 8] do
-    let a' := cs.foldl stepCstr a
-    if a' == a then return a'
-    a := a'
-  return a
 
 end LeTrocq

@@ -4,12 +4,9 @@ Regression test: a DEPENDENT type family over a λ-bound TERM, in the term surfa
 `Boxed : Bool → Type` is a singleton former indexed by a Bool VALUE. In `Σ b : Bool, Boxed b` the family
 `fun b => Boxed b` has a body `Boxed b` that mentions the λ-bound term `b`. Building the relatedness of such
 a pair forces `[·]` (`Transfer.assembleTerm`) to translate `Boxed b` under the binder `b` — i.e. its embedded
-type solve (`assembleType`) must have `b`'s relatedness in scope. This previously errored `unbound variable b`
-(the embedded solve ran with an empty env); it works once `assembleType` threads the ambient `senv`.
-
-The solver itself already copes: `Boxed`'s index is a TERM argument, which `gen` skips — so only the
-assemble side needed the fix. (A family over a λ-bound TYPE variable would additionally need the solver
-seeded, and is still unsupported.)
+type pass (`assembleType`) must have `b`'s relatedness in scope. This works because the ONE `senv` is threaded
+through BOTH halves: the λ rule records `b`'s relatedness, and `assembleType`/`assemble` read it. `Boxed`'s
+index is a TERM argument — `relatorArgKinds` routes it to the term half, which consumes `b` from `senv`.
 -/
 import LeTrocq
 namespace LeTrocq.Tests
@@ -60,5 +57,13 @@ example :
 
 /-- `translate%` rebuilds the counterpart (the diagonal here) — and it computes. -/
 example : (translate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)) = ⟨true, Boxed.mk⟩ := rfl
+
+/- ===================== a dependent type over a λ-bound TYPE variable ===================== -/
+/-- The demand-driven pass ALSO handles a type mentioning a λ-bound TYPE variable: here `List A` under the
+    binder `A`. The old constraint solver errored `gen: unbound fvar` (its embedded `gradeShape` ran with an
+    empty binder env); now `A`'s `(4,4)` witness sits in the ONE `senv` (the λ rule records every binder), and
+    `assemble`'s leaf rule reads it — so `relate%`/`translate%` build with no separate seeding. -/
+noncomputable def tvWit := relate% (fun (A : Type) (xs : List A) => xs)
+example : (translate% (fun (A : Type) (xs : List A) => xs)) = (fun (A : Type) (xs : List A) => xs) := rfl
 
 end LeTrocq.Tests
