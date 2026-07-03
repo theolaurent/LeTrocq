@@ -5,6 +5,12 @@ import Examples.NatUnary
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Examples
 
+/- ===================== the grading table (output class → minimal part classes) ===================== -/
+example : forallVariance (map1, map0) = ((map0,map2a),(map1,map0)) := rfl
+example : forallVariance (map4, map0) = ((map0,map4), (map4,map0)) := rfl
+example : forallVariance (map0, map1) = ((map2a,map0),(map0,map1)) := rfl
+example : forallVariance (map2a, map0) = ((map0,map4),(map2a,map0)) := rfl   -- Π domain needs the full equivalence
+
 /- A constant codomain family exercises the Π plumbing (the relatedness `raa` is still threaded
    through `pb`); the result is the (degenerate-dependent) function space. Forward map at (1,0): -/
 def pf10 : Param map1 map0 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=

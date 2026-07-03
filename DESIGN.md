@@ -88,9 +88,10 @@ is used at the MINIMAL class it needs; a **weakening** map `Param src → Param 
 forgetting fields) bridges the two.
 
 The minimal classes are computed **top-down in a single pass**: the demanded output class flows down
-through the type's dependency structure, and the tables in `Lattice.lean` (`depPi`, `depArrow`,
-`depType`) dictate the minimal class each part is built at (no constraint graph, no fixpoint —
-`bidir_solver.md`). A leaf (a registered atom, or a bound type variable) is built at its available
+through the type's dependency structure, and each former's grading table (`forallVariance`,
+`arrowVariance`, next to their combinators in `ParamCC/`) dictates the minimal class each part is built
+at (no constraint graph, no fixpoint — `bidir_solver.md`). A leaf (a registered atom, or a bound type
+variable) is built at its available
 class and *weakened* to the demand. One exception to "use minimal": a **bound type variable** is
 pinned at `(4,4)` (the universe's inner class, §2) rather than the join of its uses — the top weakens
 to satisfy every use, and pinning it is exactly what removes the fixpoint. Grades are written `@(m,n)`.
@@ -99,7 +100,7 @@ For a Π at output class `(0,1)`:
     [Πx:A. B]@(0,1) := { R := Πx:A x':⟨A⟩ xR:〚A〛@(2a,0). 〚B〛@(0,1) ;  cov ; contra }
 
 i.e. to transport that Π, the domain relation is needed only at `〚A〛@(2a,0)` and the codomain at
-`〚B〛@(0,1)` — exactly what `depPi (0,1)` returns.
+`〚B〛@(0,1)` — exactly what `forallVariance (0,1)` returns.
 
 ## 5. Leaves: registered witnesses, never unfolding
 
@@ -125,7 +126,7 @@ equivalence: `[P] : PLift (P ↔ P')`.
                                             type, so its `PLift (P ↔ P')` is projected off the `Param`)
     〚·〛    LeTrocq.Transfer.assembleRel    (= Param.R ∘ assembleType)
     Param  LeTrocq.Param / MapClass        (the record + the class diamond)         (Hierarchy.lean, Lattice.lean)
-    grade  inline in assemble: the demand flows through the dependency tables       (Transfer.lean, Lattice.lean)
+    grade  inline in assemble: the demand flows through the variance tables         (Transfer.lean, ParamCC/)
     reg    LeTrocq.Solver.buildAtoms/buildConsts/relatorArgKinds (the @[trocq] lookups)  (Solver.lean)
 
 The graded combinators that build each `[·]` node — `paramArrow`, `paramForall`, `paramType` /

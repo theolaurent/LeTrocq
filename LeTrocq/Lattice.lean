@@ -1,11 +1,11 @@
 /-
-The lattice algebra + dependency tables.
+The lattice algebra: the MapClass/ParamClass diamond, its order/join/meet, and the axiom boundary.
 
-The computational spine of the graded system (the port of Trocq's `elpi/class.elpi`). Pure, finite,
-no proofs/metaprogramming — validated against the paper's tables with `rfl`/`#eval` below. The
-grading itself is no longer a constraint solver: `Transfer.assemble` pushes a demanded class top-down
-through the `depArrow`/`depPi`/`depType` tables here (bidir_solver.md). The proof-heavy combinators
-(`ParamCC`) and the driver (`Transfer`) build on top of this.
+The computational spine of the graded system (the port of Trocq's `elpi/class.elpi`). Pure, finite, no
+proofs/metaprogramming — validated with `rfl`/`#eval` in the tests. The per-former GRADING tables
+(`arrowVariance`/`forallVariance`) now live with their combinators in `ParamCC/`; `Transfer.assemble`
+pushes a demanded class top-down through them (bidir_solver.md). The proof-heavy combinators (`ParamCC`)
+and the driver (`Transfer`) build on top of this.
 -/
 namespace LeTrocq
 
@@ -72,42 +72,7 @@ def top : ParamClass := (map4, map4)
 def requiresAxiom (a : ParamClass) : Bool := !MapClass.le a.1 map2a || !MapClass.le a.2 map2a
 end ParamClass
 
-/- ===================== dependency tables (verbatim from class.elpi) ===================== -/
-open MapClass ParamClass in
-/-- per-map-class minimal (domain, codomain) classes for a dependent Π. -/
-def mapDepPi : MapClass → (ParamClass × ParamClass)
-  | map0  => ((map0,map0), (map0,map0))
-  | map1  => ((map0,map2a),(map1,map0))
-  | map2a => ((map0,map4), (map2a,map0))
-  | map2b => ((map0,map2a),(map2b,map0))
-  | map3  => ((map0,map4), (map3,map0))
-  | map4  => ((map0,map4), (map4,map0))
-
-open MapClass ParamClass in
-/-- per-map-class minimal (domain, codomain) classes for a non-dependent arrow. -/
-def mapDepArrow : MapClass → (ParamClass × ParamClass)
-  | map0  => ((map0,map0), (map0,map0))
-  | map1  => ((map0,map1), (map1,map0))
-  | map2a => ((map0,map2b),(map2a,map0))
-  | map2b => ((map0,map2a),(map2b,map0))
-  | map3  => ((map0,map3), (map3,map0))
-  | map4  => ((map0,map4), (map4,map0))
-
-/-- minimal (domain-class, codomain-class) to translate a Π at output class `c`. -/
-def depPi (c : ParamClass) : ParamClass × ParamClass :=
-  let (am, bm) := mapDepPi c.1
-  let (an, bn) := mapDepPi c.2
-  (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
-
-/-- minimal (domain-class, codomain-class) to translate an arrow at output class `c`. -/
-def depArrow (c : ParamClass) : ParamClass × ParamClass :=
-  let (am, bm) := mapDepArrow c.1
-  let (an, bn) := mapDepArrow c.2
-  (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
-
-/-- the relation-field lower bound for a sort at output class `c` (axiom boundary): the universe
-    combinator needs an equivalence-strength relation exactly when the output needs an axiom. -/
-def depType (c : ParamClass) : ParamClass :=
-  if ParamClass.requiresAxiom c then ParamClass.top else ParamClass.bot
+/- The per-former GRADING tables (`arrowVariance`/`forallVariance`: output class → minimal part classes)
+   now live with their combinators in `ParamCC/Arrow.lean` and `ParamCC/Forall.lean`. -/
 
 end LeTrocq

@@ -5,6 +5,11 @@ import Examples.NatUnary
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Examples
 
+/- ===================== the grading table (output class → minimal part classes) ===================== -/
+example : arrowVariance (map1, map0) = ((map0,map1), (map1,map0)) := rfl
+example : arrowVariance (map0, map1) = ((map1,map0), (map0,map1)) := rfl   -- symmetric
+example : arrowVariance (map4, map4) = ((map4,map4),(map4,map4)) := rfl    -- top propagates to both parts
+
 /- ===================== sample combinators (fixed classes) ===================== -/
 def RN33 : Param map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
 def arrowNU : Param map3 map3 (Nat → Nat) (Unary → Unary) := paramArrow33 RN33 RN33

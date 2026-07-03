@@ -11,7 +11,7 @@ open LeTrocq LeTrocq.Transfer MapClass LeTrocq.Examples
 def flagshipTy := ∀ A : Type, A → A
 
 /- generate the witness for `Nat → Nat` at root (1,0), then hard-check it. It is built by the GRADED `paramArrow`
-   at the per-node minimal class (`depArrow (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
+   at the per-node minimal class (`arrowVariance (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
   let wit ← transfer e (map1, map0)
@@ -58,7 +58,7 @@ example : True := by
 /-- info: 'LeTrocq.Tests.flagshipWit' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms LeTrocq.Tests.flagshipWit
 
-/- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0). The OUTER class of the universe is `depPi (2b,0).1 =
+/- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0). The OUTER class of the universe is `forallVariance (2b,0).1 =
    (0,2a)` (≤ the (2a,2a) ceiling, so it assembles without univalence); the bound variable `A` is offered at
    INNER class (4,4) — the pinned top, independent of the capped outer (`paramTypeAtInner` carries it). -/
 run_cmd Command.liftTermElabM do

@@ -6,7 +6,7 @@ It has two mutually-recursive halves — as DESIGN.md itself splits `[Πx:A.B]` 
 
   • the TYPE half (`assemble`) is a SINGLE syntax-directed pass driven by a DEMANDED output class (bidir_solver.md):
     `assemble : Expr → ParamClass → MetaM Expr`. It walks the type `Expr` top-down, and at each structural former
-    pushes the demand THROUGH the `depArrow`/`depPi`/`depType` tables (`Lattice`) to the minimal class each part
+    pushes the demand THROUGH the `arrowVariance`/`forallVariance` tables (`ParamCC`) to the minimal class each part
     needs, building the node with its graded combinator (`paramArrow`, `paramForall`, the universe combinator) at
     exactly that class. A LEAF (a registered base atom, or a bound type variable) reads its available class and
     WEAKENS down to the demand. No constraint graph, no fixpoint — feasibility is just a stuck `assemble` (a `Type`
@@ -91,7 +91,7 @@ structure Reg where
 
 mutual
 /-- `[·]` on a TYPE — the syntax-directed, DEMAND-driven half: walk `T` top-down and build its `Param` witness
-    DIRECTLY at the demanded class `dem`, pushing the demand through `depArrow`/`depPi`/`depType` to the minimal
+    DIRECTLY at the demanded class `dem`, pushing the demand through `arrowVariance`/`forallVariance` to the minimal
     class each part needs. ONE environment `senv` (`fvar ↦ (counterpart, witness/relatedness)`) is threaded through
     BOTH halves — every in-scope binder, type and term alike, lives there. A relator's TERM arguments go to
     `assembleTerm` (`[t u] = [t] u ⟨u⟩ [u]`). Bound type variables and registered atoms are leaves: they read their
@@ -119,9 +119,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
       if B.hasLooseBVar 0 then
         match A with
         | .sort _ => do
-            -- `∀ A : Type, B` (type-domain Π). Domain via the universe combinator at `depPi(dem).1`, inner `(4,4)`;
-            -- codomain family under the binder at `depPi(dem).2`, with `A` recorded in `senv` as a `(4,4)` type var.
-            let (domDem, codDem) := depPi dem
+            -- `∀ A : Type, B` (type-domain Π). Domain via the universe combinator at `forallVariance(dem).1`, inner `(4,4)`;
+            -- codomain family under the binder at `forallVariance(dem).2`, with `A` recorded in `senv` as a `(4,4)` type var.
+            let (domDem, codDem) := forallVariance dem
             let w ← typeLevelOf A
             let domWit ← mkUniv w domDem innerClass
             let pb ← withLocalDeclD n A fun a =>
@@ -132,10 +132,10 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
                     (← assemble reg ((a.fvarId!, a', aR) :: senv) (B.instantiate1 a) codDem)
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
         | _ => do
-            -- `∀ x : T, B` (term-domain Π over ANY buildable domain `T`). Build `T`'s witness at `depPi(dem).1`,
-            -- read the two sides `T`/`T'` off its `Param` type, and check the body at `depPi(dem).2` with `x` a
+            -- `∀ x : T, B` (term-domain Π over ANY buildable domain `T`). Build `T`'s witness at `forallVariance(dem).1`,
+            -- read the two sides `T`/`T'` off its `Param` type, and check the body at `forallVariance(dem).2` with `x` a
             -- TERM variable whose relatedness is `domWit.R x x'`.
-            let (domDem, codDem) := depPi dem
+            let (domDem, codDem) := forallVariance dem
             let domWit ← assemble reg senv A domDem
             let domTy := (← whnf (← instantiateMVars (← inferType domWit))).getAppArgs
             let pb ← withLocalDeclD n domTy[2]! fun x =>
@@ -146,8 +146,8 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
                     (← assemble reg ((x.fvarId!, x', xR) :: senv) (B.instantiate1 x) codDem)
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
       else
-        -- `A → B` (non-dependent arrow). Parts at `depArrow(dem)`.
-        let (domDem, codDem) := depArrow dem
+        -- `A → B` (non-dependent arrow). Parts at `arrowVariance(dem)`.
+        let (domDem, codDem) := arrowVariance dem
         mkAppM ``paramArrow
           #[classToExpr dem.1, classToExpr dem.2,
             ← assemble reg senv A domDem,

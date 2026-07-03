@@ -1,7 +1,7 @@
 /-
 THE `@[trocq]` REGISTRIES + relator argument-routing — the pure lookups the graded translation
 (`LeTrocq.Transfer`) reads. This is NOT a grading solver anymore: grading is done inline by `Transfer.assemble`,
-which pushes a demanded class top-down through the `depArrow`/`depPi`/`depType` tables (no constraint graph, no
+which pushes a demanded class top-down through the `arrowVariance`/`forallVariance` tables (no constraint graph, no
 fixpoint — see bidir_solver.md). What remains here is the registry side of the front↔back contract:
 
   • `buildAtoms`  — the type-atom registry from every `@[trocq]` BASE (both directions, via `Param.sym`).

@@ -61,14 +61,14 @@ See [`DESIGN.md`](DESIGN.md) for the full account.
 ### Module map
 
 ```
-Lattice      class algebra (lattice, dependency tables, solver core)
+Lattice      class algebra: the MapClass/ParamClass diamond, order/join/meet, axiom boundary
 Hierarchy    the Param records + weakening (⇓) maps
-ParamCC/     graded combinators: Arrow, Forall, Universe
+ParamCC/     graded combinators + their grading tables: Arrow, Forall, Universe
 Registry     classify a @[trocq] witness from its type
 Attr         the @[trocq] attribute + env extension
 TranslateTerm  the counterpart translation ⟨·⟩
-Solver       grade inference → a class-annotated GradedShape
-Transfer     the graded relational translation [·]
+Solver       the @[trocq] registries + relator argument-routing (relatorArgKinds)
+Transfer     the graded relational translation [·] (demand-driven, single pass)
 Tactic       the four user surfaces
 ParamLib/    @[trocq] registrations for prelude types
 ```

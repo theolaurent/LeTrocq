@@ -11,7 +11,7 @@ combinator transfers `∀ x, P x` for a `Prop`-valued `P` — `Prop` proposition
 `(4,4)` coherence is free. Universes are left to inference (they shift with `Sort`).
 
 THE WRINKLE (why Π ≠ arrow): to land in `RB a a' raa` the forward map must *produce* a relatedness
-proof `raa` for the backward map — the domain's backward map must be RELATED. `mapDepPi` encodes this:
+proof `raa` for the backward map — the domain's backward map must be RELATED. `mapForallVariance` encodes this:
 at output cov `2a`+ the domain is needed at `map4`; then `R_in_map` gives `bwd a' = a` (so `subst`
 transports the codomain fiber) and `Map4Has.subsingleton` identifies the two relatedness proofs.
 -/
@@ -27,12 +27,31 @@ def RForall {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w}
     (∀ a, B a) → (∀ a', B' a') → Type (max u v vb) :=
   fun f f' => ∀ a a' (raa : RA a a'), RB a a' raa (f a) (f' a')
 
+/- ===================== the Π GRADING table (output class → minimal part classes) ===================== -/
+/-- per-map-class minimal (domain, codomain) classes for a dependent Π (verbatim from Trocq's `class.elpi`);
+    the Π domain needs the FULL equivalence at cov ≥ 2a (the `(0,4)` entries) — the wrinkle above. -/
+def mapForallVariance : MapClass → (ParamClass × ParamClass)
+  | map0  => ((map0,map0), (map0,map0))
+  | map1  => ((map0,map2a),(map1,map0))
+  | map2a => ((map0,map4), (map2a,map0))
+  | map2b => ((map0,map2a),(map2b,map0))
+  | map3  => ((map0,map4), (map3,map0))
+  | map4  => ((map0,map4), (map4,map0))
+
+/-- minimal (domain-class, codomain-class) needed to build the Π at output class `c`: the cov requirement joined
+    with the negated contra one. `Transfer.assemble` inverts a demand through this to grade the parts;
+    `paramForall`'s type consumes it. -/
+def forallVariance (c : ParamClass) : ParamClass × ParamClass :=
+  let (am, bm) := mapForallVariance c.1
+  let (an, bn) := mapForallVariance c.2
+  (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
+
 /- ===================== the covariant half ===================== -/
 def forallCov {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
     (m : MapClass) →
-    (pa : Param (mapDepPi m).1.1 (mapDepPi m).1.2 A A') →
+    (pa : Param (mapForallVariance m).1.1 (mapForallVariance m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')) →
+          Param (mapForallVariance m).2.1 (mapForallVariance m).2.2 (B a) (B' a')) →
     MapHas m (RForall pa.R (fun a a' raa => (pb a a' raa).R))
   | map0,  _,  _  => {}
   | map1,  pa, pb =>
@@ -103,9 +122,9 @@ def forallCov {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
 /- ===================== the contravariant half ===================== -/
 def forallContra {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
     (n : MapClass) →
-    (pa : Param (mapDepPi n).1.2 (mapDepPi n).1.1 A A') →
+    (pa : Param (mapForallVariance n).1.2 (mapForallVariance n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')) →
+          Param (mapForallVariance n).2.2 (mapForallVariance n).2.1 (B a) (B' a')) →
     MapHas n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
       RForall pa.R (fun a a' raa => (pb a a' raa).R) f f')
   | map0,  _,  _  => {}
@@ -176,24 +195,24 @@ def forallContra {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
 
 /- ===================== the graded dependent-Π combinator (every output class) ===================== -/
 /-- dependent Π at ANY output class `(m,n)`, from a domain witness and a codomain FAMILY (one witness
-    per related pair), each at the `depPi`-minimal class. -/
+    per related pair), each at the `forallVariance`-minimal class. -/
 def paramForall {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} (m n : MapClass)
-    (pa : Param (depPi (m, n)).1.1 (depPi (m, n)).1.2 A A')
+    (pa : Param (forallVariance (m, n)).1.1 (forallVariance (m, n)).1.2 A A')
     (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param (depPi (m, n)).2.1 (depPi (m, n)).2.2 (B a) (B' a')) :
+          Param (forallVariance (m, n)).2.1 (forallVariance (m, n)).2.2 (B a) (B' a')) :
     Param m n (∀ a, B a) (∀ a', B' a') where
   R := RForall pa.R (fun a a' raa => (pb a a' raa).R)
   cov := forallCov m
     ((pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl)) :
-      Param (mapDepPi m).1.1 (mapDepPi m).1.2 A A')
+      Param (mapForallVariance m).1.1 (mapForallVariance m).1.2 A A')
     (fun a a' raa => ((pb a a' raa).weaken (by cases m <;> cases n <;> rfl)
         (by cases m <;> cases n <;> rfl) :
-      Param (mapDepPi m).2.1 (mapDepPi m).2.2 (B a) (B' a')))
+      Param (mapForallVariance m).2.1 (mapForallVariance m).2.2 (B a) (B' a')))
   contra := forallContra n
     ((pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl)) :
-      Param (mapDepPi n).1.2 (mapDepPi n).1.1 A A')
+      Param (mapForallVariance n).1.2 (mapForallVariance n).1.1 A A')
     (fun a a' raa => ((pb a a' raa).weaken (by cases m <;> cases n <;> rfl)
         (by cases m <;> cases n <;> rfl) :
-      Param (mapDepPi n).2.2 (mapDepPi n).2.1 (B a) (B' a')))
+      Param (mapForallVariance n).2.2 (mapForallVariance n).2.1 (B a) (B' a')))
 
 end LeTrocq
