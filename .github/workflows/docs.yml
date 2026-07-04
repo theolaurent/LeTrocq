@@ -60,6 +60,10 @@ jobs:
         uses: leanprover-community/docgen-action@main
         with:
           blueprint: true
+          # api-docs disabled for now: building doc-gen4 from source dominates the ~9 min runtime.
+          # Re-enable (drop this line) to publish API docs at <pages>/docs, and restore the
+          # "Documentation" button in home_page/_layouts/default.html + the link in index.md.
+          api-docs: false
           build-page: true
           homepage: home_page
           deploy: ${{ github.ref == 'refs/heads/main' }}

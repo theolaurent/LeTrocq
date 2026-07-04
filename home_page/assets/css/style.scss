@@ -3,7 +3,8 @@
 
 /* In this file you can add css rules overriding rules defined by your Jekyll theme.  */
 
-/* Import the CSS from the specified theme */
-@import "{{ site.theme }}";
+/* Import the theme's SCSS. Under jekyll-remote-theme `site.theme` is unset (that variable is only
+   populated for a gem `theme:`), so import the cayman entry point by name instead. */
+@import "jekyll-theme-cayman";
 
 /* Put your rules below this line */

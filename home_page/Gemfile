@@ -1,25 +1,11 @@
 source "https://rubygems.org"
 
-# To upgrade, run `bundle update github-pages`.
-gem "github-pages", group: :jekyll_plugins
-# If you have any plugins, put them here!
-group :jekyll_plugins do
-  #gem "jekyll-feed", "~> 0.12"
-end
-
-# Windows and JRuby does not include zoneinfo files, so bundle the tzinfo-data gem
-# and associated library.
-platforms :mingw, :x64_mingw, :mswin, :jruby do
-  gem "tzinfo", "~> 1.2"
-  gem "tzinfo-data"
-end
-
-# Performance-booster for watching directories on Windows.
-gem "wdm", "~> 0.1.1", :platforms => [:mingw, :x64_mingw, :mswin]
-
-# Lock `http_parser.rb` gem to `v0.6.x` on JRuby builds since newer versions of the gem
-# do not have a Java counterpart.
-gem "http_parser.rb", "~> 0.6.0", :platforms => [:jruby]
-
-# Used for locally serving the website.
-gem "webrick", "~> 1.7"
+# Modern Jekyll (4.x), not the `github-pages` gem: the docs workflow builds and deploys the site
+# itself (it does NOT go through GitHub's Jekyll pipeline), and `github-pages` pins jekyll 3.9.x,
+# whose native deps do not install on the Ruby 3.4 that docgen-action forces. Jekyll 4 uses the
+# prebuilt sass-embedded, so it builds cleanly on Ruby 3.4.
+gem "jekyll", "~> 4.3"
+gem "jekyll-remote-theme"    # pulls the pages-themes/cayman look set in _config.yml
+gem "jekyll-github-metadata" # site.github.* used by _layouts/default.html
+gem "jekyll-seo-tag"         # the {% seo %} tag in _layouts/default.html
+gem "webrick"                # for `jekyll serve` locally

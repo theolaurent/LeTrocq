@@ -19,5 +19,7 @@ Useful links:
 * [Blueprint]({{ site.url }}/blueprint/) — the design, each result tied to its Lean declaration
 * [Blueprint as PDF]({{ site.url }}/blueprint.pdf)
 * [Dependency graph]({{ site.url }}/blueprint/dep_graph_document.html)
+<!-- API docs disabled (api-docs: false in docs.yml); re-enable there to restore this link.
 * [API documentation]({{ site.url }}/docs/)
+-->
 * [GitHub repository]({{ site.github.repository_url }})
