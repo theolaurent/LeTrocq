@@ -4,6 +4,7 @@
 import Lean
 import LeTrocq
 import Examples.NatUnary
+import Examples.DepParam
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 namespace LeTrocq.Tests
 open LeTrocq LeTrocq.Transfer MapClass LeTrocq.Examples
@@ -213,5 +214,20 @@ example : LeTrocq.Tests.quotNatLow.cov.map (Quot.mk _ (Nat.succ Nat.zero))
     = Quot.mk (fun _ _ : Unary => True) (Unary.s Unary.z) := rfl
 /-- info: 'LeTrocq.Tests.sigmaNatLow' does not depend on any axioms -/
 #guard_msgs in #print axioms LeTrocq.Tests.sigmaNatLow
+
+/- `WTree` — the CONTRAVARIANT-family dependent type (an `Examples/` W-type) — is graded too. It builds at
+   demand (1,0), the domain and (contravariant) family each at their `wtreeVariance` class. -/
+def wtreeNatT : Type := WTree Nat (fun _ => Nat)
+run_cmd Command.liftTermElabM do
+  let wit ← transfer (← getConstInfo ``wtreeNatT).value! (map1, map0)
+  addDecl (.defnDecl { name := `LeTrocq.Tests.wtreeNatLow, levelParams := [],
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param .map1 .map0 (WTree Nat (fun _ => Nat)) (WTree Unary (fun _ => Unary)) :=
+    LeTrocq.Tests.wtreeNatLow
+  trivial
+/-- info: 'LeTrocq.Tests.wtreeNatLow' depends on axioms: [Quot.sound] -/
+#guard_msgs in #print axioms LeTrocq.Tests.wtreeNatLow
 
 end LeTrocq.Tests
