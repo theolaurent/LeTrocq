@@ -1,15 +1,11 @@
-# Jekyll settings for the LeTrocq landing page (built by the docs workflow via the Cayman theme).
+# Jekyll settings for the LeTrocq landing page.
+# Self-contained: no remote_theme / no plugins (the Cayman look ships as a static compiled
+# stylesheet in assets/css/style.css), so `jekyll build` needs only core Jekyll and can't fail
+# on sass compilation, a remote-theme fetch, or github-metadata.
 title: LeTrocq
-description: Graded parametricity and proof transfer, Lean-native
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "https://theolaurent.github.io/LeTrocq" # the base hostname & protocol for your site
-twitter_username:
-github_username: theolaurent
-repository: theolaurent/LeTrocq
+description: A Lean implementation of the Trocq proof-transfer framework
 
-# Build settings
-remote_theme: pages-themes/cayman@v0.2.0
-plugins:
-  - jekyll-remote-theme
-  - jekyll-github-metadata
-  - jekyll-seo-tag
+# The site is served at <domain>/LeTrocq/ (a project page), so baseurl is /LeTrocq and every
+# internal link uses `| relative_url` to pick it up. url is the canonical custom domain.
+url: "http://theolaurent.github.io"
+baseurl: "/LeTrocq"

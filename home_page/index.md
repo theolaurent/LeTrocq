@@ -17,10 +17,10 @@ typeclass resolution, no backtracking, no fixpoint).
 
 Useful links:
 
-* [Blueprint]({{ site.url }}/blueprint/) — the design, each result tied to its Lean declaration
-* [Blueprint as PDF]({{ site.url }}/blueprint.pdf)
-* [Dependency graph]({{ site.url }}/blueprint/dep_graph_document.html)
-* [GitHub repository]({{ site.github.repository_url }})
+* [Blueprint]({{ '/blueprint/' | relative_url }}) — the design, each result tied to its Lean declaration
+* [Blueprint as PDF]({{ '/blueprint.pdf' | relative_url }})
+* [Dependency graph]({{ '/blueprint/dep_graph_document.html' | relative_url }})
+* [GitHub repository](https://github.com/theolaurent/LeTrocq)
 
 {% comment %} API docs disabled (api-docs: false in docs.yml); re-enable there to restore:
-* [API documentation]({{ site.url }}/docs/) {% endcomment %}
+* [API documentation]({{ '/docs/' | relative_url }}) {% endcomment %}
