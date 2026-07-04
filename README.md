@@ -1,6 +1,7 @@
 # LeTrocq
 
-[![Blueprint](https://img.shields.io/badge/blueprint-online-blue)](https://theolaurent.github.io/LeTrocq/blueprint/)
+[![CI](https://img.shields.io/github/actions/workflow/status/theolaurent/LeTrocq/ci.yml?branch=main&label=CI)](https://github.com/theolaurent/LeTrocq/actions/workflows/ci.yml)
+[![Blueprint](https://img.shields.io/github/actions/workflow/status/theolaurent/LeTrocq/docs.yml?branch=main&label=blueprint)](https://theolaurent.github.io/LeTrocq/blueprint/)
 
 A Lean-native, **graded** reformulation of the [Trocq](https://arxiv.org/abs/2310.14022)
 parametricity / proof-transfer framework (Cohen–Crance–Mahboubi), in the **no-univalence**
