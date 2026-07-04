@@ -10,7 +10,7 @@ The library, module by module (each builds on the previous):
   • `LeTrocq.Attr`        — the `@[trocq]` attribute + env extension storing the classified witnesses.
   • `LeTrocq.TranslateTerm` — the term translation `⟨·⟩`: rebuild a term's `B`-side counterpart, leaf by leaf
                           (module `LeTrocq.TranslateTerm`, namespace `LeTrocq.Translate`).
-  • `LeTrocq.Solver`      — the `@[trocq]` registries the translation reads (`buildAtoms`/`buildConsts`) plus
+  • `LeTrocq.Solver`      — the `@[trocq]` registries the translation reads (`buildAtomPairs`/`buildConsts`) plus
                           `relatorArgKinds` (a relator's per-argument routing). NOT a grading solver anymore —
                           grading is inline in `Transfer` (bidir_solver.md).
   • `LeTrocq.Transfer`    — the graded relational translation `[·]`, a single demand-driven pass: `assemble`

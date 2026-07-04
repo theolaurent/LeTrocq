@@ -9,7 +9,7 @@ A tagged constant `w` is one of four kinds, read off the conclusion of its (tele
                 counterpart `F ↦ F'`. Its constructors/recursor register separately as TERM primitives.
   • TERM       `w : ∀ …, R … (c …) (c' …)`  (R a bare relation)        — relates a term head `c ↦ c'`.
 
-The per-surface builders (`Solver.buildAtoms`/`buildConsts`, `Translate.buildCtx`) consume these. The
+The per-surface builders (`Solver.buildAtomPairs`/`buildConsts`, `Translate.buildCtx`) consume these. The
 `@[trocq]` attribute (`Attr.lean`) runs `parseEntry` eagerly and stores the resulting `RegKind`.
 -/
 import LeTrocq.Hierarchy
@@ -23,13 +23,30 @@ namespace LeTrocq
     entry: its forward witness already serves both directions (it is polymorphic in the direction-carrying
     relation), and a second entry under the same key would clobber it. The backward value is a thunk, run only
     when actually inserted. This is the single home of the forward/backward + homogeneous-skip POLICY that the
-    solver (`buildAtoms`) and the translation (`buildCtx`) both consume; the value type `α` differs per map. -/
+    solver (`buildAtomPairs`) and the translation (`buildCtx`) both consume; the value type `α` differs per map. `insertBidirPair` is the pair-indexed sibling (nested `srcHead ↦ tgtHead ↦ α` + a preferred-target map). -/
 def insertBidir {α} (m : NameMap α) (hA : Name) (hB? : Option Name)
     (fwd : α) (bwd : MetaM α) : MetaM (NameMap α) := do
   let m := m.insert hA fwd
   match hB? with
   | some hB => if hB == hA then return m else return m.insert hB (← bwd)
   | none    => return m
+
+/-- pair-indexed sibling of `insertBidir`: install a witness in a NESTED map `srcHead ↦ tgtHead ↦ α`
+    (so several registrations for one source no longer clobber), and record the PREFERRED (last-registered)
+    target head in `pref` — the synth default when no target is demanded. Same forward/backward +
+    homogeneous-skip policy as `insertBidir`: forward `[hA][hB] := fwd` and `pref[hA] := hB` always; the
+    backward `[hB][hA] := bwd`, `pref[hB] := hA` only when `hB` is present and DISTINCT from `hA`. -/
+def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
+    (hA : Name) (hB? : Option Name) (fwd : α) (bwd : MetaM α) :
+    MetaM (NameMap (NameMap α) × NameMap Name) := do
+  let hB := hB?.getD hA
+  let innerA : NameMap α := (m.find? hA).getD (mkNameMap _)
+  let m : NameMap (NameMap α) := m.insert hA (innerA.insert hB fwd)
+  let pref : NameMap Name := pref.insert hA hB
+  if hB == hA then return (m, pref)
+  let innerB : NameMap α := (m.find? hB).getD (mkNameMap _)
+  let m : NameMap (NameMap α) := m.insert hB (innerB.insert hA (← bwd))
+  return (m, pref.insert hB hA)
 
 /-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
     `(a, a', aR)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3

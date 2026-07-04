@@ -72,6 +72,16 @@ def typeLevelOf (dom : Expr) : MetaM Level := do
     `paramIdAt (4,4)` is `paramRefl` weakened, so this needs no axiom. -/
 def innerClass : ParamClass := (map4, map4)
 
+/-- split a target Π/arrow `A' → B'` / `∀ x', B'` into `(some A', some rawBody)` (the body keeps its loose
+    bvar 0 for a dependent Π); `none` target ⇒ `(none, none)` (synth). Errors if a present target is not a
+    Π-shape — the crisp "shape mismatch" for e.g. `… to (Nat × Nat)` against an arrow. -/
+def splitForallTgt (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := do
+  match tgt? with
+  | none => return (none, none)
+  | some t => match (← whnf t) with
+    | .forallE _ d b _ => return (some d, some b)
+    | other => throwError "transfer: target {other} is not a function type (expected a Π/arrow)"
+
 /- ===================== the graded relational translation `[·]` ===================== -/
 /-- the shared `[·]` environment, threaded through EVERY arm (both halves): `fvar ↦ (counterpart x',
     witness-or-relatedness)`. For a TYPE binder the third slot is the bound type's `Param` *witness* at inner
@@ -85,9 +95,10 @@ def SEnv.toTEnv (s : SEnv) : LeTrocq.Translate.TEnv := s.map (fun e => (e.1, e.2
 
 /-- registries + the `⟨·⟩` context, threaded through every arm of `[·]` (built once per top-level call). -/
 structure Reg where
-  atoms  : NameMap (Expr × Expr × ParamClass)
-  consts : NameMap (Expr × ParamClass × Bool)
-  ctx    : LeTrocq.Translate.Ctx
+  atoms    : NameMap (NameMap (Expr × Expr × ParamClass))
+  atomPref : NameMap Name
+  consts   : NameMap (Expr × ParamClass × Bool)
+  ctx      : LeTrocq.Translate.Ctx
 
 mutual
 /-- `[·]` on a TYPE — the syntax-directed, DEMAND-driven half: walk `T` top-down and build its `Param` witness
@@ -96,11 +107,22 @@ mutual
     BOTH halves — every in-scope binder, type and term alike, lives there. A relator's TERM arguments go to
     `assembleTerm` (`[t u] = [t] u ⟨u⟩ [u]`). Bound type variables and registered atoms are leaves: they read their
     available class and weaken to `dem`. -/
-partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : MetaM Expr := do
+partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
+    (tgt? : Option Expr) : MetaM Expr := do
   match T with
   | .const name _ =>
       -- LEAF: a registered base atom, available at its registered class `regC`; weaken to the demand.
-      let some (_, wit, regC) := reg.atoms.find? name | throwError "assemble: atom {name} not registered"
+      -- CHECK mode: select the base for the demanded TARGET head; SYNTH: the preferred (last-registered) target.
+      let some tgtMap := reg.atoms.find? name | throwError "assemble: atom {name} not registered"
+      let tgtHead ← match tgt? with
+        | some t => match (← whnf t).getAppFn.constName? with
+            | some h => pure h
+            | none   => throwError "assemble: target type {t} has no head constant"
+        | none => match reg.atomPref.find? name with
+            | some h => pure h
+            | none   => throwError "assemble: atom {name} has no preferred target"
+      let some (_, wit, regC) := tgtMap.find? tgtHead
+        | throwError "assemble: no registered base {name} ≃ {tgtHead}"
       weakenTo dem regC wit
   | .fvar id =>
       -- LEAF: a bound TYPE variable, offered at inner class `(4,4)`; weaken its witness to the demand.
@@ -116,6 +138,8 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
       | .succ w => mkUniv w dem innerClass
       | l       => throwError "assemble: unsupported sort `Sort {l}` (only `Prop` / `Type w`)"
   | .forallE n A B _ => do
+      -- split the TARGET Π/arrow (if any): `domTgt?` for the domain, `bodyTgt?` (raw, loose bvar) for the codomain.
+      let (domTgt?, bodyTgt?) ← splitForallTgt tgt?
       if B.hasLooseBVar 0 then
         match A with
         | .sort _ => do
@@ -129,29 +153,32 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
                 let raaTy ← mkAppM ``Param.R #[domWit, a, a']
                 withLocalDeclD (n.appendAfter "R") raaTy fun aR => do
                   mkLambdaFVars #[a, a', aR]
-                    (← assemble reg ((a.fvarId!, a', aR) :: senv) (B.instantiate1 a) codDem)
+                    (← assemble reg ((a.fvarId!, a', aR) :: senv) (B.instantiate1 a) codDem
+                        (bodyTgt?.map (·.instantiate1 a')))
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
         | _ => do
             -- `∀ x : T, B` (term-domain Π over ANY buildable domain `T`). Build `T`'s witness at `forallVariance(dem).1`,
             -- read the two sides `T`/`T'` off its `Param` type, and check the body at `forallVariance(dem).2` with `x` a
             -- TERM variable whose relatedness is `domWit.R x x'`.
             let (domDem, codDem) := forallVariance dem
-            let domWit ← assemble reg senv A domDem
+            let domWit ← assemble reg senv A domDem domTgt?
             let domTy := (← whnf (← instantiateMVars (← inferType domWit))).getAppArgs
             let pb ← withLocalDeclD n domTy[2]! fun x =>
               withLocalDeclD (n.appendAfter "'") domTy[3]! fun x' => do
                 let xRTy ← mkAppM ``Param.R #[domWit, x, x']
                 withLocalDeclD (n.appendAfter "R") xRTy fun xR => do
                   mkLambdaFVars #[x, x', xR]
-                    (← assemble reg ((x.fvarId!, x', xR) :: senv) (B.instantiate1 x) codDem)
+                    (← assemble reg ((x.fvarId!, x', xR) :: senv) (B.instantiate1 x) codDem
+                        (bodyTgt?.map (·.instantiate1 x')))
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
       else
         -- `A → B` (non-dependent arrow). Parts at `arrowVariance(dem)`.
         let (domDem, codDem) := arrowVariance dem
         mkAppM ``paramArrow
           #[classToExpr dem.1, classToExpr dem.2,
-            ← assemble reg senv A domDem,
-            ← assemble reg senv (B.instantiate1 (mkConst ``True)) codDem]
+            ← assemble reg senv A domDem domTgt?,
+            ← assemble reg senv (B.instantiate1 (mkConst ``True)) codDem
+                (bodyTgt?.map (·.instantiate1 (mkConst ``True)))]
   | e@(.app ..) => do
       -- the abstraction theorem `[head a₁ … aₙ] = [head] a₁ ⟨a₁⟩ [a₁] … aₙ ⟨aₙ⟩ [aₙ]`, then WEAKEN to `dem`.
       -- Arguments come from the TERM (`getAppArgs`); routing (type/family/term) from the relator's `relatorArgKinds`.
@@ -167,13 +194,22 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
       let args := e.getAppArgs
       unless args.size == kinds.size do
         throwError "assemble: relator {head} takes {kinds.size} arguments but is applied to {args.size}"
+      -- CHECK mode: the target `F' a₁' …` supplies each argument's target `aᵢ'` (positionally aligned with
+      -- `args`). NO `whnf` — it would unfold a reducible former/predicate (`Pos'`) and break the arg alignment
+      -- with the source `args` (which are read raw off `e`).
+      let tgtArgs? ← tgt?.mapM fun t => do
+        let ta := (← instantiateMVars t).getAppArgs
+        unless ta.size == args.size do
+          throwError "assemble: target {t} of {head} has {ta.size} arguments but expected {args.size}"
+        return ta
       let mut argExprs : Array Expr := #[]
       let mut argWits : Array (Option Expr) := Array.replicate args.size none  -- each TYPE arg's witness, by index
       for i in [0 : args.size] do
         let arg := args[i]!
+        let argTgt? := tgtArgs?.map (·[i]!)
         match kinds[i]! with
         | .type cls => do                                  -- TYPE arg: build its `Param` at the relator's class
-            let tR ← assemble reg senv arg cls
+            let tR ← assemble reg senv arg cls argTgt?
             let tgt := (← whnf (← instantiateMVars (← inferType tR))).getAppArgs[3]!
             argExprs := argExprs ++ #[arg, tgt, tR]
             argWits := argWits.set! i (some tR)
@@ -184,7 +220,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
             let (famB', pbWit) ← withLocalDeclD `a paTy[2]! fun a => withLocalDeclD `a' paTy[3]! fun a' => do
               let aRTy ← mkAppM ``Param.R #[paWit, a, a']
               withLocalDeclD `aR aRTy fun aR => do
+                -- the target family `B'` applied to this fiber's counterpart `a'` gives the body target.
                 let bodyWit ← assemble reg ((a.fvarId!, a', aR) :: senv) (arg.beta #[a]) cls
+                  (argTgt?.map (·.beta #[a']))
                 -- the B-side family `B' : A' → Type` must depend only on `a'`, never on `a`/`aR`.
                 let bside := (← whnf (← instantiateMVars (← inferType bodyWit))).getAppArgs[3]!
                 if bside.hasAnyFVar (fun id => id == a.fvarId! || id == aR.fvarId!) then
@@ -192,8 +230,10 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
                 return (← mkLambdaFVars #[a'] bside, ← mkLambdaFVars #[a, a', aR] bodyWit)
             argExprs := argExprs ++ #[arg, famB', pbWit]
         | .term => do                                      -- TERM arg: counterpart `⟨a⟩` + relatedness `[a]`
-            let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv arg
-            let aR ← assembleTerm reg senv arg
+            -- CHECK mode: the arg's target TYPE is the type of the target-side counterpart `aᵢ'`.
+            let termTgt? ← argTgt?.mapM (inferType ·)
+            let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv arg termTgt?
+            let aR ← assembleTerm reg senv arg termTgt?
             argExprs := argExprs ++ #[arg, a', aR]
       let applied := mkAppN relator argExprs
       if graded then return applied else weakenTo dem relClass applied
@@ -205,7 +245,7 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass) : M
     bound term supplies its relatedness), or a type over an outer λ-bound TYPE variable (its `(4,4)` witness sits
     in `senv`, and `assemble`'s leaf rule weakens it). -/
 partial def assembleType (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr :=
-  assemble reg senv T (map0, map0)
+  assemble reg senv T (map0, map0) none
 
 /-- `〚·〛 := [·].R` (DESIGN.md's `〚A〛 := A.R`): the RELATION of a type `T`, projected off the graded witness
     `[·]` (`assembleType`) builds. All a TERM position ever consumes of a type, and grade-invariant — so
@@ -218,7 +258,7 @@ partial def assembleRel (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do
     `P` is just a `Sort 0` type: its relatedness `[P] : 〚Prop〛 P P' = PLift (P ↔ P')` is the `(1,1)` `Param`
     witness the relator path builds, projected via `iffOfParam` — no separate `Prop` arm. Bottoms out at
     registered TERM primitives (`ctx.terms`). -/
-partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
+partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Expr) : MetaM Expr := do
   let ty ← inferType e
   if let .sort lvl := ty then
     if (← instantiateLevelMVars lvl) == levelZero then
@@ -230,27 +270,53 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
           | some (_, _, w) => return w
           | none => throwError "assemble: unbound proposition variable {e}"
       | _ =>
-          let w ← assemble reg senv e (map1, map1)
+          let w ← assemble reg senv e (map1, map1) tgt?
           return ← mkAppM ``PLift.up #[← mkAppM ``iffOfParam #[w]]
     else return ← assembleRel reg senv e
   if let some n := LeTrocq.Translate.natNumeral? e then
-    if (← whnf ty).isConstOf ``Nat then return ← assembleTerm reg senv (LeTrocq.Translate.natExpr n)
+    if (← whnf ty).isConstOf ``Nat then return ← assembleTerm reg senv (LeTrocq.Translate.natExpr n) tgt?
   match e with
   | .fvar id =>
       match senv.find? (·.1 == id) with
       | some (_, _, xR) => return xR
       | none => throwError "assemble: unbound variable {e}"
   | .const c _ =>
+      -- CHECK mode: select the primitive's relatedness for the demanded target type; SYNTH: the preferred.
+      let key? := (← whnf (tgt?.getD e)).getAppFn.constName?
       match reg.ctx.terms.find? c with
-      | some (_, wit) => return wit
+      | some tgtMap =>
+          let some h := (match tgt? with | some _ => key? | none => reg.ctx.termPref.find? c)
+            | throwError "assemble: term {c} has no target"
+          let some (_, wit) := tgtMap.find? h
+            | throwError "assemble: no relatedness for term {c} at target {h}"
+          return wit
       | none => throwError "assemble: unregistered constant {c}"
-  | .app f a => do
-      let fR ← assembleTerm reg senv f
-      let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv a
-      let aR ← assembleTerm reg senv a
-      return mkApp3 fR a a' aR
+  | e@(.app ..) => do
+      match tgt? with
+      | none =>
+          let f := e.appFn!; let a := e.appArg!
+          let fR ← assembleTerm reg senv f none
+          let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv a none
+          let aR ← assembleTerm reg senv a none
+          return mkApp3 fR a a' aR
+      | some _ =>
+          -- SPINE (`[h a₁ … aₙ] = [h] a₁ ⟨a₁⟩ [a₁] …`): resolve the head against the result target, then take
+          -- each argument's target from the head counterpart's domain type (dependent codomains via `⟨aᵢ⟩`).
+          let fn := e.getAppFn
+          let mut acc ← assembleTerm reg senv fn tgt?
+          let fn' ← LeTrocq.Translate.term reg.ctx senv.toTEnv fn tgt?
+          let mut ty ← inferType fn'
+          for a in e.getAppArgs do
+            let (dom, cod) ← match (← whnf ty) with
+              | .forallE _ d b _ => pure (d, b)
+              | other => throwError "assemble: head counterpart type {other} is not a function"
+            let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv a (some dom)
+            let aR ← assembleTerm reg senv a (some dom)
+            acc := mkApp3 acc a a' aR; ty := cod.instantiate1 a'
+          return acc
   | .lam n A b _ => do
-      let A' ← LeTrocq.Translate.term reg.ctx senv.toTEnv A
+      let (domTgt?, bodyTgt?) ← LeTrocq.Translate.splitPi? tgt?
+      let A' ← LeTrocq.Translate.term reg.ctx senv.toTEnv A domTgt?
       -- the bound variable's relatedness is `〚A〛 = [A].R`: for a type binder the parametricity relation, for
       -- a term/base binder the bare relatedness. (`assembleRel` projects it off the graded witness `[A]`.)
       let relA ← assembleRel reg senv A
@@ -258,13 +324,15 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) : MetaM Expr := do
       withLocalDeclD (n.appendAfter "'") A' fun x' =>
       withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xR => do
         mkLambdaFVars #[x, x', xR]
-          (← assembleTerm reg ((x.fvarId!, x', xR) :: senv) (b.instantiate1 x))
+          (← assembleTerm reg ((x.fvarId!, x', xR) :: senv) (b.instantiate1 x)
+            (bodyTgt?.map (·.instantiate1 x')))
   | e => throwError "assemble: unsupported term {e}"
 end
 
 /-- the registries + `⟨·⟩` context, built once from the `@[trocq]` environment extension. -/
 def mkReg : MetaM Reg := do
-  return { atoms := ← Solver.buildAtoms, consts := ← Solver.buildConsts, ctx := ← LeTrocq.Translate.buildCtx }
+  let (atoms, atomPref) ← Solver.buildAtomPairs
+  return { atoms, atomPref, consts := ← Solver.buildConsts, ctx := ← LeTrocq.Translate.buildCtx }
 
 /-- default any genuinely-free residual universe mvars (e.g. the universe combinator's relation level, or a
     universe-poly registered witness's level) to 0 — they are unconstrained, so any level is sound. -/
@@ -277,11 +345,11 @@ def defaultFreeLevels (wit : Expr) : MetaM Expr := do
 
 /-- `[T]@root` for a TYPE: assemble the witness DIRECTLY at `root` in one demand-driven pass — every node built
     by the graded combinator at the minimal class the demand pushes down. Drives `transfer%`/`trocq`. -/
-partial def transfer (e : Expr) (root : ParamClass) : MetaM Expr := do
-  defaultFreeLevels (← assemble (← mkReg) [] e root)
+partial def transfer (e : Expr) (root : ParamClass) (target? : Option Expr := none) : MetaM Expr := do
+  defaultFreeLevels (← assemble (← mkReg) [] e root target?)
 
 /-- `[t]` for a TERM: its relatedness by the abstraction theorem. Drives `relate%`. -/
 partial def relate (e : Expr) : MetaM Expr := do
-  defaultFreeLevels (← assembleTerm (← mkReg) [] e)
+  defaultFreeLevels (← assembleTerm (← mkReg) [] e none)
 
 end LeTrocq.Transfer

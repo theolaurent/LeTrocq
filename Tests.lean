@@ -15,6 +15,7 @@ import Tests.Tactic
 import Tests.Translate
 import Tests.ParamLib
 import Tests.DepFamily
+import Tests.TypeDirected
 
 /- AXIOM-FOOTPRINT GUARD (subsumes a `sorry`/`admit` check). EVERY `LeTrocq.*` declaration is checked — a
    stray `sorry`/`admit` adds `sorryAx` and any genuinely new axiom adds itself, so either fails this

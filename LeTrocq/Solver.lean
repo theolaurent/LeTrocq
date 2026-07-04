@@ -4,7 +4,7 @@ THE `@[trocq]` REGISTRIES + relator argument-routing — the pure lookups the gr
 which pushes a demanded class top-down through the `arrowVariance`/`forallVariance` tables (no constraint graph, no
 fixpoint — see bidir_solver.md). What remains here is the registry side of the front↔back contract:
 
-  • `buildAtoms`  — the type-atom registry from every `@[trocq]` BASE (both directions, via `Param.sym`).
+  • `buildAtomPairs` — the type-atom registry from every `@[trocq]` BASE (both directions via `Param.sym`), pair-indexed `srcHead ↦ tgtHead ↦ …` with a preferred (last-registered) target.
   • `buildConsts` — the relator registry from every `@[trocq]` RELATOR (keyed by the applied head).
   • `relatorArgKinds` — read a relator's per-argument routing (`type` / `family` / `term`) off its type, so the
     abstraction-theorem `app` rule in `Transfer.assemble` knows how to consume each argument.
@@ -68,16 +68,20 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
     return kinds
 
 /- ===================== registries from the `@[trocq]` extension ===================== -/
-/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`), so a
-    type built over either side of an equivalence resolves by head match. -/
-def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
-  let mut m := mkNameMap _
+/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`),
+    PAIR-INDEXED `srcHead ↦ tgtHead ↦ (tgtTy, wit, cls)` (so multiple equivalences for one source no
+    longer clobber) plus the PREFERRED (last-registered) target per source head — the synth default. A
+    diagonal base `A ≃ A` lands at `[A][A]`; its `sym` is skipped as a homogeneous head. -/
+def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × NameMap Name) := do
+  let mut m : NameMap (NameMap (Expr × Expr × ParamClass)) := mkNameMap _
+  let mut pref : NameMap Name := mkNameMap _
   for e in trocqEntries (← getEnv) do
     if let .base hA hB tyA tyB witName cls := e then
       let wit ← mkConstWithFreshMVarLevels witName
-      m ← insertBidir m hA (some hB) (tyB, wit, cls)
+      let r ← insertBidirPair m pref hA (some hB) (tyB, wit, cls)
         (return (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1)))
-  return m
+      m := r.1; pref := r.2
+  return (m, pref)
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
     prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotR`), which registers like any other — not a built-in.
