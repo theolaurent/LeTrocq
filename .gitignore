@@ -1,2 +1,14 @@
 # Lake build output
 /.lake/
+
+# Blueprint build output (leanblueprint / plasTeX)
+/blueprint/print/
+/blueprint/web/
+/blueprint/src/*.aux
+/blueprint/src/*.log
+/blueprint/src/*.out
+/blueprint/src/*.toc
+/blueprint/src/*.paux
+/blueprint/src/*.pdf
+/blueprint/src/*.fls
+/blueprint/src/*.fdb_latexmk

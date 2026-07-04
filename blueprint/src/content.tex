@@ -1,0 +1,501 @@
+% ===========================================================================
+% The LeTrocq blueprint.
+%
+%   Chapter 1  = DESIGN.md      — the graded parametricity translation
+%   Chapter 2  = bidir_solver.md — the demand-driven, witness-producing pass
+%
+% Every environment is tied to its Lean declaration with \lean{...}; \leanok
+% marks it as formalised (all of LeTrocq is, so the graph is fully green) and
+% \uses{...} draws the dependency edges. Fully-qualified names live in the
+% `LeTrocq` namespace (`LeTrocq.Param`, `LeTrocq.Transfer.assemble`, ...).
+% ===========================================================================
+
+\chapter{The graded parametricity translation}
+\label{chap:translation}
+
+LeTrocq is a Lean-native, \emph{graded} reformulation of the parametricity /
+proof-transfer translation of Trocq (Cohen--Crance--Mahboubi), in the
+\emph{no-univalence} fragment. The translation is \textbf{twofold}: a
+counterpart translation $\Cpt{\cdot}$ and a relational translation
+$\Rel{\cdot}$, tied by the abstraction theorem
+\[
+  t : A \quad\Longrightarrow\quad \Rel{t} : \Sem{A}\, t\, \Cpt{t},
+  \qquad\text{where } \Sem{A} := \Rel{A}.R .
+\]
+$\Cpt{t}$ rebuilds $t$ on the target side; $\Rel{t}$ witnesses that $\Cpt{t}$
+really is the counterpart. Neither ever unfolds a definition --- both bottom out
+at \texttt{@[trocq]}-registered witnesses (\Cref{sec:leaves}).
+
+\section{The classical (ungraded) translation}
+\label{sec:classical}
+
+Ignoring grading, on the Calculus of Constructions the two translations are the
+standard binary parametricity translation.
+
+\begin{definition}[The ungraded translation]
+  \label{def:classical}
+  The counterpart $\Cpt{\cdot}$ and relation $\Rel{\cdot}$ are defined by
+  mutual structural recursion:
+  \[
+    \begin{array}{llcll}
+      \Cpt{x}          &= x'                 &\qquad& \Rel{x}         &= x_R \\
+      \Cpt{t\,u}       &= \Cpt{t}\,\Cpt{u}   &&      \Rel{t\,u}      &= \Rel{t}\; u\; \Cpt{u}\; \Rel{u} \\
+      \Cpt{\lambda x{:}A.\,t} &= \lambda x'{:}\Cpt{A}.\,\Cpt{t} && \Rel{\lambda x{:}A.\,t} &= \lambda x\,x'\,x_R.\,\Rel{t} \\
+      \Cpt{\Pi x{:}A.\,B}     &= \Pi x'{:}\Cpt{A}.\,\Cpt{B}     && \Rel{\Pi x{:}A.\,B} &= \Pi x\,x'\,x_R.\,\Rel{B} \\
+      \Cpt{\square}    &= \square            &&      \Rel{\square}   &= \square \to \square \to \square
+    \end{array}
+  \]
+  The application clause $\Rel{t\,u} = \Rel{t}\,u\,\Cpt{u}\,\Rel{u}$ is the
+  \emph{abstraction theorem}, and drives every structural case below. Here
+  $\Rel{A}$ is a bare relation $A \to \Cpt{A} \to \square$; the grading of
+  \Cref{sec:hierarchy} refines it into a record.
+\end{definition}
+
+\section{The graded hierarchy}
+\label{sec:hierarchy}
+
+To carry transport \emph{maps} (not just a relation), $\Rel{\cdot}$ on a type
+returns a record --- a witness of \Cref{def:param} --- rather than a bare
+relation.
+
+\begin{definition}[The map-class diamond]
+  \label{def:map-class}
+  \lean{LeTrocq.MapClass}
+  \leanok
+  $\MapClass$ is the finite order $0 < 1 < \{2a, 2b\} < 3 < 4$, with a
+  decidable order \texttt{le}, a join and a meet. Semantically a class records
+  how much structure a relation carries: bare relation ($0$), a forward map
+  ($1$), soundness \texttt{map\_in\_R} ($2a$), completeness \texttt{R\_in\_map}
+  ($2b$), both ($3$), and their mutual-inverse coherence ($4$).
+\end{definition}
+
+\begin{definition}[Parametricity classes]
+  \label{def:param-class}
+  \lean{LeTrocq.ParamClass}
+  \leanok
+  \uses{def:map-class}
+  A $\mathsf{ParamClass}$ is a \emph{pair} $\cls{m}{n}$ of map-classes, one per
+  transport direction, with pointwise order/join/meet, a direction swap
+  \texttt{negate}, and a predicate \texttt{requiresAxiom} that holds iff some
+  component is $\geq 2b$ (i.e.\ the class needs univalence on a sort or funext on
+  a $\Pi$).
+\end{definition}
+
+\begin{definition}[The six graded records]
+  \label{def:map-has}
+  \lean{LeTrocq.MapHas}
+  \leanok
+  \uses{def:map-class}
+  For a relation $R : A \to B \to \Type$, $\MapHas\;c\;R$ is the structure a
+  relation carries at class $c$, selecting one of the records
+  \texttt{Map0Has} $\ldots$ \texttt{Map4Has}: \texttt{map} $:A\to B$
+  (from $1$), \texttt{map\_in\_R} (from $2a$), \texttt{R\_in\_map} (from $2b$),
+  and \texttt{R\_in\_mapK} (the coherence, at $4$). All six live at the uniform
+  \SortU\ level $\max(u, v{+}1)$, so a \PropSort\ object fits with no \texttt{ULift}.
+\end{definition}
+
+\begin{definition}[The witness record]
+  \label{def:param}
+  \lean{LeTrocq.Param}
+  \leanok
+  \uses{def:map-has, def:param-class}
+  $\Param\;m\;n\;A\;B$ bundles a relation $R : A \to B \to \Type$ with
+  $\texttt{cov} : \MapHas\;m\;R$ (forward structure) and
+  $\texttt{contra} : \MapHas\;n\;(\mathrm{flip}\;R)$ (backward structure). Thus
+  $\cls{4}{4}$ is a full type equivalence, $\cls{1}{0}$ a forward function,
+  $\cls{0}{1}$ a backward one, $\cls{0}{0}$ a bare relation. Symmetry
+  (\texttt{Param.sym}) swaps \texttt{cov}/\texttt{contra} onto the reversed
+  relation.
+\end{definition}
+
+\begin{lemma}[Class-4 relations are subsingletons]
+  \label{lem:map4-subsingleton}
+  \lean{LeTrocq.Map4Has.subsingleton}
+  \leanok
+  \uses{def:map-has}
+  If $R$ carries \texttt{Map4Has} data, then $R\,a\,b$ is a subsingleton for all
+  $a, b$.
+\end{lemma}
+\begin{proof}
+  \leanok
+  Two inhabitants of $R\,a\,b$ both map, via \texttt{R\_in\_map}, to proofs of
+  $\texttt{map}\,a = b$, which are equal by Lean's proof irrelevance; the
+  coherence \texttt{R\_in\_mapK} then forces the two inhabitants equal. This is
+  exactly ``no univalence $\Rightarrow$ class $4$ $=$ class $3$ on h-props'',
+  and it makes the $\cls{4}{4}$ coherence \emph{free} on any relation reachable
+  from class-4 data.
+\end{proof}
+
+\begin{definition}[Weakening]
+  \label{def:weaken}
+  \lean{LeTrocq.Param.weaken}
+  \leanok
+  \uses{def:param, def:map-class}
+  The diamond is generated from six covering-edge forgets
+  ($4 \to 3 \to 2a \to 1 \to 0$ and $3 \to 2b \to 1$), each a bare record
+  projection. Composing them, $\texttt{MapClass.weaken}\;s\;t$ maps
+  $\MapHas\;s\;R \to \MapHas\;t\;R$ whenever $t \leq s$ (impossible cases
+  discharged by \texttt{nomatch}); \texttt{Param.weaken} lifts this
+  componentwise to $\Param\;s_m\;s_n \to \Param\;t_m\;t_n$. This is the bridge of
+  the ``register strong, use minimal'' discipline (\Cref{sec:grading}).
+\end{definition}
+
+\section{The relation and the universe crux}
+\label{sec:universe}
+
+\begin{definition}[The carried relation]
+  \label{def:sem}
+  \uses{def:param}
+  $\Sem{A} := \Rel{A}.R$: the relation projected off the graded witness the
+  translation builds for a type. It is all a term position ever consumes of a
+  type, and it is grade-invariant.
+\end{definition}
+
+The universe clause is the crux. On a type, $\Rel{\cdot}$ returns a record, and
+the relation carried by the universe is $\Param$ \emph{itself}:
+$\Sem{\square} = \lambda A\,A'.\;\Param\;\cls{p}{q}\;A\;A'$, so
+$\Rel{A} : \Sem{\square}\,A\,\Cpt{A} = \Param\;\cls{p}{q}\;A\;\Cpt{A}$ --- the
+type witness $\Rel{A}$ is literally an element of the universe's own relation,
+one level up. The inner class $\cls{p}{q}$ records how strongly the bound type
+variable is related; it is \emph{independent} of the (capped) outer class.
+
+\begin{definition}[The reflexive witness]
+  \label{def:param-refl}
+  \lean{LeTrocq.paramRefl}
+  \leanok
+  \uses{def:param}
+  $\texttt{paramRefl}\;A : \Param\;\cls{4}{4}\;A\;A$ with relation
+  $R\,a\,b := \mathsf{PLift}\,(a = b)$: the identity map is an equivalence, so all
+  four fields hold (coherence by \texttt{Eq} casing). Weakening it gives
+  $\texttt{paramIdAt}\;p\;q$ at any class, choice-free.
+\end{definition}
+
+\begin{theorem}[The universe combinator, capped at $\cls{2a}{2a}$]
+  \label{thm:param-type}
+  \lean{LeTrocq.paramTypeAtInner}
+  \leanok
+  \uses{def:param-refl, def:weaken, def:param-class}
+  $\texttt{paramTypeInner}\;p\;q : \Param\;\cls{2a}{2a}\;\Type_w\;\Type_w$ has
+  relation $\lambda A\,A'.\;\Param\;\cls{p}{q}\;A\;A'$, with \texttt{map\_in\_R}
+  the $\texttt{Eq.rec}$ of $\texttt{paramIdAt}\;p\;q$. It cannot climb above
+  $\cls{2a}{2a}$: the completeness field would demand \emph{univalence}. The
+  inner class $\cls{p}{q}$ is free and independent of the cap.
+  $\texttt{paramTypeAtInner}\;m\;n\;p\;q$ weakens it to any outer class
+  $\leq \cls{2a}{2a}$.
+\end{theorem}
+
+\begin{theorem}[The \PropSort\ universe, at $\cls{4}{4}$]
+  \label{thm:param-prop}
+  \lean{LeTrocq.paramProp}
+  \leanok
+  \uses{def:param}
+  $\texttt{paramProp} : \Param\;\cls{4}{4}\;\PropSort\;\PropSort$ with relation
+  $\lambda P\,P'.\;\mathsf{PLift}\,(P \leftrightarrow P')$. Unlike $\Type$, it
+  reaches the full equivalence: \texttt{map\_in\_R} is $\texttt{Eq.rec}$,
+  completeness \texttt{R\_in\_map} is \textbf{\texttt{propext}}, and the coherence
+  is free by proof irrelevance (the relation is a subsingleton).
+\end{theorem}
+
+\begin{definition}[Propositions relate by equivalence]
+  \label{def:param-of-iff}
+  \lean{LeTrocq.paramOfIff}
+  \leanok
+  \uses{thm:param-prop}
+  $\texttt{paramOfIff} : (P \leftrightarrow P') \to \Param\;\cls{4}{4}\;P\;P'$
+  carries the equivalence as its relation $\mathsf{PLift}\,(P \leftrightarrow P')$;
+  completeness is proof irrelevance, so it needs no axiom beyond the given
+  \texttt{iff}. Its inverse on maps is \texttt{iffOfParam}. This is the shared
+  builder every \PropSort-valued relator (\texttt{Eq}, the connectives) hands its
+  result to.
+\end{definition}
+
+\section{The structural combinators}
+\label{sec:combinators}
+
+Each combinator builds a $\Param$ for a former out of $\Param$s for its parts,
+at any output class, with the parts at the class a grading table dictates
+(\Cref{sec:grading}).
+
+\begin{definition}[The arrow relation and its grading table]
+  \label{def:arrow-variance}
+  \lean{LeTrocq.arrowVariance}
+  \leanok
+  \uses{def:param-class}
+  $\RArrow\;R_A\;R_B\;f\;f' := \forall a\,a'.\,R_A\,a\,a' \to R_B\,(f a)\,(f' a')$
+  is the respectful relation. $\texttt{arrowVariance}\;c$ returns the minimal
+  (domain, codomain) classes needed to build the arrow at output class $c$,
+  computed from the per-map-class table \texttt{mapArrowVariance} (verbatim from
+  Trocq's \texttt{class.elpi}) as $\mathrm{join}$ of the cov requirement with the
+  negated contra one.
+\end{definition}
+
+\begin{theorem}[The graded arrow]
+  \label{thm:param-arrow}
+  \lean{LeTrocq.paramArrow}
+  \leanok
+  \uses{def:arrow-variance, def:param, def:weaken, lem:map4-subsingleton}
+  $\texttt{paramArrow}\;m\;n$ builds $\Param\;\cls{m}{n}\;(A \to B)\;(A' \to B')$
+  from parts at the \texttt{arrowVariance}-minimal classes, for \emph{every}
+  output class including $\cls{4}{4}$. The forward map is
+  $B.\mathrm{fwd} \circ f \circ A.\mathrm{bwd}$; completeness in each direction is
+  a \texttt{funext} of the parts' completeness; the $\cls{4}{4}$ coherence is free
+  because class-4 parts have subsingleton relations
+  (\Cref{lem:map4-subsingleton}), so the arrow relation is a subsingleton.
+\end{theorem}
+
+\begin{definition}[The dependent $\Pi$ relation and its grading table]
+  \label{def:forall-variance}
+  \lean{LeTrocq.forallVariance}
+  \leanok
+  \uses{def:param-class}
+  With a codomain family $B : A \to \SortU$ and an indexed relation
+  $R_B : \forall a\,a'.\,R_A\,a\,a' \to B\,a \to B'\,a' \to \Type$, the
+  $\Pi$-relation is
+  $\RForall\;R_A\;R_B\;f\;f' := \forall a\,a'\,(r : R_A\,a\,a').\,R_B\,a\,a'\,r\,(f a)\,(f' a')$.
+  $\texttt{forallVariance}$ is the analogue of \texttt{arrowVariance}; its
+  wrinkle is that at cov $\geq 2a$ the domain is needed at the full equivalence
+  (\texttt{map4}), so the forward map can produce the relatedness proof the
+  codomain fiber is indexed by.
+\end{definition}
+
+\begin{theorem}[The graded dependent $\Pi$]
+  \label{thm:param-forall}
+  \lean{LeTrocq.paramForall}
+  \leanok
+  \uses{def:forall-variance, def:param, def:weaken, lem:map4-subsingleton}
+  $\texttt{paramForall}\;m\;n$ builds
+  $\Param\;\cls{m}{n}\;(\forall a, B\,a)\;(\forall a', B'\,a')$ from a domain
+  witness and a codomain \emph{family} of witnesses, each at the
+  \texttt{forallVariance}-minimal class. Over \SortU\ (so $B$ may land in
+  \PropSort), whence $\forall x, P\,x$ for a \PropSort-valued $P$ transfers.
+  \texttt{R\_in\_map} uses the domain's completeness to \texttt{subst} the fiber
+  and \Cref{lem:map4-subsingleton} to identify the two relatedness proofs.
+\end{theorem}
+
+\section{Grading: register strong, use minimal}
+\label{sec:grading}
+
+A witness is registered once at a \textbf{strong} class (typically the
+equivalence $\cls{4}{4}$); each occurrence is used at the \textbf{minimal} class
+it needs; a weakening map (\Cref{def:weaken}) bridges the two. The minimal
+classes are computed \textbf{top-down in a single pass}: the demanded output
+class flows down through the type's dependency structure, and each former's
+grading table (\Cref{def:arrow-variance}, \Cref{def:forall-variance}) dictates
+the class each part is built at --- no constraint graph, no fixpoint
+(\Cref{chap:solver}). A leaf is built at its available class and \emph{weakened}
+to the demand. One exception: a \emph{bound type variable} is pinned at
+$\cls{4}{4}$ (the universe's inner class, \Cref{thm:param-type}) rather than the
+join of its uses --- the top weakens to satisfy every use, and pinning it is
+exactly what removes the fixpoint.
+
+\section{Leaves: registered witnesses}
+\label{sec:leaves}
+
+The structural rules bottom out at \texttt{@[trocq]}-registered constants; the
+translation never unfolds a definition (an unregistered head is an error).
+
+\begin{definition}[Witness classification]
+  \label{def:reg-kind}
+  \lean{LeTrocq.parseEntry}
+  \leanok
+  \uses{def:param}
+  Tagging a constant \texttt{@[trocq]} runs \texttt{parseEntry}, which reads the
+  conclusion of its telescoped type into a \texttt{RegKind}: a \textbf{base}
+  ($\Param\;m\;n\;A\;B$, closed $A,B$), a \textbf{relator}
+  ($\forall \ldots, \Param\;m\;n\;(P\ldots)\,(P'\ldots)$ --- also how a
+  \PropSort\ predicate or connective registers), a \textbf{type former} (a
+  parametricity relation, conclusion a \SortU), or a \textbf{term primitive}
+  (bare-relation conclusion). Witnesses are stored by name and re-created with
+  fresh universe levels, so universe-polymorphic witnesses register correctly.
+\end{definition}
+
+\begin{definition}[The counterpart translation]
+  \label{def:translate-term}
+  \lean{LeTrocq.Translate.term}
+  \leanok
+  \uses{def:reg-kind}
+  $\Cpt{\cdot}$ (\texttt{Translate.term}) rebuilds a term's $B$-side counterpart
+  leaf by leaf: a registered head maps to its counterpart, a bound variable to
+  $x'$, application/$\lambda$/$\Pi$/sort structurally, and a \texttt{Nat} numeral
+  through its \texttt{succ}/\texttt{zero} normal form. It is the sole consumer's
+  companion to $\Rel{\cdot}$ ($\Rel{t\,u} = \Rel{t}\,u\,\Cpt{u}\,\Rel{u}$).
+\end{definition}
+
+A parameterized type former $F$ crosses through its relator by the very same
+abstraction theorem, with $\Rel{F}$ a $\Param$-valued witness and a final
+weakening:
+\[
+  \Rel{F\,a_1 \ldots a_n} := \big(\Rel{F}\; a_1\,\Cpt{a_1}\,\Rel{a_1}\; \ldots\; a_n\,\Cpt{a_n}\,\Rel{a_n}\big)\ \text{weakened to the demand}.
+\]
+
+% ===========================================================================
+\chapter{The demand-driven witness solver}
+\label{chap:solver}
+
+The relational translation $\Rel{\cdot}$ is realised as a single syntax-directed
+pass that \textbf{produces the $\Param$ witness directly}, driven by a demanded
+output class: no constraint graph, no least fixpoint. It has two
+mutually-recursive halves --- a top-down \emph{type} judgment and a bottom-up
+\emph{term} judgment.
+
+\begin{definition}[The three judgments]
+  \label{def:judgments}
+  \uses{def:param, def:sem}
+  \[
+    \begin{array}{lll}
+      \text{Type check} & \Gamma \vdash T \chk \cls{n}{m} \rw p & p : \Param\;n\;m\;T\;\Cpt{T} \quad(\text{top-down})\\
+      \text{Type leaf}  & \Gamma \vdash T \syn \cls{n}{m} \rw p & (\text{atoms / type-vars: read the available class})\\
+      \text{Term}       & \Gamma \vdash t \rw r                 & r : \Sem{\mathrm{typeof}\,t}\; t\; \Cpt{t}
+    \end{array}
+  \]
+  A type variable enters the context as $A \mapsto (\Cpt{A} = A',\ a_R : \Param\;4\;4\;A\;A')$
+  (pinned strong); a term variable as $x \mapsto (x',\ x_R : \Sem{T}\,x\,x')$.
+  Both halves share one environment (\texttt{SEnv}); a type variable's
+  \texttt{fvar} has a \SortU\ type, a term variable's does not, so the two never
+  confuse the judgments.
+\end{definition}
+
+\begin{definition}[Subsumption --- the only mode switch]
+  \label{def:subsumption}
+  \uses{def:weaken, def:judgments}
+  \[
+    \irule{ \Gamma \vdash T \syn \cls{n'}{m'} \rw p \qquad \cls{n}{m} \leq \cls{n'}{m'} }
+          { \Gamma \vdash T \chk \cls{n}{m} \rw \mathrm{weaken}\;p }
+  \]
+  Used to satisfy a check demand from a leaf's inferred available class.
+\end{definition}
+
+\section{The type judgment (check, top-down)}
+\label{sec:type-rules}
+
+\begin{definition}[The type check pass]
+  \label{def:assemble}
+  \lean{LeTrocq.Transfer.assemble}
+  \leanok
+  \uses{def:judgments, def:subsumption, thm:param-arrow, thm:param-forall, thm:param-type, thm:param-prop, def:mk-univ, def:reg-kind, def:arg-kind}
+  $\texttt{assemble} : \mathsf{Expr} \to \mathsf{ParamClass} \to \mathsf{MetaM}\,\mathsf{Expr}$
+  walks a type top-down, building its $\Param$ witness directly at the demanded
+  class. The structural rules push the demand through the variance tables to the
+  minimal part classes and build each node with its combinator:
+  \[
+    \irule{ }{ \Gamma \vdash \PropSort \chk \cls{n}{m} \rw \texttt{paramPropAt}\;n\;m }
+    \qquad
+    \irule{ \cls{n}{m} \leq \cls{2a}{2a} }
+          { \Gamma \vdash \Type_w \chk \cls{n}{m} \rw \texttt{paramTypeAtInner}\;n\;m\;4\;4 }
+  \]
+  \[
+    \irule{ \Gamma \vdash A \chk \texttt{arrowVariance}\cls{n}{m}.1 \rw p_a \qquad
+            \Gamma \vdash B \chk \texttt{arrowVariance}\cls{n}{m}.2 \rw p_b }
+          { \Gamma \vdash A \to B \chk \cls{n}{m} \rw \texttt{paramArrow}\;n\;m\;p_a\;p_b }
+  \]
+  \[
+    \irule{ \Gamma \vdash D \chk \texttt{forallVariance}\cls{n}{m}.1 \rw p_D \qquad
+            \Gamma, x{:}D \vdash B \chk \texttt{forallVariance}\cls{n}{m}.2 \rw p_b }
+          { \Gamma \vdash \Pi x{:}D.\,B \chk \cls{n}{m} \rw \texttt{paramForall}\;n\;m\;p_D\;(\lambda x\,x'\,x_R.\,p_b) }
+  \]
+  where a $\Pi$ over a \emph{type} domain ($D = \Type_w$) offers $x$ at inner
+  class $\cls{4}{4}$ and a $\Pi$ over a \emph{term} domain reads the two sides
+  off $p_D$'s type. A leaf --- a registered atom, or a bound type variable
+  offered at $\cls{4}{4}$ --- reads its available class and weakens
+  (\Cref{def:subsumption}). A demand $\Type \chk \cls{n}{m}$ with
+  $\cls{n}{m} \not\leq \cls{2a}{2a}$ \textbf{fails}: that is exactly ``needs
+  univalence''.
+\end{definition}
+
+\begin{definition}[The inner class is pinned]
+  \label{def:inner-class}
+  \lean{LeTrocq.Transfer.innerClass}
+  \leanok
+  \uses{thm:param-type}
+  Every universe combinator carries its bound type variable at inner class
+  $\cls{4}{4}$: the top, independent of the capped outer class, weakening to
+  satisfy every use. Pinning it is what lets a bound variable have a fixed class
+  --- no fixpoint --- and it is axiom-free ($\texttt{paramIdAt}\;\cls{4}{4}$ is
+  \texttt{paramRefl} weakened).
+\end{definition}
+
+\begin{definition}[The universe cap, enforced]
+  \label{def:mk-univ}
+  \lean{LeTrocq.Transfer.mkUniv}
+  \leanok
+  \uses{thm:param-type}
+  $\texttt{mkUniv}$ emits the universe combinator at the demanded outer class,
+  \textbf{failing} when it exceeds $\cls{2a}{2a}$. This is where feasibility of a
+  $\Type$ transfer is decided; there is no separate sort table.
+\end{definition}
+
+\begin{definition}[Relator argument routing]
+  \label{def:arg-kind}
+  \lean{LeTrocq.Solver.relatorArgKinds}
+  \leanok
+  \uses{def:reg-kind}
+  For an application $F\,a_1\ldots a_k$ of a registered relator, the abstraction
+  theorem $\Rel{F\,\bar a} = \Rel{F}\,a_1\Cpt{a_1}\Rel{a_1}\ldots$ (then weaken to
+  the demand) consumes each argument by its \emph{kind}, read off the relator's
+  type by the shape of each triple's relatedness: \texttt{.type} (a $\Param$: a
+  type argument, assembled at the relator's declared class), \texttt{.family}
+  (relatedness telescopes to a $\Param$: a dependent type family, built like a
+  $\Pi$ codomain), or \texttt{.term} (a bare relation: routed to the term
+  judgment). A family reads its domain off its own binder type, so it need not
+  sit adjacent to that domain.
+\end{definition}
+
+\section{The term judgment (abstraction theorem, bottom-up)}
+\label{sec:term-rules}
+
+\begin{definition}[The term pass]
+  \label{def:assemble-term}
+  \lean{LeTrocq.Transfer.assembleTerm}
+  \leanok
+  \uses{def:assemble, def:translate-term, def:param-of-iff, def:judgments}
+  $\texttt{assembleTerm}$ is the abstraction theorem, bottoming at registered
+  term primitives:
+  \[
+    \irule{ x \mapsto (\_, x_R) \in \Gamma }{ \Gamma \vdash x \rw x_R }
+    \qquad
+    \irule{ c\ \text{a registered primitive} \rw w }{ \Gamma \vdash c \rw w }
+  \]
+  \[
+    \irule{ \Gamma \vdash u \rw u_R \qquad \Cpt{v}\ \text{via}\ \Cref{def:translate-term} \qquad \Gamma \vdash v \rw v_R }
+          { \Gamma \vdash u\,v \rw u_R\; v\; \Cpt{v}\; v_R }
+  \]
+  \[
+    \irule{ \Gamma \vdash A \chk \cls{0}{0} \rw p_A \quad (\Sem{A} = p_A.R) \qquad \Gamma, x{:}A \vdash t \rw t_R }
+          { \Gamma \vdash \lambda x{:}A.\,t \rw \lambda x\,x'\,x_R.\,t_R }
+  \]
+  \[
+    \irule{ t : \PropSort \qquad \Gamma \vdash t \chk \cls{1}{1} \rw p }
+          { \Gamma \vdash t \rw \mathsf{PLift.up}\,(\texttt{iffOfParam}\;p) }
+    \qquad
+    \irule{ \text{numeral } n }{ \Gamma \vdash n \rw (\text{expand to succ/zero}) }
+  \]
+  A term position consumes only $\Sem{A} = p_A.R$, which is grade-invariant, so
+  the $\lambda$ rule checks its domain at the cheapest class $\cls{0}{0}$. A
+  proposition is just a $\SortU\,0$ type, so it has no separate arm: its
+  relatedness $\mathsf{PLift}\,(P \leftrightarrow P')$ is the $\cls{1}{1}$ witness
+  the relator path builds, projected via \texttt{iffOfParam}.
+\end{definition}
+
+\section{Feasibility and entry points}
+\label{sec:entry}
+
+\begin{remark}[Feasibility falls out]
+  \label{rem:feasibility}
+  \uses{def:assemble, def:mk-univ, def:subsumption}
+  A transfer is impossible exactly when a check gets stuck: a $\Type$ demand
+  above $\cls{2a}{2a}$ (\Cref{def:mk-univ}), or a leaf whose available class
+  cannot weaken to the demand. Both surface as ordinary rule failures, so there
+  is no separate feasibility pass.
+\end{remark}
+
+\begin{definition}[The entry points]
+  \label{def:entry}
+  \lean{LeTrocq.Transfer.transfer, LeTrocq.Transfer.relate}
+  \leanok
+  \uses{def:assemble, def:assemble-term}
+  \texttt{transfer} assembles $\Rel{T}$ directly at a root class in one pass
+  (driving \texttt{transfer\%} at $\cls{4}{4}$ and the \texttt{trocq} tactic at
+  the comap class $\cls{0}{1}$, which refines the goal by the backward map);
+  \texttt{relate} runs the term judgment (driving \texttt{relate\%}).
+  \texttt{translate\%} is $\Cpt{\cdot}$ (\Cref{def:translate-term}), unchanged.
+\end{definition}

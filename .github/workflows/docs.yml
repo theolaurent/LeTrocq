@@ -1,0 +1,46 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+# Let the docgen-action publish to GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; don't cancel an in-progress deploy.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  docs:
+    name: Blueprint & API docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # docgen-action runs doc-gen4 over the compiled output, so build the library first.
+      # No Mathlib here, so its cache is disabled (matches ci.yml).
+      - name: Build Lean library
+        uses: leanprover/lean-action@v1
+        with:
+          use-mathlib-cache: false
+
+      # Builds the leanblueprint document (blueprint/src/) + doc-gen4 API docs and deploys
+      # them to Pages: blueprint at <pages>/blueprint, API docs at <pages>/docs.
+      #   • build-page: false — the project has no docs/ Jekyll landing page, so skip it.
+      #   • deploy gated to main — other branches and PRs only validate the build.
+      - name: Build & deploy docs
+        uses: leanprover-community/docgen-action@main
+        with:
+          blueprint: true
+          build-page: false
+          deploy: ${{ github.ref == 'refs/heads/main' }}

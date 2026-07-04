@@ -1,0 +1,29 @@
+% The PRINT (pdf) entry point. Build with:  leanblueprint pdf
+% (or directly:  cd blueprint/src && latexmk -pdf print.tex)
+\documentclass[a4paper]{report}
+
+\usepackage[textwidth=15cm]{geometry}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{hyperref}
+\usepackage[nameinlink, capitalize]{cleveref}
+
+% The blueprint package (shipped with `leanblueprint`) provides the
+% definition/lemma/theorem/remark environments and the \lean, \leanok, \uses,
+% \notready status macros. `showmore` renders the per-item status boxes.
+\usepackage[showmore]{blueprint}
+
+\input{macros/common}
+\input{macros/print}
+
+\title{The LeTrocq Blueprint}
+\author{Théo Laurent}
+\home{https://github.com/theolaurent/LeTrocq}
+\github{https://github.com/theolaurent/LeTrocq}
+\dochome{https://github.com/theolaurent/LeTrocq}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\input{content}
+\end{document}

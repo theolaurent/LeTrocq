@@ -1,5 +1,7 @@
 # LeTrocq
 
+[![Blueprint](https://img.shields.io/badge/blueprint-online-blue)](https://theolaurent.github.io/LeTrocq/blueprint/)
+
 A Lean-native, **graded** reformulation of the [Trocq](https://arxiv.org/abs/2310.14022)
 parametricity / proof-transfer framework (Cohen–Crance–Mahboubi), in the **no-univalence**
 fragment. Register an equivalence between two types once, and LeTrocq automatically transports
