@@ -173,4 +173,25 @@ example : LeTrocq.Tests.listSrcWit.cov.map [Src.a, Src.b] = [Tgt.x, Tgt.x] := rf
 /-- info: 'LeTrocq.Tests.listSrcWit' does not depend on any axioms -/
 #guard_msgs in #print axioms LeTrocq.Tests.listSrcWit
 
+/- THE COVARIANT BATCH — `Option`, `Prod`, `Sum`, `Array` are now graded exactly like `List`, so each composes
+   the SAME partial (1,0) base at demand (1,0) and its forward map computes. (Ungraded, the element would be
+   forced to (4,4) — unreachable from `paramSrcTgt` — and all four would fail to transfer.) -/
+run_cmd Command.liftTermElabM do
+  let mk (nm : Name) (e : Expr) : TermElabM Unit := do
+    let wit ← transfer e (map1, map0)
+    addDecl (.defnDecl { name := nm, levelParams := [],
+                         type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                         hints := .opaque, safety := .safe })
+  mk `LeTrocq.Tests.optionSrcWit (mkApp (mkConst ``Option) (mkConst ``Src))
+  mk `LeTrocq.Tests.prodSrcWit   (mkApp2 (mkConst ``Prod) (mkConst ``Src) (mkConst ``Src))
+  mk `LeTrocq.Tests.sumSrcWit    (mkApp2 (mkConst ``Sum) (mkConst ``Src) (mkConst ``Src))
+  mk `LeTrocq.Tests.arraySrcWit  (mkApp (mkConst ``Array) (mkConst ``Src))
+
+example : LeTrocq.Tests.optionSrcWit.cov.map (some Src.a) = some Tgt.x := rfl
+example : LeTrocq.Tests.prodSrcWit.cov.map (Src.a, Src.b) = (Tgt.x, Tgt.x) := rfl
+example : LeTrocq.Tests.sumSrcWit.cov.map (Sum.inl Src.a) = (Sum.inl Tgt.x : Tgt ⊕ Tgt) := rfl
+example : LeTrocq.Tests.arraySrcWit.cov.map #[Src.a, Src.b] = #[Tgt.x, Tgt.x] := rfl
+/-- info: 'LeTrocq.Tests.prodSrcWit' does not depend on any axioms -/
+#guard_msgs in #print axioms LeTrocq.Tests.prodSrcWit
+
 end LeTrocq.Tests

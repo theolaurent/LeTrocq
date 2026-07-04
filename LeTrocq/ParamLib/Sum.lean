@@ -2,8 +2,8 @@
 The LeTrocq STANDARD LIBRARY: `Sum` (⊕, the non-dependent disjoint union).
 
 Two type parameters (like `Prod`) but two constructors (like `Option`): `SumR` is the parametricity relation
-(`inl ~ inl`, `inr ~ inr`), `SumInlR`/`SumInrR` the constructor TERM primitives, `paramSumR` the `(4,4)`
-relator. The forward map is `Sum.map` of the two component maps.
+(`inl ~ inl`, `inr ~ inr`), `SumInlR`/`SumInrR` the constructor TERM primitives, `paramSumRG` the GRADED
+relator (variance parallel to `List`). The forward map is `Sum.map` of the two component maps.
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib
@@ -27,31 +27,108 @@ theorem SumR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B 
 @[trocq] def SumInrR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type)
     (b : B) (b' : B') (bR : RB b b') : SumR A A' RA B B' RB (.inr b) (.inr b') := .inr bR
 
-/-- `A ⊕ B ≃ A' ⊕ B'` at the top class: maps by `Sum.map`, completeness by casing the relation, coherence
-    free from `SumR.allEq`. -/
-@[trocq] noncomputable def paramSumR (A A' : Type) (pa : Param map4 map4 A A')
-    (B B' : Type) (pb : Param map4 map4 B B') :
-    Param map4 map4 (A ⊕ B) (A' ⊕ B') where
+/- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
+   `Sum` is covariant in both summands, identity variance (a covariant functor): at output class `(m,n)` each
+   summand is needed at exactly `(m,n)`. Same shape as `paramProdRG`, with the two injections in place of the
+   pair projections. -/
+
+/-- per-map-class minimal class of EACH summand of `Sum` (pure covariance; the same table for both). -/
+def mapSumVariance : MapClass → ParamClass
+  | map0  => (map0,  map0)
+  | map1  => (map1,  map0)
+  | map2a => (map2a, map0)
+  | map2b => (map2b, map0)
+  | map3  => (map3,  map0)
+  | map4  => (map4,  map0)
+
+/-- minimal per-summand class to build `Sum` at output class `c` (identity — both summands covariant). -/
+def sumVariance (c : ParamClass) : ParamClass :=
+  ParamClass.join (mapSumVariance c.1) (ParamClass.negate (mapSumVariance c.2))
+
+/-- the covariant half from the two summands at `mapSumVariance m`. -/
+def sumCov {A A' B B' : Type} :
+    (m : MapClass) →
+    (pa : Param (mapSumVariance m).1 (mapSumVariance m).2 A A') →
+    (pb : Param (mapSumVariance m).1 (mapSumVariance m).2 B B') →
+    MapHas m (SumR A A' pa.R B B' pb.R)
+  | map0,  _,  _  => {}
+  | map1,  pa, pb => { map := Sum.map pa.cov.map pb.cov.map }
+  | map2a, pa, pb =>
+      { map := Sum.map pa.cov.map pb.cov.map
+        map_in_R := fun s _ h => by subst h; cases s with
+          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.cov.map_in_R b _ rfl) }
+  | map2b, pa, pb =>
+      { map := Sum.map pa.cov.map pb.cov.map
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR) }
+  | map3,  pa, pb =>
+      { map := Sum.map pa.cov.map pb.cov.map
+        map_in_R := fun s _ h => by subst h; cases s with
+          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.cov.map_in_R b _ rfl)
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR) }
+  | map4,  pa, pb =>
+      { map := Sum.map pa.cov.map pb.cov.map
+        map_in_R := fun s _ h => by subst h; cases s with
+          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.cov.map_in_R b _ rfl)
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR)
+        R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
+          (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+
+/-- the contravariant half from the two summands' contra at `mapSumVariance n`. -/
+def sumContra {A A' B B' : Type} :
+    (n : MapClass) →
+    (pa : Param (mapSumVariance n).2 (mapSumVariance n).1 A A') →
+    (pb : Param (mapSumVariance n).2 (mapSumVariance n).1 B B') →
+    MapHas n (fun (t : A' ⊕ B') (s : A ⊕ B) => SumR A A' pa.R B B' pb.R s t)
+  | map0,  _,  _  => {}
+  | map1,  pa, pb => { map := Sum.map pa.contra.map pb.contra.map }
+  | map2a, pa, pb =>
+      { map := Sum.map pa.contra.map pb.contra.map
+        map_in_R := fun t _ h => by subst h; cases t with
+          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.contra.map_in_R b _ rfl) }
+  | map2b, pa, pb =>
+      { map := Sum.map pa.contra.map pb.contra.map
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR) }
+  | map3,  pa, pb =>
+      { map := Sum.map pa.contra.map pb.contra.map
+        map_in_R := fun t _ h => by subst h; cases t with
+          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.contra.map_in_R b _ rfl)
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR) }
+  | map4,  pa, pb =>
+      { map := Sum.map pa.contra.map pb.contra.map
+        map_in_R := fun t _ h => by subst h; cases t with
+          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
+          | inr b => exact .inr (pb.contra.map_in_R b _ rfl)
+        R_in_map := fun _ _ r => by cases r with
+          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
+          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR)
+        R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
+          (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
+
+/-- `A ⊕ B ≃ A' ⊕ B'` at ANY output class `(m,n)`, each summand at the `sumVariance`-minimal class. -/
+@[trocq] noncomputable def paramSumRG (m n : MapClass) (A A' : Type)
+    (pa : Param (sumVariance (m, n)).1 (sumVariance (m, n)).2 A A')
+    (B B' : Type)
+    (pb : Param (sumVariance (m, n)).1 (sumVariance (m, n)).2 B B') :
+    Param m n (A ⊕ B) (A' ⊕ B') where
   R := SumR A A' pa.R B B' pb.R
-  cov :=
-    { map := Sum.map pa.cov.map pb.cov.map
-      map_in_R := fun s _ h => by subst h; cases s with
-        | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
-        | inr b => exact .inr (pb.cov.map_in_R b _ rfl)
-      R_in_map := fun _ _ r => by cases r with
-        | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
-        | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR)
-      R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-        (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
-  contra :=
-    { map := Sum.map pa.contra.map pb.contra.map
-      map_in_R := fun t _ h => by subst h; cases t with
-        | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
-        | inr b => exact .inr (pb.contra.map_in_R b _ rfl)
-      R_in_map := fun _ _ r => by cases r with
-        | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
-        | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR)
-      R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-        (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+  cov := sumCov m (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (pb.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := sumContra n (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (pb.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 end LeTrocq.ParamLib

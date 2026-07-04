@@ -4,7 +4,8 @@ The LeTrocq STANDARD LIBRARY: `Prod` (×, the cartesian product).
 `List` with TWO type parameters instead of one — and non-dependent (unlike `Sigma`, whose second component
 lives over the first). `ProdR` is the parametricity relation (a TYPE FORMER over both parameters: the
 translation crosses `A × B` by feeding each parameter's `(_, _, _)` triple in turn), `ProdMkR` the
-constructor TERM primitive, `paramProdR` the `(4,4)` relator (two independent `Param` arguments).
+constructor TERM primitive, `paramProdRG` the GRADED relator (variance parallel to `List`, one `Param` argument
+per parameter).
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib
@@ -26,31 +27,102 @@ theorem ProdR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B
     (a : A) (a' : A') (aR : RA a a') (b : B) (b' : B') (bR : RB b b') :
     ProdR A A' RA B B' RB (a, b) (a', b') := .mk aR bR
 
-/-- `A × B ≃ A' × B'` at the top class, from equivalences of the two components: the maps act componentwise,
-    completeness `cases` the relation (which packages both component relatednesses), coherence free. -/
-@[trocq] noncomputable def paramProdR (A A' : Type) (pa : Param map4 map4 A A')
-    (B B' : Type) (pb : Param map4 map4 B B') :
-    Param map4 map4 (A × B) (A' × B') where
-  R := ProdR A A' pa.R B B' pb.R
-  cov :=
-    { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
-      map_in_R := fun p _ h => by
-        subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with | @mk a a' b b' aR bR =>
+/- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
+   `Prod` is covariant in BOTH parameters, each with the identity variance of a covariant functor: at output
+   class `(m,n)` each component is needed at exactly `(m,n)`. `mapProdVariance` is the shared per-parameter
+   table (both parameters use it), and `paramProdRG` builds the pair at any output class. -/
+
+/-- per-map-class minimal class of EACH parameter of `Prod` (pure covariance; the same table for both). -/
+def mapProdVariance : MapClass → ParamClass
+  | map0  => (map0,  map0)
+  | map1  => (map1,  map0)
+  | map2a => (map2a, map0)
+  | map2b => (map2b, map0)
+  | map3  => (map3,  map0)
+  | map4  => (map4,  map0)
+
+/-- minimal per-parameter class to build `Prod` at output class `c` (identity — both parameters covariant). -/
+def prodVariance (c : ParamClass) : ParamClass :=
+  ParamClass.join (mapProdVariance c.1) (ParamClass.negate (mapProdVariance c.2))
+
+/-- the covariant half from the two components at `mapProdVariance m`. -/
+def prodCov {A A' B B' : Type} :
+    (m : MapClass) →
+    (pa : Param (mapProdVariance m).1 (mapProdVariance m).2 A A') →
+    (pb : Param (mapProdVariance m).1 (mapProdVariance m).2 B B') →
+    MapHas m (ProdR A A' pa.R B B' pb.R)
+  | map0,  _,  _  => {}
+  | map1,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2) }
+  | map2a, pa, pb =>
+      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
+        map_in_R := fun p _ h => by
+          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl) }
+  | map2b, pa, pb =>
+      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+          show (pa.cov.map a, pb.cov.map b) = (a', b')
+          rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR] }
+  | map3,  pa, pb =>
+      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
+        map_in_R := fun p _ h => by
+          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+          show (pa.cov.map a, pb.cov.map b) = (a', b')
+          rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR] }
+  | map4,  pa, pb =>
+      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
+        map_in_R := fun p _ h => by
+          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
           show (pa.cov.map a, pb.cov.map b) = (a', b')
           rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR]
-      R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-        (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
-  contra :=
-    { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
-      map_in_R := fun q _ h => by
-        subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with | @mk a a' b b' aR bR =>
+        R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
+          (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+
+/-- the contravariant half from the two components' contra at `mapProdVariance n`. -/
+def prodContra {A A' B B' : Type} :
+    (n : MapClass) →
+    (pa : Param (mapProdVariance n).2 (mapProdVariance n).1 A A') →
+    (pb : Param (mapProdVariance n).2 (mapProdVariance n).1 B B') →
+    MapHas n (fun (q : A' × B') (p : A × B) => ProdR A A' pa.R B B' pb.R p q)
+  | map0,  _,  _  => {}
+  | map1,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2) }
+  | map2a, pa, pb =>
+      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
+        map_in_R := fun q _ h => by
+          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl) }
+  | map2b, pa, pb =>
+      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+          show (pa.contra.map a', pb.contra.map b') = (a, b)
+          rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR] }
+  | map3,  pa, pb =>
+      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
+        map_in_R := fun q _ h => by
+          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+          show (pa.contra.map a', pb.contra.map b') = (a, b)
+          rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR] }
+  | map4,  pa, pb =>
+      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
+        map_in_R := fun q _ h => by
+          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl)
+        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
           show (pa.contra.map a', pb.contra.map b') = (a, b)
           rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR]
-      R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-        (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+        R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
+          (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
+
+/-- `A × B ≃ A' × B'` at ANY output class `(m,n)`, each component at the `prodVariance`-minimal class. -/
+@[trocq] noncomputable def paramProdRG (m n : MapClass) (A A' : Type)
+    (pa : Param (prodVariance (m, n)).1 (prodVariance (m, n)).2 A A')
+    (B B' : Type)
+    (pb : Param (prodVariance (m, n)).1 (prodVariance (m, n)).2 B B') :
+    Param m n (A × B) (A' × B') where
+  R := ProdR A A' pa.R B B' pb.R
+  cov := prodCov m (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (pb.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := prodContra n (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (pb.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 end LeTrocq.ParamLib

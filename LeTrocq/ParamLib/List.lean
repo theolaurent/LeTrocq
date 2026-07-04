@@ -11,10 +11,10 @@ works for ANY element equivalence):
     so `paramType` can cross `List a`), and the constructors `List.nil` / `List.cons` are TERM primitives
     whose relatedness is `ListR.nil` / `ListR.cons`. A list over `A` then rebuilds element-by-element over `B`.
 
-  • the SOLVER / tactic path (`trocq` / `transfer%`): one relator `paramListR`, the `Param` witness sending
-    an element equivalence to a `List` equivalence at the top class `(4,4)` (the solver weakens it per use).
-    Over the inductive relation the completeness laws are inductions, and the coherence `R_in_mapK` is free
-    once the relation is a subsingleton — which it is, since the element relation is (class 4).
+  • the SOLVER / tactic path (`trocq` / `transfer%`): the GRADED relator `paramListRG`, sending an element
+    witness to a `List` witness at ANY output class `(m,n)`, with the element built at the `listVariance`-minimal
+    class (variance mechanism, parallel to `paramArrow`). Over the inductive relation the completeness laws are
+    inductions, and the coherence `R_in_mapK` is free once the relation is a subsingleton (from the element).
 
 This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
 only because `List` is part of Lean's prelude — exactly like the kernel constant `Quot`, which is itself an
