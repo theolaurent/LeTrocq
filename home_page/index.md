@@ -1,6 +1,7 @@
 ---
 # The landing page. The header buttons (Blueprint web/pdf, Documentation, GitHub) come from the
 # layout in _layouts/default.html; this body adds a short description and the dependency-graph link.
+layout: default
 usemathjax: true
 ---
 
@@ -19,7 +20,7 @@ Useful links:
 * [Blueprint]({{ site.url }}/blueprint/) — the design, each result tied to its Lean declaration
 * [Blueprint as PDF]({{ site.url }}/blueprint.pdf)
 * [Dependency graph]({{ site.url }}/blueprint/dep_graph_document.html)
-<!-- API docs disabled (api-docs: false in docs.yml); re-enable there to restore this link.
-* [API documentation]({{ site.url }}/docs/)
--->
 * [GitHub repository]({{ site.github.repository_url }})
+
+{% comment %} API docs disabled (api-docs: false in docs.yml); re-enable there to restore:
+* [API documentation]({{ site.url }}/docs/) {% endcomment %}
