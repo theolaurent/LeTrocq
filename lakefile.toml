@@ -7,10 +7,17 @@ testDriver = "test"
 leanOptions = [{ name = "warningAsError", value = true }]
 
 # A Lean-native reformulation of LeTrocq (modular parametricity / proof transfer).
-# Self-contained — no external dependencies (only the Lean core `Lean` library).
+# The LIBRARY itself has no external dependencies (only the Lean core `Lean` library). The single
+# `require` below is DOC-TOOLING ONLY — `checkdecls` is a separate executable the docs CI runs
+# (`lake exe checkdecls`) to verify every `\lean{…}` in the blueprint names a real declaration. It
+# is not imported by `LeTrocq.*`, the examples, or the tests, so it never enters a generated proof.
 #
 #   lake build   — build the library (LeTrocq/)
 #   lake test    — run the test suite (Tests/) ; fails on any regression
+
+[[require]]
+name = "checkdecls"
+git = "https://github.com/PatrickMassot/checkdecls.git"
 
 [[lean_lib]]
 name = "LeTrocq"

@@ -28,11 +28,19 @@ jobs:
           fetch-depth: 0
 
       # docgen-action runs doc-gen4 over the compiled output, so build the library first.
-      # No Mathlib here, so its cache is disabled (matches ci.yml).
+      # No Mathlib here, so its cache is disabled (matches ci.yml). This also sets up elan
+      # so the `lake build` below is on PATH.
       - name: Build Lean library
         uses: leanprover/lean-action@v1
         with:
           use-mathlib-cache: false
+
+      # `leanblueprint checkdecls` (run by docgen-action) uses `lake exe checkdecls`, which imports
+      # the ROOT module of every lean_lib (LeTrocq, Examples, Tests) to resolve `\lean{…}` names.
+      # lean-action only builds the default target (LeTrocq), so build the other roots too — else
+      # checkdecls aborts on a missing `Examples.olean`.
+      - name: Build remaining library roots (for checkdecls)
+        run: lake build Examples Tests
 
       # Builds the leanblueprint document (blueprint/src/) + doc-gen4 API docs and deploys
       # them to Pages: blueprint at <pages>/blueprint, API docs at <pages>/docs.

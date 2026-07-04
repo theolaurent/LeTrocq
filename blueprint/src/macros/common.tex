@@ -1,7 +1,8 @@
 % Macros and settings shared by BOTH the pdf and web builds.
 
 % --- theorem-like environments (these are the nodes of the dependency graph) ---
-% All share the `theorem` counter (the [theorem] argument) and never reset it.
+% All share the `theorem` counter (the [theorem] argument) so numbering is a single
+% global sequence and never resets.
 \newtheorem{theorem}{Theorem}
 \newtheorem{proposition}[theorem]{Proposition}
 \newtheorem{lemma}[theorem]{Lemma}

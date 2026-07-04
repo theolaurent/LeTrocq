@@ -456,7 +456,7 @@ mutually-recursive halves --- a top-down \emph{type} judgment and a bottom-up
     \irule{ c\ \text{a registered primitive} \rw w }{ \Gamma \vdash c \rw w }
   \]
   \[
-    \irule{ \Gamma \vdash u \rw u_R \qquad \Cpt{v}\ \text{via}\ \Cref{def:translate-term} \qquad \Gamma \vdash v \rw v_R }
+    \irule{ \Gamma \vdash u \rw u_R \qquad \Gamma \vdash v \rw v_R }
           { \Gamma \vdash u\,v \rw u_R\; v\; \Cpt{v}\; v_R }
   \]
   \[
