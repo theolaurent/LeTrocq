@@ -194,4 +194,24 @@ example : LeTrocq.Tests.arraySrcWit.cov.map #[Src.a, Src.b] = #[Tgt.x, Tgt.x] :=
 /-- info: 'LeTrocq.Tests.prodSrcWit' does not depend on any axioms -/
 #guard_msgs in #print axioms LeTrocq.Tests.prodSrcWit
 
+/- THE DEPENDENT TYPES — `Sigma` and `Quot` are graded too (domain has the forall-style wrinkle: `Sigma`'s
+   domain is built at 2a for the map/soundness arms, `Quot`'s coherence is free). MINIMALITY: each transfers at
+   demand (1,0) with the domain built BELOW (4,4), and the dependent forward map still computes. -/
+def sigNatNat : Type := Σ _ : Nat, Nat
+def quotNatT  : Type := Quot (fun _ _ : Nat => True)
+run_cmd Command.liftTermElabM do
+  let mk (nm : Name) (tyNm : Name) : TermElabM Unit := do
+    let wit ← transfer (← getConstInfo tyNm).value! (map1, map0)
+    addDecl (.defnDecl { name := nm, levelParams := [],
+                         type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                         hints := .opaque, safety := .safe })
+  mk `LeTrocq.Tests.sigmaNatLow ``sigNatNat
+  mk `LeTrocq.Tests.quotNatLow  ``quotNatT
+
+example : LeTrocq.Tests.sigmaNatLow.cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩ = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
+example : LeTrocq.Tests.quotNatLow.cov.map (Quot.mk _ (Nat.succ Nat.zero))
+    = Quot.mk (fun _ _ : Unary => True) (Unary.s Unary.z) := rfl
+/-- info: 'LeTrocq.Tests.sigmaNatLow' does not depend on any axioms -/
+#guard_msgs in #print axioms LeTrocq.Tests.sigmaNatLow
+
 end LeTrocq.Tests
