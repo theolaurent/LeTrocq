@@ -59,11 +59,10 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
     universe-polymorphic witnesses register and instantiate correctly. -/
 inductive RegKind
   | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  -- `graded = true` marks a GRADED relator: its first two binders are `(m n : MapClass)` and the conclusion is
-  -- `Param m n (F …) (F' …)`, so its argument classes VARY with the demanded output class (the variance
-  -- mechanism, parallel to `paramArrow`). `cls` is then a placeholder; the driver reads the real per-argument
-  -- classes by specializing the witness to the demand. `graded = false` is an ordinary fixed-class relator.
-  | relator    (headA : Name) (headB? : Option Name) (witName : Name) (cls : ParamClass) (graded : Bool)
+  -- a RELATOR is always GRADED: its first two binders are `(m n : MapClass)` and the conclusion is
+  -- `Param m n (F …) (F' …)`, so its per-argument classes VARY with the demanded output class (the variance
+  -- mechanism). The driver reads them by specializing the witness to the demand, so no class is stored here.
+  | relator    (headA : Name) (headB? : Option Name) (witName : Name)
   | typeFormer (headA headB : Name) (relName : Name)
   | term       (headA : Name) (bTerm : Expr) (witName : Name)
   deriving Inhabited
@@ -93,17 +92,17 @@ def parseEntry (w : Name) : MetaM RegKind := do
       let graded ← if structural then pure ((← inferType bs[0]!).isConstOf ``MapClass) else pure false
       let A := args[2]!; let B := args[3]!
       if graded then
+        -- a GRADED relator `∀ (m n) …, Param m n (P …) (P' …)`. Its B-side head (`P'`) is read off the
+        -- conclusion too, so the relator ALSO supplies `⟨·⟩` the counterpart `P ↦ P'` (needed for connectives /
+        -- `Prop` predicates, which have no separate type former). Homogeneous heads (`List ↦ List`) coincide.
         let some hA := A.getAppFn.constName? | throwError "trocq: graded relator {w} has no head constant"
-        return .relator hA B.getAppFn.constName? w (.map4, .map4) true
-      let cls := (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
+        return .relator hA B.getAppFn.constName? w
+      -- not graded: only a CLOSED base (a fixed-class equivalence of two constant types) is allowed. Every
+      -- parameterized relator MUST be graded now — the fixed-class relator pipeline is gone.
       if bs.isEmpty && A.isConst && B.isConst then
-        return .base A.constName! B.constName! A B w cls
+        return .base A.constName! B.constName! A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
       else
-        -- a RELATOR `∀ …, Param m n (P …) (P' …)`. Its B-side head (`P'`) is read off the conclusion too, so
-        -- the relator ALSO supplies `⟨·⟩` the counterpart `P ↦ P'` (needed for connectives / `Prop` predicates,
-        -- which have no separate type former). Homogeneous heads (`List ↦ List`) coincide, harmlessly.
-        let some hA := A.getAppFn.constName? | throwError "trocq: relator {w} has no head constant"
-        return .relator hA B.getAppFn.constName? w cls false
+        throwError "trocq: relator {w} must be GRADED — take leading `(m n : MapClass)` and conclude `Param m n …`"
     else
       if args.size ≥ 2 then
         let some hA := args[args.size - 2]!.getAppFn.constName?

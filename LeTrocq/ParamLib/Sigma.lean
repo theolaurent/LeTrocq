@@ -44,52 +44,6 @@ theorem SigmaR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
     subst e
     exact congrArg _ ((hB _ _ _ _ _).allEq bR bR')
 
-/- ===================== the `(4,4)` relator (for the `trocq` / `transfer%` tactic) =====================
-   `Sigma B ≃ Sigma B'` from the base equivalence `pa` and a FAMILY of equivalences `pb` (one per related
-   pair `(a, a')`). The forward map sends `⟨a, b⟩` to `⟨pa.cov.map a, (pb …).cov.map b⟩`; the completeness
-   laws `cases` on the inductive `SigmaR` (whose constructor packages the two components with their
-   relatednesses), `subst` the first-component equality, and identify the proof slot by `Subsingleton`. -/
-/-- the ungraded `(4,4)` relator, kept (untagged) for tests / examples that name it (`SigTrivR`, `paramTwR`).
-    The `@[trocq]` registration is the GRADED `paramSigmaRG` below. -/
-noncomputable def paramSigmaR (A A' : Type) (pa : Param map4 map4 A A')
-    (B : A → Type) (B' : A' → Type)
-    (pb : (a : A) → (a' : A') → pa.R a a' → Param map4 map4 (B a) (B' a')) :
-    Param map4 map4 (Sigma B) (Sigma B') where
-  R := SigmaR A A' pa.R B B' (fun a a' aR => (pb a a' aR).R)
-  cov :=
-    { map := fun s => ⟨pa.cov.map s.1, (pb s.1 (pa.cov.map s.1) (pa.cov.map_in_R s.1 _ rfl)).cov.map s.2⟩
-      map_in_R := fun s _ h => by
-        obtain ⟨a, b⟩ := s; subst h
-        exact .mk (pa.cov.map_in_R a _ rfl)
-                  ((pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).cov.map_in_R b _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with | @mk a a' b b' aR bR =>
-          have ha := pa.cov.R_in_map a a' aR
-          subst ha
-          refine congrArg (Sigma.mk (pa.cov.map a)) ?_
-          haveI := pa.cov.subsingleton a (pa.cov.map a)
-          rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl) aR]
-          exact (pb a (pa.cov.map a) aR).cov.R_in_map b b' bR
-      R_in_mapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
-        (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
-  contra :=
-    { map := fun s => ⟨pa.contra.map s.1,
-        (pb (pa.contra.map s.1) s.1 (pa.contra.map_in_R s.1 _ rfl)).contra.map s.2⟩
-      map_in_R := fun t _ h => by
-        obtain ⟨a', b'⟩ := t; subst h
-        exact .mk (pa.contra.map_in_R a' _ rfl)
-                  ((pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).contra.map_in_R b' _ rfl)
-      R_in_map := fun _ _ r => by
-        cases r with | @mk a a' b b' aR bR =>
-          have ha := pa.contra.R_in_map a' a aR
-          subst ha
-          refine congrArg (Sigma.mk (pa.contra.map a')) ?_
-          haveI := pa.contra.subsingleton a' (pa.contra.map a')
-          rw [Subsingleton.elim (pa.contra.map_in_R a' (pa.contra.map a') rfl) aR]
-          exact (pb (pa.contra.map a') a' aR).contra.R_in_map b' b bR
-      R_in_mapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
-        (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
-
 /- ===================== the GRADED relator (variance mechanism, dependent — parallel to `paramForall`) =====
    `Sigma` is covariant in its DOMAIN `A` and in its FAMILY `β`, but the domain inherits the forall-style
    wrinkle: the forward map already indexes `pb` via `pa.cov.map_in_R` (soundness, 2a), and the completeness

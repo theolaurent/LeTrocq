@@ -80,14 +80,13 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
   return m
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
-    prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotR`), which registers like any other — not a built-in.
-    Each entry carries the `graded` flag: a graded relator's witness opens with `(m n : MapClass)` and the
-    driver specializes it to the demand before reading argument classes / applying (no final weakening). -/
-def buildConsts : MetaM (NameMap (Expr × ParamClass × Bool)) := do
+    prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotRG`), which registers like any other — not a built-in.
+    Every relator is GRADED: its witness opens with `(m n : MapClass)` and the driver specializes it to the
+    demand before reading argument classes / applying (the result is already at the demand, no weakening). -/
+def buildConsts : MetaM (NameMap Expr) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
-    if let .relator hA _hB witName cls graded := e then
-      m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls, graded)
+    if let .relator hA _hB witName := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName)
   return m
 
 end LeTrocq.Solver

@@ -39,10 +39,8 @@ example : ∀ u : Unary, Pos u := by
    `trocq` automatically — the driver reads its registries from the `@[trocq]` env extension. -/
 def Triv  (u : Unary) : Prop := u = u
 def Triv' (n : Nat)   : Prop := n = n
-@[trocq] def TrivR (u : Unary) (n : Nat) (_ : RNsym.R u n) : Param map1 map1 (Triv u) (Triv' n) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => rfl }
-  contra := { map := fun _ => rfl }
+@[trocq] def TrivR (mc nc : MapClass) (u : Unary) (n : Nat) (_ : RNsym.R u n) :
+    Param mc nc (Triv u) (Triv' n) := paramPropMapsAt mc nc (fun _ => rfl) (fun _ => rfl)
 
 example : ∀ u : Unary, Triv u := by
   trocq                       -- ⊢ ∀ n : Nat, Triv' n   (resolved via the just-registered `TrivR`)
@@ -52,11 +50,10 @@ example : ∀ u : Unary, Triv u := by
    handles `head x₁ … xₙ` (was single-argument only) — the relator is applied to every binder's triple. -/
 def Pos2  (u v : Unary) : Prop := 0 ≤ u.toNat + v.toNat
 def Pos2' (m n : Nat)   : Prop := 0 ≤ m + n
-@[trocq] def Pos2R (u : Unary) (m : Nat) (_ : RNsym.R u m) (v : Unary) (n : Nat) (_ : RNsym.R v n) :
-    Param map1 map1 (Pos2 u v) (Pos2' m n) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => by unfold Pos2'; exact Nat.zero_le _ }
-  contra := { map := fun _ => by unfold Pos2;  exact Nat.zero_le _ }
+@[trocq] def Pos2R (mc nc : MapClass) (u : Unary) (m : Nat) (_ : RNsym.R u m)
+    (v : Unary) (n : Nat) (_ : RNsym.R v n) : Param mc nc (Pos2 u v) (Pos2' m n) :=
+  paramPropMapsAt mc nc (fun _ => by unfold Pos2'; exact Nat.zero_le _)
+                        (fun _ => by unfold Pos2;  exact Nat.zero_le _)
 
 example : ∀ u v : Unary, Pos2 u v := by
   trocq                       -- ⊢ ∀ m n : Nat, Pos2' m n   (two binders + a 2-argument `app` node)
@@ -73,11 +70,9 @@ example : ∀ u : Unary, Pos (Unary.s u) := by
    λ `fun u : Unary => Unary.s u` being rebuilt natively as `fun n : Nat => Nat.succ n` — full transport. -/
 def HOpred  (_f : Unary → Unary) : Prop := True
 def HOpred' (_g : Nat → Nat)     : Prop := True
-@[trocq] def HOpredR (_f : Unary → Unary) (_g : Nat → Nat) (_ : RArrow RNsym.R RNsym.R _f _g) :
-    Param map1 map1 (HOpred _f) (HOpred' _g) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+@[trocq] def HOpredR (mc nc : MapClass) (_f : Unary → Unary) (_g : Nat → Nat)
+    (_ : RArrow RNsym.R RNsym.R _f _g) : Param mc nc (HOpred _f) (HOpred' _g) :=
+  paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : HOpred (fun u : Unary => Unary.s u) := by
   trocq                       -- ⊢ HOpred' (fun n : Nat => Nat.succ n)   (the λ rebuilt over Nat)
@@ -88,12 +83,9 @@ example : HOpred (fun u : Unary => Unary.s u) := by
    counterpart type) AND supplies the type's own `Param` witness to the relator — full transport under a
    universe binder. -/
 def IdProp {A : Type} (_f : A → A) : Prop := True
-@[trocq] def IdPropR {A A' : Type} (AR : Param map1 map1 A A')
+@[trocq] def IdPropR (mc nc : MapClass) {A A' : Type} (AR : Param map1 map1 A A')
     (f : A → A) (f' : A' → A') (_ : RArrow AR.R AR.R f f') :
-    Param map1 map1 (IdProp f) (IdProp f') where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+    Param mc nc (IdProp f) (IdProp f') := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ A : Type, IdProp (fun (a : A) => a) := by
   trocq                       -- ⊢ ∀ A : Type, IdProp (fun a => a)   (the type var + its λ both transported)
@@ -103,11 +95,9 @@ example : ∀ A : Type, IdProp (fun (a : A) => a) := by
    variable), which the solver builds RECURSIVELY — `IsInhabR` then receives that `Param (A → A) (A' → A')`
    as its type witness, and the term λ's relatedness must match the recursively-built arrow relation. -/
 def IsInhab {T : Type} (_t : T) : Prop := True
-@[trocq] def IsInhabR {T T' : Type} (TR : Param map1 map1 T T')
-    (t : T) (t' : T') (_ : TR.R t t') : Param map1 map1 (IsInhab t) (IsInhab t') where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+@[trocq] def IsInhabR (mc nc : MapClass) {T T' : Type} (TR : Param map1 map1 T T')
+    (t : T) (t' : T') (_ : TR.R t t') : Param mc nc (IsInhab t) (IsInhab t') :=
+  paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ A : Type, IsInhab (fun (a : A) => a) := by
   trocq                       -- ⊢ ∀ A : Type, IsInhab (fun a => a)   (type arg `A → A` built recursively)
@@ -126,11 +116,9 @@ example : (transfer% (Option (List Nat))).cov.map (some [Nat.zero]) = some [Unar
    flows into the body's `app` node as a term argument whose relatedness is that domain witness. -/
 def AllTriv  (_l : List Unary) : Prop := True
 def AllTriv' (_l : List Nat)   : Prop := True
-@[trocq] def AllTrivR (l : List Unary) (n : List Nat) (_ : (paramListR Unary Nat RNsym).R l n) :
-    Param map1 map1 (AllTriv l) (AllTriv' n) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+@[trocq] def AllTrivR (mc nc : MapClass) (l : List Unary) (n : List Nat)
+    (_ : ListR Unary Nat RNsym.R l n) : Param mc nc (AllTriv l) (AllTriv' n) :=
+  paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ l : List Unary, AllTriv l := by
   trocq                       -- ⊢ ∀ l : List Nat, AllTriv' l   (binder typed `List Unary`, domain built via relator)
@@ -146,12 +134,9 @@ example :
    built via `paramSigmaR` (the family machinery feeding the generalized `piTerm`). -/
 def SigTriv  (_s : Σ _ : Unary, Unary) : Prop := True
 def SigTriv' (_s : Σ _ : Nat, Nat)     : Prop := True
-@[trocq] def SigTrivR (s : Σ _ : Unary, Unary) (t : Σ _ : Nat, Nat)
-    (_ : (paramSigmaR Unary Nat RNsym (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym)).R s t) :
-    Param map1 map1 (SigTriv s) (SigTriv' t) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+@[trocq] def SigTrivR (mc nc : MapClass) (s : Σ _ : Unary, Unary) (t : Σ _ : Nat, Nat)
+    (_ : SigmaR Unary Nat RNsym.R (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym.R) s t) :
+    Param mc nc (SigTriv s) (SigTriv' t) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ s : Σ _ : Unary, Unary, SigTriv s := by
   trocq                       -- ⊢ ∀ s : Σ _ : Nat, Nat, SigTriv' s   (Σ-typed binder, domain via `paramSigmaR`)
@@ -161,12 +146,9 @@ example : ∀ s : Σ _ : Unary, Unary, SigTriv s := by
    recursive `paramWTreeR` (again the family machinery feeding `piTerm`). -/
 def WTriv  (_t : WTree Unary (fun _ => Unary)) : Prop := True
 def WTriv' (_t : WTree Nat (fun _ => Nat))     : Prop := True
-@[trocq] def WTrivR (s : WTree Unary (fun _ => Unary)) (t : WTree Nat (fun _ => Nat))
-    (_ : (paramWTreeR Unary Nat RNsym (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym)).R s t) :
-    Param map1 map1 (WTriv s) (WTriv' t) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun _ => trivial }
-  contra := { map := fun _ => trivial }
+@[trocq] def WTrivR (mc nc : MapClass) (s : WTree Unary (fun _ => Unary)) (t : WTree Nat (fun _ => Nat))
+    (_ : WTreeR Unary Nat RNsym.R (fun _ => Unary) (fun _ => Nat) (fun _ _ _ => RNsym.R) s t) :
+    Param mc nc (WTriv s) (WTriv' t) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ t : WTree Unary (fun _ => Unary), WTriv t := by
   trocq                       -- ⊢ ∀ t : WTree Nat (fun _ => Nat), WTriv' t   (W-typed binder, domain via `paramWTreeR`)

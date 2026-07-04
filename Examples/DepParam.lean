@@ -55,99 +55,6 @@ theorem WTreeR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
         funext b b' bR; exact ih b b' bR (fR' b b' bR)
       subst this; rfl
 
-/- ===================== the `(4,4)` relator (for the `trocq` / `transfer%` tactic) =====================
-   `WTree A B ≃ WTree A' B'` from `pa` and the family `pb`. The forward map is the recursive tree map (each
-   node keeps its `pa`-mapped label and recurses on children, whose indices are transported back through
-   `pb`'s contra map); completeness is induction on the tree / the `WTreeR` proof, with the child index
-   `pb`-round-tripping and proofs identified by `Subsingleton`. -/
-section
-variable {A A' : Type} (pa : Param map4 map4 A A') {B : A → Type} {B' : A' → Type}
-    (pb : (a : A) → (a' : A') → pa.R a a' → Param map4 map4 (B a) (B' a'))
-
-/-- forward tree map: relabel by `pa.cov.map`, recurse on each child after pulling its index back via `pb`. -/
-noncomputable def wfwd : WTree A B → WTree A' B' :=
-  fun t => WTree.rec (motive := fun _ => WTree A' B')
-    (fun a _ ih => ⟨pa.cov.map a,
-      fun b' => ih ((pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b')⟩) t
-
-/-- backward tree map (the same construction read through `pa.contra`/`pb`'s cov). -/
-noncomputable def wbwd : WTree A' B' → WTree A B :=
-  fun t => WTree.rec (motive := fun _ => WTree A B)
-    (fun a' _ ih => ⟨pa.contra.map a',
-      fun b => ih ((pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b)⟩) t
-
-end
-
-/-- the ungraded `(4,4)` relator, kept (untagged) for the test that names it (`WTrivR`). The `@[trocq]`
-    registration is the GRADED `paramWTreeRG` below. -/
-noncomputable def paramWTreeR (A A' : Type) (pa : Param map4 map4 A A')
-    (B : A → Type) (B' : A' → Type)
-    (pb : (a : A) → (a' : A') → pa.R a a' → Param map4 map4 (B a) (B' a')) :
-    Param map4 map4 (WTree A B) (WTree A' B') where
-  R := WTreeR A A' pa.R B B' (fun a a' aR => (pb a a' aR).R)
-  cov :=
-    { map := wfwd pa pb
-      map_in_R := fun s _ h => by
-        subst h
-        induction s with
-        | @mk a f ih =>
-          refine .mk (pa.cov.map_in_R a _ rfl) (fun b b' bR => ?_)
-          -- child b' : B' (pa.cov.map a); its pullback equals b, so the recursive subtree matches
-          have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b' = b := by
-            haveI := pa.cov.subsingleton a (pa.cov.map a)
-            rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl)
-              (pa.cov.map_in_R a (pa.cov.map a) rfl)]
-            exact (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.R_in_map b' b bR
-          show WTreeR _ _ _ _ _ _ (f b) (wfwd pa pb (f _))
-          simp only [hb]; exact ih b
-      R_in_map := fun _ _ r => by
-        induction r with
-        | @mk a a' f f' aR fR ih =>
-          have ha := pa.cov.R_in_map a a' aR
-          subst ha
-          show wfwd pa pb ⟨a, f⟩ = ⟨pa.cov.map a, f'⟩
-          refine congrArg (WTree.mk (pa.cov.map a)) ?_
-          funext b'
-          have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b'
-              = (pb a (pa.cov.map a) aR).contra.map b' := by
-            haveI := pa.cov.subsingleton a (pa.cov.map a)
-            rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl) aR]
-          show wfwd pa pb (f _) = f' b'
-          simp only [hb]
-          exact ih ((pb a (pa.cov.map a) aR).contra.map b') b'
-            ((pb a (pa.cov.map a) aR).contra.map_in_R b' _ rfl)
-      R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.cov.subsingleton a a')
-        (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
-  contra :=
-    { map := wbwd pa pb
-      map_in_R := fun t _ h => by
-        subst h
-        induction t with
-        | @mk a' f ih =>
-          refine .mk (pa.contra.map_in_R a' _ rfl) (fun b b' bR => ?_)
-          have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b = b' := by
-            exact (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.R_in_map b b' bR
-          show WTreeR _ _ _ _ _ _ (wbwd pa pb (f _)) (f b')
-          simp only [hb]; exact ih b'
-      R_in_map := fun _ _ r => by
-        induction r with
-        | @mk a a' f f' aR fR ih =>
-          have ha := pa.contra.R_in_map a' a aR
-          subst ha
-          show wbwd pa pb ⟨a', f'⟩ = ⟨pa.contra.map a', f⟩
-          refine congrArg (WTree.mk (pa.contra.map a')) ?_
-          funext b
-          have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b
-              = (pb (pa.contra.map a') a' aR).cov.map b := by
-            haveI := pa.contra.subsingleton a' (pa.contra.map a')
-            rw [Subsingleton.elim (pa.contra.map_in_R a' (pa.contra.map a') rfl) aR]
-          show wbwd pa pb (f' _) = f b
-          simp only [hb]
-          exact ih b ((pb (pa.contra.map a') a' aR).cov.map b)
-            ((pb (pa.contra.map a') a' aR).cov.map_in_R b _ rfl)
-      R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.cov.subsingleton a a')
-        (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
-
 /- ===================== the GRADED relator (variance mechanism, dependent + CONTRAVARIANT family) =========
    `WTree`'s recursive child sits under `B a →`, so the fiber is CONTRAVARIANT: the forward map pulls child
    indices back via `pb.contra`. Hence the whole's soundness (`map_in_R`) consumes the family's COMPLETENESS
@@ -413,12 +320,14 @@ noncomputable def wtreeContra {A A' : Type} {B : A → Type} {B' : A' → Type} 
    `Tw` carries a phantom type parameter `C` BETWEEN the family's domain `A` and the family `B`. The relator
    framework reads `B`'s domain off its own binder type (`A`, the FIRST type arg), not "the preceding type
    arg" (`C`), so the right witness is used. `Tw A C B` is just `Sigma B`, so its relator IS the standard
-   library's `paramSigmaR` (`LeTrocq.ParamLib`). -/
+   library's graded `paramSigmaRG` (`LeTrocq.ParamLib`), which it delegates to. -/
 def Tw (A _C : Type) (B : A → Type) : Type := Sigma B
 
-@[trocq] noncomputable def paramTwR (A A' : Type) (pa : Param map4 map4 A A')
+@[trocq] noncomputable def paramTwR (m n : MapClass) (A A' : Type)
+    (pa : Param (sigmaVariance (m, n)).1.1 (sigmaVariance (m, n)).1.2 A A')
     (C C' : Type) (_pc : Param map4 map4 C C') (B : A → Type) (B' : A' → Type)
-    (pb : (a : A) → (a' : A') → pa.R a a' → Param map4 map4 (B a) (B' a')) :
-    Param map4 map4 (Tw A C B) (Tw A' C' B') := paramSigmaR A A' pa B B' pb
+    (pb : (a : A) → (a' : A') → pa.R a a' →
+          Param (sigmaVariance (m, n)).2.1 (sigmaVariance (m, n)).2.2 (B a) (B' a')) :
+    Param m n (Tw A C B) (Tw A' C' B') := paramSigmaRG m n A A' pa B B' pb
 
 end LeTrocq.Examples

@@ -28,8 +28,9 @@ theorem eqCorr {A A' : Type} (pa : Param map4 map4 A A')
 
 /-- `a = b ≃ a' = b'` at the top class, carrying `〚Prop〛 = PLift (·↔·)` (via `paramOfIff`). A RELATOR keyed
     by `Eq`: its first triple is the TYPE argument (a `Param`), the next two are the term arguments. -/
-@[trocq] def paramEqR (A A' : Type) (pa : Param map4 map4 A A')
+@[trocq] def paramEqR (m n : MapClass) (A A' : Type) (pa : Param map4 map4 A A')
     (a : A) (a' : A') (aR : pa.R a a') (b : A) (b' : A') (bR : pa.R b b') :
-    Param map4 map4 (a = b) (a' = b') := paramOfIff (eqCorr pa aR bR)
+    Param m n (a = b) (a' = b') :=
+  paramPropMapsAt m n (eqCorr pa aR bR).mp (eqCorr pa aR bR).mpr
 
 end LeTrocq.ParamLib
