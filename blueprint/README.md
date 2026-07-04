@@ -15,17 +15,22 @@ now checkable against the source and renderable as a PDF + web graph.
 ```
 blueprint/src/
   content.tex        the blueprint itself (the two chapters)
-  macros/common.tex  notation shared by both builds
+  macros/common.tex  notation + theorem-env declarations, shared by both builds
   macros/print.tex   pdf-only macros      macros/web.tex  web-only macros
   print.tex          pdf entry point      web.tex         web entry point
   plastex.cfg        plasTeX configuration for the web build
+  latexmkrc          tells latexmk to use xelatex (for unicode-math)
+  extra_styles.css   CSS tweaks for the web version
 ```
 
 ## Building
 
 Requires a TeX distribution and the `leanblueprint` CLI (`pip install
-leanblueprint`), which pulls in plasTeX and the `blueprint` LaTeX package. Run
-the commands **from the repository root** (leanblueprint reads `blueprint/src/`):
+leanblueprint`), which pulls in plasTeX and the `blueprint` LaTeX package. A TeX
+install is needed for **both** targets: the pdf via xelatex, and the web build
+for `\input` resolution (`kpsewhich`) and for rendering graph-node math to SVG
+(`dvisvgm`). Run the commands **from the repository root** (leanblueprint reads
+`blueprint/src/`):
 
 ```sh
 leanblueprint pdf         # -> blueprint/print/print.pdf
@@ -53,8 +58,8 @@ grep -oP '\\lean\{[^}]*\}' blueprint/src/content.tex \
   | sed -E 's/\\lean\{//; s/\}//' | tr ',' '\n'   # then grep each in LeTrocq/
 ```
 
-> Note: this scaffold follows the standard `leanblueprint new` template but was
-> authored without a local TeX/leanblueprint install to compile it. If you
-> already run `leanblueprint` elsewhere, the load-bearing files are
-> `content.tex` and `macros/common.tex`; the entry points and `plastex.cfg` are
-> ordinary boilerplate you can regenerate with `leanblueprint new` and overwrite.
+> Note: the scaffold matches the `leanblueprint` 1.9.x template. The web build
+> (plasTeX) was verified to compile — both chapters render, every `\Cref`/`\uses`
+> label resolves, and the dependency graph is populated. The pdf build wasn't run
+> where this was authored (no LaTeX engine there), but the preamble is the stock
+> `leanblueprint new` one plus `cleveref`.

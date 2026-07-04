@@ -1,31 +1,45 @@
-% Macros shared by BOTH the print (pdflatex) and web (plasTeX) builds.
-% Kept MathJax-safe: no stmaryrd / mathpartir, so the web renderer handles them.
+% Macros and settings shared by BOTH the pdf and web builds.
 
-% --- the two objects of the hierarchy ---
+% --- theorem-like environments (these are the nodes of the dependency graph) ---
+% All share the `theorem` counter (the [theorem] argument) and never reset it.
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% --- notation. Kept MathJax-safe (no stmaryrd / mathpartir) so the web renderer copes. ---
+
+% the two objects of the hierarchy
 \newcommand{\Param}{\mathsf{Param}}
 \newcommand{\MapHas}{\mathsf{MapHas}}
 \newcommand{\MapClass}{\mathsf{MapClass}}
 
-% --- sorts ---
+% sorts
 \newcommand{\Type}{\mathsf{Type}}
 \newcommand{\PropSort}{\mathsf{Prop}}
 \newcommand{\SortU}{\mathsf{Sort}}
 
-% --- the twofold translation ---
+% the twofold translation
 \newcommand{\Cpt}[1]{\langle #1 \rangle}       % counterpart  ⟨t⟩
 \newcommand{\Rel}[1]{[ #1 ]}                    % relatedness  [t]
 \newcommand{\Sem}[1]{[\![ #1 ]\!]}             % relation     〚A〛
 
-% --- classes and judgments ---
+% classes and judgments
 \newcommand{\cls}[2]{(#1,#2)}                  % a ParamClass pair
 \newcommand{\rw}{\rightsquigarrow}             % "produces"   ↝
 \newcommand{\wk}{\Downarrow}                    % weakening    ⇓
 \newcommand{\chk}{\Leftarrow}                   % check mode
 \newcommand{\syn}{\Rightarrow}                  % infer/leaf mode
 
-% --- combinators (names as they read in the prose) ---
+% combinators (names as they read in the prose)
 \newcommand{\RArrow}{\mathsf{RArrow}}
 \newcommand{\RForall}{\mathsf{RForall}}
 
-% --- a two-premise inference rule that renders under MathJax and pdflatex alike ---
+% a two-premise inference rule that renders under MathJax and xelatex alike
 \newcommand{\irule}[2]{\dfrac{\begin{array}{c}#1\end{array}}{#2}}

@@ -4,6 +4,8 @@
 # Blueprint build output (leanblueprint / plasTeX)
 /blueprint/print/
 /blueprint/web/
+/blueprint/lean_decls
+/blueprint/src/.plastex/
 /blueprint/src/*.aux
 /blueprint/src/*.log
 /blueprint/src/*.out

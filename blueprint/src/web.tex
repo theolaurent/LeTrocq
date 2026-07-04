@@ -1,18 +1,22 @@
-% The WEB (plasTeX) entry point. Build with:  leanblueprint web
+% Web (plasTeX) version of the blueprint. Build with:  leanblueprint web
 \documentclass{report}
 
-\usepackage{amsmath,amssymb,amsthm}
+\usepackage{amssymb, amsthm, amsmath}
+\usepackage{hyperref}
 \usepackage[showmore, dep_graph]{blueprint}
+\usepackage[nameinlink, capitalize]{cleveref}
 
 \input{macros/common}
 \input{macros/web}
 
+\home{https://theolaurent.github.io/LeTrocq}
+\github{https://github.com/theolaurent/LeTrocq}
+\dochome{https://theolaurent.github.io/LeTrocq/docs}
+
 \title{The LeTrocq Blueprint}
 \author{Théo Laurent}
-\home{https://github.com/theolaurent/LeTrocq}
-\github{https://github.com/theolaurent/LeTrocq}
-\dochome{https://github.com/theolaurent/LeTrocq}
 
 \begin{document}
+\maketitle
 \input{content}
 \end{document}
