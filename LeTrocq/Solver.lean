@@ -43,14 +43,16 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
       let relTy ← inferType aR
       if relTy.getAppFn.isConstOf ``Param then
         let a := relTy.getAppArgs
-        kinds := kinds.push (.type (← exprToMapClass a[0]!, ← exprToMapClass a[1]!))
+        -- `whnf` the class arguments: for a GRADED relator specialized to a demand they are `variance dem`
+        -- projections (e.g. `(listVariance (map1,map0)).1`), which reduce to literal `MapClass`es here.
+        kinds := kinds.push (.type (← exprToMapClass (← whnf a[0]!), ← exprToMapClass (← whnf a[1]!)))
         lastTypeIdx := j
       else
         -- a FAMILY arg's relatedness telescopes to a `Param`; anything else is a bare-relation TERM arg.
         let fam? ← forallTelescopeReducing relTy fun _ concl => do
           if concl.getAppFn.isConstOf ``Param then
             let a := concl.getAppArgs
-            return some (← exprToMapClass a[0]!, ← exprToMapClass a[1]!)
+            return some (← exprToMapClass (← whnf a[0]!), ← exprToMapClass (← whnf a[1]!))
           else return none
         match fam? with
         | some cls =>
@@ -78,11 +80,14 @@ def buildAtoms : MetaM (NameMap (Expr × Expr × ParamClass)) := do
   return m
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
-    prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotR`), which registers like any other — not a built-in. -/
-def buildConsts : MetaM (NameMap (Expr × ParamClass)) := do
+    prelude `Quot` relator (`LeTrocq.ParamLib.paramQuotR`), which registers like any other — not a built-in.
+    Each entry carries the `graded` flag: a graded relator's witness opens with `(m n : MapClass)` and the
+    driver specializes it to the demand before reading argument classes / applying (no final weakening). -/
+def buildConsts : MetaM (NameMap (Expr × ParamClass × Bool)) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
-    if let .relator hA _hB witName cls := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls)
+    if let .relator hA _hB witName cls graded := e then
+      m := m.insert hA (← mkConstWithFreshMVarLevels witName, cls, graded)
   return m
 
 end LeTrocq.Solver

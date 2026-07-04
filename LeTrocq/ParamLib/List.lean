@@ -49,7 +49,9 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
 /- ===================== the `(4,4)` relator (for the `trocq` / `transfer%` tactic) =====================
    `List A ≃ List B` from `A ≃ B`: forward map `List.map`, the two completeness laws by induction (on the
    list / on the `ListR` proof), and the coherence free from `ListR.allEq` + the element subsingleton. -/
-@[trocq] noncomputable def paramListR (A B : Type) (pa : Param map4 map4 A B) :
+/-- the ungraded `(4,4)` relator, kept for reference and for tests that name its relation directly. The
+    `@[trocq]` registration is on the GRADED `paramListRG` below; this one is no longer tagged. -/
+noncomputable def paramListR (A B : Type) (pa : Param map4 map4 A B) :
     Param map4 map4 (List A) (List B) where
   R := ListR A B pa.R
   cov :=
@@ -74,5 +76,120 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
         | nil => rfl
         | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
       R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+
+/- ===================== the GRADED relator (variance mechanism, parallel to `paramArrow`) =====================
+   `List` is a COVARIANT functor, so its variance is the identity: to build `List` at output class `(m,n)` the
+   element is needed at exactly `(m,n)`. `mapListVariance` is the per-direction primitive table (like
+   `mapArrowVariance`), `listVariance` the demand→element-class map the driver inverts, and `paramListRG` the
+   class-indexed family (like `paramArrow`) — each `cov`/`contra` arm using only the fields available at its
+   class. This lets the driver build `List X` at the DEMANDED class, so an element that cannot reach `(4,4)`
+   (a universe, a polymorphic type) still transfers at a lower demand. -/
+
+/-- per-map-class minimal element class for `List` (pure covariance: the element is needed at exactly the
+    list's class in that direction). Parallel to `mapArrowVariance`. -/
+def mapListVariance : MapClass → ParamClass
+  | map0  => (map0,  map0)
+  | map1  => (map1,  map0)
+  | map2a => (map2a, map0)
+  | map2b => (map2b, map0)
+  | map3  => (map3,  map0)
+  | map4  => (map4,  map0)
+
+/-- minimal element class to build `List` at output class `c`: the cov requirement joined with the negated
+    contra one. Identity (`List` is covariant), but computed through the same combinator as `arrowVariance`. -/
+def listVariance (c : ParamClass) : ParamClass :=
+  ParamClass.join (mapListVariance c.1) (ParamClass.negate (mapListVariance c.2))
+
+/-- the covariant half `MapHas m (ListR R)` from the element at `mapListVariance m` (one arm per class). At
+    `map4` the coherence is free: a class-4 element relation is a subsingleton, so `ListR.allEq` applies. -/
+noncomputable def listCov {A B : Type} :
+    (m : MapClass) → (pa : Param (mapListVariance m).1 (mapListVariance m).2 A B) →
+    MapHas m (ListR A B pa.R)
+  | map0,  _  => {}
+  | map1,  pa => { map := List.map pa.cov.map }
+  | map2a, pa =>
+      { map := List.map pa.cov.map
+        map_in_R := fun la lb h => by
+          subst h; induction la with
+          | nil => exact .nil
+          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih }
+  | map2b, pa =>
+      { map := List.map pa.cov.map
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih] }
+  | map3,  pa =>
+      { map := List.map pa.cov.map
+        map_in_R := fun la lb h => by
+          subst h; induction la with
+          | nil => exact .nil
+          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih] }
+  | map4,  pa =>
+      { map := List.map pa.cov.map
+        map_in_R := fun la lb h => by
+          subst h; induction la with
+          | nil => exact .nil
+          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih]
+        R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+
+/-- the contravariant half `MapHas n (flip (ListR R))` from the element's contra at `mapListVariance n`. -/
+noncomputable def listContra {A B : Type} :
+    (n : MapClass) → (pa : Param (mapListVariance n).2 (mapListVariance n).1 A B) →
+    MapHas n (fun (lb : List B) (la : List A) => ListR A B pa.R la lb)
+  | map0,  _  => {}
+  | map1,  pa => { map := List.map pa.contra.map }
+  | map2a, pa =>
+      { map := List.map pa.contra.map
+        map_in_R := fun lb la h => by
+          subst h; induction lb with
+          | nil => exact .nil
+          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih }
+  | map2b, pa =>
+      { map := List.map pa.contra.map
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih] }
+  | map3,  pa =>
+      { map := List.map pa.contra.map
+        map_in_R := fun lb la h => by
+          subst h; induction lb with
+          | nil => exact .nil
+          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih] }
+  | map4,  pa =>
+      { map := List.map pa.contra.map
+        map_in_R := fun lb la h => by
+          subst h; induction lb with
+          | nil => exact .nil
+          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih
+        R_in_map := fun _ _ r => by
+          induction r with
+          | nil => rfl
+          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
+        R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
+
+/-- `List A ≃ List B` at ANY output class `(m,n)`, from the element at the `listVariance`-minimal class. The
+    single element witness is weakened to what each half consumes; every obligation is `join ≥ component`,
+    discharged by `cases m <;> cases n <;> rfl`. The output classes `m n` are the LEADING arguments so the
+    driver can specialize `paramListRG m n` to the demand and read the element class off the residual type. -/
+@[trocq] noncomputable def paramListRG (m n : MapClass) (A B : Type)
+    (pa : Param (listVariance (m, n)).1 (listVariance (m, n)).2 A B) :
+    Param m n (List A) (List B) where
+  R := ListR A B pa.R
+  cov := listCov m (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := listContra n (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 end LeTrocq.ParamLib

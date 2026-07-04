@@ -59,7 +59,11 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
     universe-polymorphic witnesses register and instantiate correctly. -/
 inductive RegKind
   | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  | relator    (headA : Name) (headB? : Option Name) (witName : Name) (cls : ParamClass)
+  -- `graded = true` marks a GRADED relator: its first two binders are `(m n : MapClass)` and the conclusion is
+  -- `Param m n (F …) (F' …)`, so its argument classes VARY with the demanded output class (the variance
+  -- mechanism, parallel to `paramArrow`). `cls` is then a placeholder; the driver reads the real per-argument
+  -- classes by specializing the witness to the demand. `graded = false` is an ordinary fixed-class relator.
+  | relator    (headA : Name) (headB? : Option Name) (witName : Name) (cls : ParamClass) (graded : Bool)
   | typeFormer (headA headB : Name) (relName : Name)
   | term       (headA : Name) (bTerm : Expr) (witName : Name)
   deriving Inhabited
@@ -81,8 +85,17 @@ def parseEntry (w : Name) : MetaM RegKind := do
         | throwError "trocq: type former {w} B-object has no head constant"
       return .typeFormer hA hB w
     else if concl.getAppFn.isConstOf ``Param then
-      let cls := (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
+      -- a GRADED relator opens with `(m n : MapClass)` and concludes `Param m n (F …) (F' …)`: the two class
+      -- arguments are the leading binders themselves (not literals). Detect that so the driver reads its
+      -- per-argument classes by specializing to the demand, rather than off fixed literals.
+      let structural :=
+        bs.size ≥ 2 && args[0]!.isFVar && args[1]!.isFVar && args[0]! == bs[0]! && args[1]! == bs[1]!
+      let graded ← if structural then pure ((← inferType bs[0]!).isConstOf ``MapClass) else pure false
       let A := args[2]!; let B := args[3]!
+      if graded then
+        let some hA := A.getAppFn.constName? | throwError "trocq: graded relator {w} has no head constant"
+        return .relator hA B.getAppFn.constName? w (.map4, .map4) true
+      let cls := (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
       if bs.isEmpty && A.isConst && B.isConst then
         return .base A.constName! B.constName! A B w cls
       else
@@ -90,7 +103,7 @@ def parseEntry (w : Name) : MetaM RegKind := do
         -- the relator ALSO supplies `⟨·⟩` the counterpart `P ↦ P'` (needed for connectives / `Prop` predicates,
         -- which have no separate type former). Homogeneous heads (`List ↦ List`) coincide, harmlessly.
         let some hA := A.getAppFn.constName? | throwError "trocq: relator {w} has no head constant"
-        return .relator hA B.getAppFn.constName? w cls
+        return .relator hA B.getAppFn.constName? w cls false
     else
       if args.size ≥ 2 then
         let some hA := args[args.size - 2]!.getAppFn.constName?

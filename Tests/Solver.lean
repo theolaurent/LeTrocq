@@ -138,4 +138,39 @@ example : True := by
   have : Param .map1 .map0 ((Nat → Nat) → Nat) ((Unary → Unary) → Unary) := LeTrocq.Tests.trHO
   trivial
 
+/- ===================== VARIANCE for parameterized types (graded `paramListRG`) =====================
+   `List` now crosses through a GRADED relator whose element class tracks the demanded output class
+   (`listVariance`, parallel to `arrowVariance`), instead of a fixed-(4,4) relator weakened at the end.
+
+   MINIMALITY: `List Nat` at demand (1,0) builds its element at (1,0) — not (4,4) — and still computes. -/
+run_cmd Command.liftTermElabM do
+  let wit ← transfer (mkApp (mkConst ``List) (mkConst ``Nat)) (map1, map0)
+  addDecl (.defnDecl { name := `LeTrocq.Tests.listNatLow, levelParams := [],
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : LeTrocq.Tests.listNatLow.cov.map [Nat.zero, Nat.succ Nat.zero] = [Unary.z, Unary.s Unary.z] := rfl
+
+/- EXPRESSIVENESS: a PARTIAL base (a one-way (1,0) map, NOT an equivalence) between two `Type 0` types now
+   composes under `List`. Under the old fixed-(4,4) `paramListR` the element was forced to (4,4) — unreachable
+   from a (1,0) base — so `List Src` did not transfer; the graded relator needs the element only at (1,0). -/
+inductive Src | a | b
+inductive Tgt | x | y
+def SrcTgtR : Src → Tgt → Type := fun _ _ => PLift True
+@[trocq] def paramSrcTgt : Param map1 map0 Src Tgt where
+  R := SrcTgtR
+  cov := { map := fun _ => Tgt.x }
+  contra := {}
+
+run_cmd Command.liftTermElabM do
+  let wit ← transfer (mkApp (mkConst ``List) (mkConst ``Src)) (map1, map0)
+  addDecl (.defnDecl { name := `LeTrocq.Tests.listSrcWit, levelParams := [],
+                       type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
+                       hints := .opaque, safety := .safe })
+example : True := by
+  have : Param .map1 .map0 (List Src) (List Tgt) := LeTrocq.Tests.listSrcWit
+  trivial
+example : LeTrocq.Tests.listSrcWit.cov.map [Src.a, Src.b] = [Tgt.x, Tgt.x] := rfl
+/-- info: 'LeTrocq.Tests.listSrcWit' does not depend on any axioms -/
+#guard_msgs in #print axioms LeTrocq.Tests.listSrcWit
+
 end LeTrocq.Tests

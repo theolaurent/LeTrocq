@@ -122,7 +122,7 @@ def buildCtx : MetaM Ctx := do
         -- a parameterized type former `F`: `⟨·⟩` maps its head `F ↦ F'` (`⟨F a⟩ = F' ⟨a⟩`, via the `.app`
         -- rule). ONE entry, forward only.
         types := types.insert hA (← mkConstWithFreshMVarLevels hB)
-    | .relator hA (some hB) _witName _cls =>
+    | .relator hA (some hB) _witName _cls _graded =>
         -- a RELATOR ALSO supplies `⟨·⟩` the head counterpart `P ↦ P'` (read off its conclusion): this is how a
         -- connective (`And ↦ And`) or a `Prop` predicate (`Pos ↦ Pos'`) — which have no type former — get a
         -- counterpart. Both directions; homogeneous heads (`List ↦ List`) coincide with the type former's entry.
