@@ -42,6 +42,15 @@ jobs:
       - name: Build remaining library roots (for checkdecls)
         run: lake build Examples Tests
 
+      # Enable GitHub Pages (build_type = workflow) if it isn't already, so the deploy below has a
+      # Pages site to publish to — otherwise actions/deploy-pages fails with "Deployment failed,
+      # try again later". Removes the one-time manual "Settings → Pages → Source: GitHub Actions".
+      - name: Enable GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       # Builds the leanblueprint document (blueprint/src/) + doc-gen4 API docs and deploys
       # them to Pages: blueprint at <pages>/blueprint, API docs at <pages>/docs.
       #   • build-page: false — the project has no docs/ Jekyll landing page, so skip it.
