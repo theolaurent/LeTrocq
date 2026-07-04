@@ -14,3 +14,10 @@
 /blueprint/src/*.pdf
 /blueprint/src/*.fls
 /blueprint/src/*.fdb_latexmk
+
+# Jekyll landing-page (home_page/) build output
+/home_page/_site/
+/home_page/.jekyll-cache/
+/home_page/.jekyll-metadata
+/home_page/.bundle/
+/home_page/vendor/

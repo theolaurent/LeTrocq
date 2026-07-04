@@ -51,13 +51,15 @@ jobs:
         with:
           enablement: true
 
-      # Builds the leanblueprint document (blueprint/src/) + doc-gen4 API docs and deploys
-      # them to Pages: blueprint at <pages>/blueprint, API docs at <pages>/docs.
-      #   • build-page: false — the project has no docs/ Jekyll landing page, so skip it.
+      # Builds the Jekyll landing page (home_page/, Cayman theme), the leanblueprint document
+      # (blueprint/src/), and the doc-gen4 API docs, then deploys them to Pages:
+      #   landing page at <pages>/, blueprint at <pages>/blueprint, API docs at <pages>/docs.
+      #   • build-page + homepage — render the home_page/ Jekyll site as the site root.
       #   • deploy gated to main — other branches and PRs only validate the build.
       - name: Build & deploy docs
         uses: leanprover-community/docgen-action@main
         with:
           blueprint: true
-          build-page: false
+          build-page: true
+          homepage: home_page
           deploy: ${{ github.ref == 'refs/heads/main' }}
