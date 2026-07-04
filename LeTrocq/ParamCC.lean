@@ -1,7 +1,7 @@
 /-
 The map/comap-carrying COMBINATORS — one construction per file under `LeTrocq/ParamCC/`:
 
-  • `LeTrocq.ParamCC.Arrow`    — `RArrow`, the graded `paramArrow` (+ samples `paramArrowLow`/`paramArrow33`).
+  • `LeTrocq.ParamCC.Arrow`    — `RArrow`, the graded `paramArrow`.
   • `LeTrocq.ParamCC.Forall`   — `RForall`, the graded dependent-Π `paramForall`.
   • `LeTrocq.ParamCC.Universe` — `paramId`, `paramType`, `paramTypeAt` (the universe at ≤ (2a,2a)).
 

@@ -69,8 +69,8 @@ example : (translate% (fun (a : Nat) (f : Nat → WTree Nat (fun _ => Nat)) => @
    it over `Unary`; `relate%` gives the equivalence. -/
 def IsTrivN (_ : Nat)   : Prop := True
 def IsTrivU (_ : Unary) : Prop := True
-@[trocq] def IsTrivR (n : Nat) (u : Unary) (_ : RNU n u) : Param .map4 .map4 (IsTrivN n) (IsTrivU u) :=
-  paramOfIff (⟨fun _ => trivial, fun _ => trivial⟩ : IsTrivN n ↔ IsTrivU u)
+@[trocq] def IsTrivR (mc nc : MapClass) (n : Nat) (u : Unary) (_ : RNU n u) :
+    Param mc nc (IsTrivN n) (IsTrivU u) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : (translate% (fun n : Nat => IsTrivN n)) = (fun u : Unary => IsTrivU u) := rfl
 /- the relatedness is `PLift (· ↔ ·)`, projected off the predicate's `Param` witness. -/

@@ -46,37 +46,6 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
     (a : A) (a' : A') (aR : R a a') (l : List A) (l' : List A') (lR : ListR A A' R l l') :
     ListR A A' R (a :: l) (a' :: l') := .cons aR lR
 
-/- ===================== the `(4,4)` relator (for the `trocq` / `transfer%` tactic) =====================
-   `List A ≃ List B` from `A ≃ B`: forward map `List.map`, the two completeness laws by induction (on the
-   list / on the `ListR` proof), and the coherence free from `ListR.allEq` + the element subsingleton. -/
-/-- the ungraded `(4,4)` relator, kept for reference and for tests that name its relation directly. The
-    `@[trocq]` registration is on the GRADED `paramListRG` below; this one is no longer tagged. -/
-noncomputable def paramListR (A B : Type) (pa : Param map4 map4 A B) :
-    Param map4 map4 (List A) (List B) where
-  R := ListR A B pa.R
-  cov :=
-    { map := List.map pa.cov.map
-      map_in_R := fun la lb h => by
-        subst h; induction la with
-        | nil => exact .nil
-        | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih
-      R_in_map := fun _ _ r => by
-        induction r with
-        | nil => rfl
-        | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih]
-      R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
-  contra :=
-    { map := List.map pa.contra.map
-      map_in_R := fun lb la h => by
-        subst h; induction lb with
-        | nil => exact .nil
-        | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih
-      R_in_map := fun _ _ r => by
-        induction r with
-        | nil => rfl
-        | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
-      R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
-
 /- ===================== the GRADED relator (variance mechanism, parallel to `paramArrow`) =====================
    `List` is a COVARIANT functor, so its variance is the identity: to build `List` at output class `(m,n)` the
    element is needed at exactly `(m,n)`. `mapListVariance` is the per-direction primitive table (like

@@ -97,7 +97,7 @@ def SEnv.toTEnv (s : SEnv) : LeTrocq.Translate.TEnv := s.map (fun e => (e.1, e.2
 structure Reg where
   atoms    : NameMap (NameMap (Expr × Expr × ParamClass))
   atomPref : NameMap Name
-  consts   : NameMap (Expr × ParamClass × Bool)
+  consts   : NameMap Expr
   ctx      : LeTrocq.Translate.Ctx
 
 mutual
@@ -185,11 +185,10 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
       -- A TYPE arg's `Param` is assembled at the relator's declared arg class; a FAMILY arg's is the `Param` family
       -- `fun a a' aR => ⟨B a ≃ B' a'⟩`; a TERM arg's `(⟨aᵢ⟩, [aᵢ])` come from the term-half `⟨·⟩`/`[·]` over `senv`.
       let some head := e.getAppFn.constName? | throwError "assemble: application head {e.getAppFn} is not a constant"
-      let some (relator0, relClass, graded) := reg.consts.find? head | throwError "assemble: constant {head} not registered"
-      -- a GRADED relator (variance) is specialized to the demanded output class FIRST; its residual argument
-      -- classes are then `variance dem` (read below by `relatorArgKinds`), and the result is already at `dem`
-      -- (no final weakening). An ungraded relator builds its args at fixed classes and weakens the whole.
-      let relator := if graded then mkAppN relator0 #[classToExpr dem.1, classToExpr dem.2] else relator0
+      let some relator0 := reg.consts.find? head | throwError "assemble: constant {head} not registered"
+      -- every relator is GRADED: specialize it to the demanded output class FIRST; its residual argument
+      -- classes are then `variance dem` (read below by `relatorArgKinds`), and the result is already at `dem`.
+      let relator := mkAppN relator0 #[classToExpr dem.1, classToExpr dem.2]
       let kinds ← relatorArgKinds relator
       let args := e.getAppArgs
       unless args.size == kinds.size do
@@ -235,8 +234,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
             let a' ← LeTrocq.Translate.term reg.ctx senv.toTEnv arg termTgt?
             let aR ← assembleTerm reg senv arg termTgt?
             argExprs := argExprs ++ #[arg, a', aR]
-      let applied := mkAppN relator argExprs
-      if graded then return applied else weakenTo dem relClass applied
+      -- applied positionally (`mkAppN` fills implicit binders too, e.g. a predicate's `{A A'}`); the relators
+      -- are monomorphic so no universe grounding is needed. Already at `dem`, so no final weakening.
+      return mkAppN relator argExprs
   | e => throwError "assemble: unsupported type {e}"
 
 /-- `[·]` on a TYPE embedded in a term: its `Param` witness, at the trivial class `(0,0)` — a term position

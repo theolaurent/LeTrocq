@@ -115,4 +115,28 @@ def paramOfIff {P P' : Prop} (i : P ↔ P') : Param.{0,0} map4 map4 P P' where
       R_in_map := fun _ _ _ => rfl
       R_in_mapK := fun _ _ _ => rfl }
 
+/-- `MapHas m` for the trivial Prop relation `fun _ _ => PLift True`, from a SINGLE forward map `P → P'`.
+    Because `P'` is a proposition, every completeness field is FREE: `map_in_R` returns `PLift.up trivial`,
+    and `R_in_map`/`R_in_mapK` are `rfl` (two proofs of the `Prop` `P'` are defeq, and `PLift True` is a
+    subsingleton). So a proposition's transport carries no data above class 1 — this is the whole reason a
+    `Prop` part is only ever demanded up to `meet · map1`. -/
+def propMapHas {P P' : Prop} (map : P → P') :
+    (m : MapClass) → MapHas m (fun (_ : P) (_ : P') => PLift True)
+  | map0  => {}
+  | map1  => { map := map }
+  | map2a => { map := map, map_in_R := fun _ _ _ => PLift.up trivial }
+  | map2b => { map := map, R_in_map := fun _ _ _ => rfl }
+  | map3  => { map := map, map_in_R := fun _ _ _ => PLift.up trivial, R_in_map := fun _ _ _ => rfl }
+  | map4  => { map := map, map_in_R := fun _ _ _ => PLift.up trivial, R_in_map := fun _ _ _ => rfl,
+               R_in_mapK := fun _ _ _ => rfl }
+
+/-- a `Param m n` between PROPOSITIONS built DIRECTLY at `(m,n)` from the two implications (no weaken-from-top).
+    Each direction consumes only the corresponding implication, and only when its class is ≥ 1 (`propMapHas`
+    discards it at `map0`). The shared builder for `Prop` relators with no gradeable `Prop` PART (`Eq`, a
+    predicate); the connectives grade their parts and use `propMapHas` per class-arm directly. -/
+def paramPropMapsAt (m n : MapClass) {P P' : Prop} (fwd : P → P') (bwd : P' → P) : Param m n P P' where
+  R      := fun _ _ => PLift True
+  cov    := propMapHas fwd m
+  contra := propMapHas bwd n
+
 end LeTrocq

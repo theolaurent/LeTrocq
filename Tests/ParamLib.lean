@@ -44,4 +44,13 @@ example : (transfer% True).cov.map True.intro = True.intro := rfl
 noncomputable example : Param map4 map4 False False := transfer% False
 noncomputable example : Param map4 map4 Empty Empty := transfer% Empty
 
+/- CONNECTIVE VARIANCE: a `Prop` part is capped at `meet · map1` — `(0,0) ↦ (0,0)`, `(4,4) ↦ (1,1)`,
+   `(2a,0) ↦ (1,0)` — since a proposition carries no data above class 1 (completeness free). NOT identity. -/
+example : propVariance (map0, map0)  = (map0, map0) := rfl
+example : propVariance (map4, map4)  = (map1, map1) := rfl
+example : propVariance (map2a, map0) = (map1, map0) := rfl
+example : propVariance (map0, map3)  = (map0, map1) := rfl
+example : notVariance  (map1, map0)  = (map0, map1) := rfl   -- contravariant: mirror
+example : iffVariance  (map1, map0)  = (map1, map1) := rfl   -- both directions ⇒ part is (1,1)
+
 end LeTrocq.Tests.ParamLib

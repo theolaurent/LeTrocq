@@ -192,7 +192,7 @@ def buildCtx : MetaM Ctx := do
         types := types.insert hA ((NameMap.find? types hA |>.getD (mkNameMap _)).insert hB
           (← mkConstWithFreshMVarLevels hB))
         typePref := typePref.insert hA hB
-    | .relator hA (some hB) _witName _cls _graded =>
+    | .relator hA (some hB) _witName =>
         -- a RELATOR ALSO supplies `⟨·⟩` the head counterpart `P ↦ P'` (read off its conclusion): this is how a
         -- connective (`And ↦ And`) or a `Prop` predicate (`Pos ↦ Pos'`) — which have no type former — get a
         -- counterpart. Both directions; homogeneous heads (`List ↦ List`) coincide with the type former's entry.

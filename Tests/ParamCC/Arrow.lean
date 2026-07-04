@@ -1,4 +1,4 @@
-/- The arrow construction: sample combinators + the graded `paramArrow`, over the `Nat ≃ Unary` base. -/
+/- The arrow construction: the graded `paramArrow` at several output classes, over the `Nat ≃ Unary` base. -/
 import Lean
 import LeTrocq.ParamCC.Arrow
 import Examples.NatUnary
@@ -9,25 +9,6 @@ open LeTrocq MapClass LeTrocq.Examples
 example : arrowVariance (map1, map0) = ((map0,map1), (map1,map0)) := rfl
 example : arrowVariance (map0, map1) = ((map1,map0), (map0,map1)) := rfl   -- symmetric
 example : arrowVariance (map4, map4) = ((map4,map4),(map4,map4)) := rfl    -- top propagates to both parts
-
-/- ===================== sample combinators (fixed classes) ===================== -/
-def RN33 : Param map3 map3 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
-def arrowNU : Param map3 map3 (Nat → Nat) (Unary → Unary) := paramArrow33 RN33 RN33
-def arrowNU_fun : Param map1 map0 (Nat → Nat) (Unary → Unary) :=
-  arrowNU.weaken (sm := map3) (sn := map3) rfl rfl
-def RN10 : Param map1 map0 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
-def RN01 : Param map0 map1 Nat Unary := RN.weaken (sm := map4) (sn := map4) rfl rfl
-def arrowNU_low : Param map0 map1 (Nat → Nat) (Unary → Unary) := paramArrowLow RN10 RN01
-
-/- the arrow's induced forward map is native function transport (B.fwd ∘ f ∘ A.bwd); it COMPUTES: -/
-example : arrowNU.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
-example : arrowNU.cov.map (fun n => n + 2) Unary.z = Unary.s (Unary.s Unary.z) := rfl
-/- weakened to (1,0) ("just the transported function"), still computing: -/
-example : arrowNU_fun.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
-/- the minimal-class arrow gives the backward map (here: backward transport of `id`): -/
-example : arrowNU_low.contra.map (fun u => u) 5 = 5 := rfl
-/-- info: 'LeTrocq.paramArrow33' depends on axioms: [Quot.sound] -/
-#guard_msgs in #print axioms paramArrow33
 
 /- ===================== the graded family at several output classes (incl. (4,4)) ===================== -/
 def arr01 : Param map0 map1 (Nat → Nat) (Unary → Unary) :=

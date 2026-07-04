@@ -28,9 +28,10 @@ theorem BoxedR.allEq {b b' : Bool} {bR : BoolR b b'} :
     ∀ {o : Boxed b} {o' : Boxed b'} (x y : BoxedR b b' bR o o'), x = y
   | _, _, .mk, .mk => rfl
 
-/-- the `(4,4)` relator (for the solver / `transfer%`): `Boxed b ≃ Boxed b'`, trivial since `Boxed` is a
-    singleton — every element is `mk`, so both maps are constant and the relation is a subsingleton. -/
-@[trocq] noncomputable def paramBoxedR (b b' : Bool) (bR : BoolR b b') :
+/-- the `Boxed b ≃ Boxed b'` relator, trivial since `Boxed` is a singleton (every element is `mk`, so both
+    maps are constant and the relation is a subsingleton). `Boxed` has no gradeable type PART (its index is a
+    term argument), so the graded relator builds the `(4,4)` witness and weakens to the demand. -/
+noncomputable def paramBoxedR44 (b b' : Bool) (bR : BoolR b b') :
     Param map4 map4 (Boxed b) (Boxed b') where
   R := BoxedR b b' bR
   cov :=
@@ -43,6 +44,10 @@ theorem BoxedR.allEq {b b' : Bool} {bR : BoolR b b'} :
       map_in_R := fun o o' _ => by cases o; cases o'; exact .mk
       R_in_map := fun _ _ r => by cases r; rfl
       R_in_mapK := fun _ _ _ => BoxedR.allEq _ _ }
+
+@[trocq] noncomputable def paramBoxedR (m n : MapClass) (b b' : Bool) (bR : BoolR b b') :
+    Param m n (Boxed b) (Boxed b') :=
+  (paramBoxedR44 b b' bR).weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
 /- ===================== the regression: the family body `Boxed b` mentions the λ-bound `b` ===================== -/
 /-- `relate%` builds the relatedness witness of a dependent pair — it must translate `Boxed b` with `b` in

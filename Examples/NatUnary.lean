@@ -69,9 +69,9 @@ def RNsym : Param map4 map4 Unary Nat := RN.sym
 /- ===================== a relator for a predicate (for the generic `app` rule) ===================== -/
 def Pos  (u : Unary) : Prop := 0 ≤ u.toNat
 def Pos' (n : Nat)   : Prop := 0 ≤ n
-@[trocq] def PosR (u : Unary) (n : Nat) (uR : RNsym.R u n) : Param map1 map1 (Pos u) (Pos' n) where
-  R := fun _ _ => PLift True
-  cov    := { map := fun h => by unfold Pos at h; unfold Pos'; have := uR.down; omega }
-  contra := { map := fun h => by unfold Pos' at h; unfold Pos;  have := uR.down; omega }
+@[trocq] def PosR (mc nc : MapClass) (u : Unary) (n : Nat) (uR : RNsym.R u n) : Param mc nc (Pos u) (Pos' n) :=
+  paramPropMapsAt mc nc
+    (fun h => by unfold Pos at h; unfold Pos'; have := uR.down; omega)
+    (fun h => by unfold Pos' at h; unfold Pos;  have := uR.down; omega)
 
 end LeTrocq.Examples

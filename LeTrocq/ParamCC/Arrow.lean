@@ -3,8 +3,6 @@ The ARROW construction: building `Param … (A→B) (A'→B')` from witnesses fo
 
   • `RArrow`              — the respectful relation (= Mathlib `Relator.LiftFun`).
   • `mapArrowVariance`/`arrowVariance` — the GRADING table: output class → the minimal part classes to build it.
-  • `paramArrowLow`       — the minimal class (0,1): backward map only, ZERO proofs (axiom-free).
-  • `paramArrow33`        — class (3,3): full soundness+completeness via funext.
   • `arrowCov`/`arrowContra` + `paramArrow` — the GRADED family: arrow at every output class incl. (4,4)
     (the (4,4) coherence free by `Map4Has.subsingleton`), with parts at the `arrowVariance`-minimal classes.
 
@@ -40,44 +38,6 @@ def arrowVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (am, bm) := mapArrowVariance c.1
   let (an, bn) := mapArrowVariance c.2
   (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
-
-/- ===================== sample combinators (fixed classes) ===================== -/
-section Samples
-variable {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
-
-/-- arrow at (0,1): the codomain is only used contravariantly, the domain only covariantly, so all we
-    can (and need to) produce is the backward map `(A'→B') → (A→B)`. No `map_in_R`/`R_in_map`/funext. -/
-def paramArrowLow (pa : Param map1 map0 A A') (pb : Param map0 map1 B B') :
-    Param map0 map1 (A → B) (A' → B') where
-  R := RArrow pa.R pb.R
-  cov := {}
-  contra := { map := fun f' a => pb.contra.map (f' (pa.cov.map a)) }
-
-/-- arrow at (3,3): from full (3,3) data on domain and codomain. The forward map is
-    `B.fwd ∘ f ∘ A.bwd`; completeness in each direction is a `funext` of the parts' completeness. -/
-def paramArrow33 (pa : Param map3 map3 A A') (pb : Param map3 map3 B B') :
-    Param map3 map3 (A → B) (A' → B') where
-  R := RArrow pa.R pb.R
-  cov :=
-    { map := fun f a' => pb.cov.map (f (pa.contra.map a'))
-      map_in_R := fun f f' h a a' raa => by
-        have ha : pa.contra.map a' = a := pa.contra.R_in_map a' a raa
-        have hf : f' a' = pb.cov.map (f (pa.contra.map a')) := (congrFun h a').symm
-        rw [hf, ha]; exact pb.cov.map_in_R (f a) (pb.cov.map (f a)) rfl
-      R_in_map := fun f f' r => funext fun a' => by
-        have hra : pa.R (pa.contra.map a') a' := pa.contra.map_in_R a' (pa.contra.map a') rfl
-        exact pb.cov.R_in_map _ _ (r (pa.contra.map a') a' hra) }
-  contra :=
-    { map := fun f' a => pb.contra.map (f' (pa.cov.map a))
-      map_in_R := fun f' f h a a' raa => by
-        have ha : pa.cov.map a = a' := pa.cov.R_in_map a a' raa
-        have hf : f a = pb.contra.map (f' (pa.cov.map a)) := (congrFun h a).symm
-        rw [hf, ha]; exact pb.contra.map_in_R (f' a') (pb.contra.map (f' a')) rfl
-      R_in_map := fun f' f r => funext fun a => by
-        have hra : pa.R a (pa.cov.map a) := pa.cov.map_in_R a (pa.cov.map a) rfl
-        exact pb.contra.R_in_map _ _ (r a (pa.cov.map a) hra) }
-
-end Samples
 
 /- ===================== the graded arrow family (every output class, incl. (4,4)) ===================== -/
 /-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov (one arm per class). At
