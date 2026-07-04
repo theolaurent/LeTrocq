@@ -100,6 +100,25 @@ structure Reg where
   consts   : NameMap Expr
   ctx      : LeTrocq.Translate.Ctx
 
+/-- does `e` bind over a `Sort` (a `∀`/`λ` whose domain is a universe)? Such a type/term is EXCLUDED from the
+    whole-diagonal short-circuit: a universe quantifier must keep its parametric witness (the free theorem),
+    not collapse to the discrete equality relation `paramRefl` carries. -/
+def containsSortBinder (e : Expr) : Bool :=
+  (e.find? fun s => match s with
+    | .forallE _ d _ _ => d.isSort
+    | .lam _ d _ _     => d.isSort
+    | _ => false).isSome
+
+/-- run `k`, returning `none` (state restored) if it throws — for the speculative counterpart used by the
+    diagonal check, which must not fail the whole pass when `⟨·⟩` stalls. -/
+def tryCounterpart (k : MetaM Expr) : MetaM (Option Expr) := do
+  try return some (← k) catch _ => return none
+
+/-- `isDefEq a b`, but `false` (never an error) if it throws — the diagonality check is speculative and must
+    tolerate a raw input expr the structural path handles syntactically (e.g. `mkConst ``List` with no levels). -/
+def diagEq? (a b : Expr) : MetaM Bool := do
+  try isDefEq a b catch _ => return false
+
 mutual
 /-- `[·]` on a TYPE — the syntax-directed, DEMAND-driven half: walk `T` top-down and build its `Param` witness
     DIRECTLY at the demanded class `dem`, pushing the demand through `arrowVariance`/`forallVariance` to the minimal
@@ -109,6 +128,18 @@ mutual
     available class and weaken to `dem`. -/
 partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
     (tgt? : Option Expr) : MetaM Expr := do
+  -- WHOLE-DIAGONAL short-circuit: a type that transfers to ITSELF is built as the generic `paramRefl` (relation
+  -- `PLift (a=b)`, map `id`), weakened to the demand — no structural descent, no per-type registration. Skipped
+  -- for a bare sort / a universe binder (those keep their parametric witness). "Transfers to itself" means: a
+  -- DEMANDED target defeq `T` (check mode), or — with no target — the synthesised counterpart `⟨T⟩` is `T`.
+  if !T.isSort && !containsSortBinder T then
+    let diag ← match tgt? with
+      | some t => diagEq? T t
+      | none   => match ← tryCounterpart (LeTrocq.Translate.term reg.ctx senv.toTEnv T none) with
+                  | some t' => diagEq? T t'
+                  | none    => pure false
+    if diag then
+      return ← weakenTo dem (map4, map4) (← mkAppM ``paramRefl #[T])
   match T with
   | .const name _ =>
       -- LEAF: a registered base atom, available at its registered class `regC`; weaken to the demand.
@@ -273,6 +304,22 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
           let w ← assemble reg senv e (map1, map1) tgt?
           return ← mkAppM ``PLift.up #[← mkAppM ``iffOfParam #[w]]
     else return ← assembleRel reg senv e
+  -- WHOLE-DIAGONAL short-circuit: a term that transfers to ITSELF has relatedness `PLift.up rfl` (`[e] : 〚T〛 e e`
+  -- with `〚T〛 = PLift (a=b)`, from the diagonal `assemble` of its type). Gated on BOTH the TYPE transferring
+  -- diagonally (a demanded target defeq `ty`, or synth `⟨ty⟩ ≡ ty`) AND the term's counterpart being itself
+  -- (`⟨e⟩ ≡ e`) — the latter rejects a term over a TRANSFERRED bound variable whose type is nonetheless diagonal.
+  -- also exclude a term whose TYPE is polymorphic (a bare constructor `@List.cons : ∀{α}, …`): its diagonal
+  -- relatedness is a FUNCTION, not `PLift.up rfl`, and collapsing it would break the application spine.
+  if !containsSortBinder e && !containsSortBinder ty then
+    let tyDiag ← match tgt? with
+      | some t => diagEq? ty t
+      | none   => match ← tryCounterpart (LeTrocq.Translate.term reg.ctx senv.toTEnv ty none) with
+                  | some ty' => diagEq? ty ty'
+                  | none     => pure false
+    if tyDiag then
+      if let some e' ← tryCounterpart (LeTrocq.Translate.term reg.ctx senv.toTEnv e tgt?) then
+        if ← diagEq? e e' then
+          return ← mkAppM ``PLift.up #[← mkEqRefl e]
   if let some n := LeTrocq.Translate.natNumeral? e then
     if (← whnf ty).isConstOf ``Nat then return ← assembleTerm reg senv (LeTrocq.Translate.natExpr n) tgt?
   match e with

@@ -22,8 +22,6 @@ with the library only because their types are in the prelude. The driver knows N
 the kernel constant `Quot` registers here via `@[trocq]`. Non-prelude examples of registration
 (a W-type) stay under `Examples/`.
 -/
-import LeTrocq.ParamLib.Bool
-import LeTrocq.ParamLib.Nat
 import LeTrocq.ParamLib.List
 import LeTrocq.ParamLib.Option
 import LeTrocq.ParamLib.Array
@@ -31,7 +29,5 @@ import LeTrocq.ParamLib.Prod
 import LeTrocq.ParamLib.Sum
 import LeTrocq.ParamLib.Sigma
 import LeTrocq.ParamLib.Quot
-import LeTrocq.ParamLib.Empty
-import LeTrocq.ParamLib.Unit
 import LeTrocq.ParamLib.Eq
 import LeTrocq.ParamLib.Logic

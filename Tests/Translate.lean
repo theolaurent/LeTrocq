@@ -113,6 +113,6 @@ example : ArrayR Nat Unary RNU #[1, 2] #[Unary.s Unary.z, Unary.s (Unary.s Unary
    its relatedness is the diagonal `BoolR` — exercising a ground inductive with nullary constructors. -/
 example : (translate% (fun b : Bool => b)) = (fun b : Bool => b) := rfl
 example : (translate% (true, false)) = (true, false) := rfl
-example : BoolR true true := relate% true
+example : PLift (true = true) := relate% true
 
 end LeTrocq.Tests

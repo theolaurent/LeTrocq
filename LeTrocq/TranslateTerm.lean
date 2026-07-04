@@ -95,14 +95,24 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : Meta
       if let some tgtMap := ctx.terms.find? c then
         let some h := (match tgt? with | some _ => key? | none => ctx.termPref.find? c)
           | throwError "translate: term {c} has no target"
-        let some (b, _) := tgtMap.find? h | throwError "translate: no counterpart for term {c} at target {h}"
-        return b
+        match tgtMap.find? h with
+        | some (b, _) => return b
+        | none =>
+            -- DIAGONAL target: the demanded counterpart TYPE is the source's own type ⇒ `c` is its own counterpart.
+            if (← (tgt?.mapM fun t => do isDefEq (← inferType e) t)).getD false then return e
+            else throwError "translate: no counterpart for term {c} at target {h}"
       else if let some tgtMap := ctx.types.find? c then
         let some h := (match tgt? with | some _ => key? | none => ctx.typePref.find? c)
           | throwError "translate: type {c} has no target"
-        let some b := tgtMap.find? h | throwError "translate: no counterpart for type {c} at target {h}"
-        return b
-      else throwError "translate: unregistered constant {c}"
+        match tgtMap.find? h with
+        | some b => return b
+        | none =>
+            if (← (tgt?.mapM fun t => do isDefEq e t)).getD false then return e
+            else throwError "translate: no counterpart for type {c} at target {h}"
+      else
+        -- UNREGISTERED constant ⇒ its own counterpart (the diagonal). Soundness is upstream: the whole-diagonal
+        -- short-circuit in `Transfer` only relies on this after verifying the surrounding type/term is diagonal.
+        return e
   | e@(.app ..) => do
       match tgt? with
       | none => return .app (← term ctx env e.appFn! none) (← term ctx env e.appArg! none)

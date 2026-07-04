@@ -17,21 +17,22 @@ inductive Boxed (b : Bool) : Type
   | mk
 
 /-- the parametricity relation of `Boxed`: a singleton (`mk ~ mk`). A TYPE FORMER over the index triple
-    `(b, b', bR : BoolR b b')`; the two `Boxed` objects are read off as the related objects. -/
-@[trocq] inductive BoxedR (b b' : Bool) (bR : BoolR b b') : Boxed b → Boxed b' → Type
+    `(b, b', bR : PLift (b = b'))` — `Bool` is unregistered, so its diagonal relatedness is `PLift (b = b')`;
+    the two `Boxed` objects are read off as the related objects. -/
+@[trocq] inductive BoxedR (b b' : Bool) (bR : PLift (b = b')) : Boxed b → Boxed b' → Type
   | mk : BoxedR b b' bR Boxed.mk Boxed.mk
 
 /-- `Boxed.mk ↦ Boxed.mk` as a TERM primitive (its index `b` is a term argument). -/
-@[trocq] def BoxedMkR (b b' : Bool) (bR : BoolR b b') : BoxedR b b' bR Boxed.mk Boxed.mk := .mk
+@[trocq] def BoxedMkR (b b' : Bool) (bR : PLift (b = b')) : BoxedR b b' bR Boxed.mk Boxed.mk := .mk
 
-theorem BoxedR.allEq {b b' : Bool} {bR : BoolR b b'} :
+theorem BoxedR.allEq {b b' : Bool} {bR : PLift (b = b')} :
     ∀ {o : Boxed b} {o' : Boxed b'} (x y : BoxedR b b' bR o o'), x = y
   | _, _, .mk, .mk => rfl
 
 /-- the `Boxed b ≃ Boxed b'` relator, trivial since `Boxed` is a singleton (every element is `mk`, so both
     maps are constant and the relation is a subsingleton). `Boxed` has no gradeable type PART (its index is a
     term argument), so the graded relator builds the `(4,4)` witness and weakens to the demand. -/
-noncomputable def paramBoxedR44 (b b' : Bool) (bR : BoolR b b') :
+noncomputable def paramBoxedR44 (b b' : Bool) (bR : PLift (b = b')) :
     Param map4 map4 (Boxed b) (Boxed b') where
   R := BoxedR b b' bR
   cov :=
@@ -45,7 +46,7 @@ noncomputable def paramBoxedR44 (b b' : Bool) (bR : BoolR b b') :
       R_in_map := fun _ _ r => by cases r; rfl
       R_in_mapK := fun _ _ _ => BoxedR.allEq _ _ }
 
-@[trocq] noncomputable def paramBoxedR (m n : MapClass) (b b' : Bool) (bR : BoolR b b') :
+@[trocq] noncomputable def paramBoxedR (m n : MapClass) (b b' : Bool) (bR : PLift (b = b')) :
     Param m n (Boxed b) (Boxed b') :=
   (paramBoxedR44 b b' bR).weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
@@ -54,10 +55,13 @@ noncomputable def paramBoxedR44 (b b' : Bool) (bR : BoolR b b') :
     scope. Elaborating this at all is the test (it threw `unbound variable b` before the fix). -/
 noncomputable def depFamilyWit := relate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
 
-/-- the same, asserted at its precise relatedness type (`SigmaR` over the Bool diagonal and `BoxedR`). -/
+/-- the same, asserted at its relatedness type. NOTE: under the WHOLE-DIAGONAL short-circuit the entire pair
+    is diagonal (`Bool` and `Boxed` both transfer to themselves), so `[·]` collapses it to the generic
+    `PLift (p = p)` rather than descending into a `SigmaR`/`BoxedR` witness. The structural family path (with
+    `b`'s relatedness threaded under the binder) is instead exercised by the NON-diagonal `Σ`/`WTree` cases in
+    `Tests.Tactic` / `Tests.Translate` (over `Nat ≃ Unary`), which do not short-circuit. -/
 example :
-    SigmaR Bool Bool BoolR (fun b => Boxed b) (fun b => Boxed b) (fun b b' bR => BoxedR b b' bR)
-      ⟨true, Boxed.mk⟩ ⟨true, Boxed.mk⟩ :=
+    PLift ((⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b) = ⟨true, Boxed.mk⟩) :=
   relate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
 
 /-- `translate%` rebuilds the counterpart (the diagonal here) — and it computes. -/

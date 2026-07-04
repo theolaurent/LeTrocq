@@ -15,8 +15,8 @@ open LeTrocq MapClass LeTrocq.Translate LeTrocq.ParamLib
    to `Nat.succ`/`Nat.zero`, which the constructor term primitives (`NatSuccR`/`NatZeroR`) carry. -/
 example : (translate% (fun n : Nat => Nat.succ (Nat.succ n))) = (fun n : Nat => Nat.succ (Nat.succ n)) := rfl
 example : (translate% (2 : Nat)) = (2 : Nat) := rfl
-/- the relatedness is the diagonal `NatR` (built through `NatSuccR`/`NatZeroR`). -/
-example : NatR 2 2 := relate% (2 : Nat)
+/- the relatedness is the generic diagonal `PLift (a = b)` (the whole-diagonal short-circuit's reflexivity). -/
+example : PLift ((2 : Nat) = 2) := relate% (2 : Nat)
 /- and the solver path: `transfer% (Nat → Nat)` is the identity equivalence, so its forward map is the
    function itself — `paramNatR` weakened/threaded through `paramArrow`. -/
 example : (transfer% (Nat → Nat)).cov.map (· + 1) 0 = 1 := rfl
@@ -25,7 +25,7 @@ example : (transfer% (Nat → Nat)).cov.map (· + 1) 0 = 1 := rfl
    CONSTRUCTORS (`true`/`false`); an ELIMINATOR like `!` (which unfolds to `Bool.rec`) is not registered, just
    as `Quot.lift`/recursors aren't — the solver path still transports a `Bool → Bool` function wholesale. -/
 example : (translate% (true, false)) = (true, false) := rfl
-example : BoolR false false := relate% false
+example : PLift (false = false) := relate% false
 example : (transfer% (Bool → Bool)).cov.map (fun b => !b) false = true := rfl
 
 /- the parameterized formers over the diagonal: each lifts `Nat ≃ Nat` componentwise, so they too transfer
