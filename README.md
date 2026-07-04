@@ -1,7 +1,7 @@
 # LeTrocq
 
-[![CI](https://img.shields.io/github/actions/workflow/status/theolaurent/LeTrocq/ci.yml?branch=main&label=CI)](https://github.com/theolaurent/LeTrocq/actions/workflows/ci.yml)
-[![Blueprint](https://img.shields.io/github/actions/workflow/status/theolaurent/LeTrocq/docs.yml?branch=main&label=blueprint)](https://theolaurent.github.io/LeTrocq/blueprint/)
+[![CI](https://github.com/theolaurent/LeTrocq/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/theolaurent/LeTrocq/actions/workflows/ci.yml)
+[![Documentation](https://github.com/theolaurent/LeTrocq/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/theolaurent/LeTrocq/actions/workflows/docs.yml)
 
 A Lean-native, **graded** reformulation of the [Trocq](https://arxiv.org/abs/2310.14022)
 parametricity / proof-transfer framework (Cohen–Crance–Mahboubi), in the **no-univalence**
@@ -9,7 +9,12 @@ fragment. Register an equivalence between two types once, and LeTrocq automatica
 types, terms, and goals across it — generating verified `Param` witnesses whose transport maps
 compute.
 
-No dependencies beyond Lean core. Every generated proof is choice-free (only `propext`/`Quot.sound`).
+Two design aims set this port apart. **Library-agnostic:** no dependencies beyond Lean core, and
+the driver hardcodes no types — even `Nat`, `List`, and `Quot` are ordinary `@[trocq]` registrations
+it reads from an environment extension. **Predictable:** transfer is a single deterministic top-down
+pass — no typeclass resolution, no backtracking search, no constraint-solving fixpoint — so it either
+produces a witness or fails with a definite reason. Every generated proof is choice-free (only
+`propext`/`Quot.sound`).
 
 ## Example
 
