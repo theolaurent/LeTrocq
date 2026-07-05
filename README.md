@@ -43,9 +43,9 @@ See the [documentation](https://theolaurent.github.io/LeTrocq/) for the full acc
 ## Build
 
 ```sh
-lake build     # the library (warnings are errors)
+lake build     # the library
 lake test      # test suite + axiom-footprint guard
 
-mdbook build   # the documentation book → ./book/ (needs mdbook + mdbook-katex)
-mdbook serve   # live preview at http://localhost:3000
+mdbook build   # the documentation (needs mdbook + mdbook-katex)
+mdbook serve   # live preview
 ```
