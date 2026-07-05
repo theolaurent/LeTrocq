@@ -55,7 +55,7 @@ written; re-check by grep after any refactor that renames a declaration, e.g.
 
 ```sh
 grep -oP '\\lean\{[^}]*\}' blueprint/src/content.tex \
-  | sed -E 's/\\lean\{//; s/\}//' | tr ',' '\n'   # then grep each in LeTrocq/
+  | sed -E 's/\\lean\{//; s/\}//' | tr ',' '\n'   # then grep each in src/LeTrocq/
 ```
 
 > Note: the scaffold matches the `leanblueprint` 1.9.x template. The web build

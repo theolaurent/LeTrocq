@@ -23,8 +23,8 @@ jobs:
       # `lake test` builds the test executable, which transitively compiles the whole codebase (Trocq +
       # Examples + Tests) and therefore enforces, in one shot:
       #   • `warningAsError` (set for every target in `lakefile.toml`) — any Lean warning fails the build;
-      #   • every `example … := rfl` / `#guard_msgs` regression check in `Tests/`;
-      #   • the axiom-footprint guard in `Tests.lean` (only propext / Classical.choice / Quot.sound —
+      #   • every `example … := rfl` / `#guard_msgs` regression check in `src/Tests/`;
+      #   • the axiom-footprint guard in `src/Tests.lean` (only propext / Classical.choice / Quot.sound —
       #     so a stray `sorry`/`admit` or any new axiom fails).
       # No Mathlib dependency, so its cache is disabled; the toolchain and build are cached automatically.
       - name: Build & test

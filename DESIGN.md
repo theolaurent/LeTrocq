@@ -136,5 +136,5 @@ equivalence: `[P] : PLift (P ↔ P')`.
     reg    LeTrocq.Solver.buildAtoms/buildConsts/relatorArgKinds (the @[trocq] lookups)  (Solver.lean)
 
 The graded combinators that build each `[·]` node — `paramArrow`, `paramForall`, `paramType` /
-`paramProp` — live under `LeTrocq/ParamCC/`. The user surfaces are `transfer%` / `trocq` (types),
+`paramProp` — live under `src/LeTrocq/ParamCC/`. The user surfaces are `transfer%` / `trocq` (types),
 `translate%` (`⟨·⟩`), and `relate%` (`[·]`) in `Tactic.lean`.

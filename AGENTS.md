@@ -19,7 +19,7 @@ Don't hardcode a universe level (`Type`, `Sort 1`, `.{0}`, …) just to make som
 definitions polymorphic over their universes (`Sort u` / auto-bound levels) so they apply at every level —
 unless the only consumers are inherently monomorphic, in which case a fixed level is honest, not a dodge. If
 a generic mechanism can't carry the level, fix the **mechanism**, not the definition. Precedent: the core
-records `Param`/`MapHas`/`Map*Has` (`LeTrocq/Hierarchy.lean`) are written over `Sort u` (with `R : A → B →
+records `Param`/`MapHas`/`Map*Has` (`src/LeTrocq/Hierarchy.lean`) are written over `Sort u` (with `R : A → B →
 Type v`), so a `Prop` object fits with no `ULift`; `paramRefl`/`paramProp` and the universe combinators stay
 level-polymorphic likewise.
 

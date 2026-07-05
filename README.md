@@ -48,7 +48,7 @@ Prove a witness and tag it `@[trocq]`; the driver reads it from the environment.
 classified by its type into a **base** (`Param m n A B`), a **relator** (`∀ …, Param … (F …) (F' …)` — also
 how a `Prop` predicate or connective registers, since a proposition is just a `Sort 0` type), a **type
 former** (the parametricity relation of a parameterized type), or a **term primitive**. See
-`Examples/NatUnary.lean` (a base) and `LeTrocq/ParamLib/` (prelude types) for the recipes. A ground type
+`src/Examples/NatUnary.lean` (a base) and `src/LeTrocq/ParamLib/` (prelude types) for the recipes. A ground type
 needs no registration at all: a type (or term) whose counterpart is itself is short-circuited to the generic
 diagonal `paramRefl` (relation `PLift (a = b)`, identity maps), so `Nat`/`Bool`/`Empty`/`Unit` transfer to
 themselves out of the box — and a registered equivalence (e.g. `Nat ≃ Unary`) overrides that whenever it applies.
