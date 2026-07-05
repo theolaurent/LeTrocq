@@ -4,8 +4,8 @@ The LeTrocq STANDARD LIBRARY: `Array`.
 An `Array α` is a structure wrapping `List α` (its `toList`), so its parametricity is `List`'s, read through
 `toList`: `ArrayR a b := ListR _ _ _ a.toList b.toList`. The relation and relator REUSE `LeTrocq.ParamLib.List`
 rather than re-deriving an inductive — the `Array`/`List` conversions are definitional (`(l.toArray).toList`
-reduces to `l`, and `⟨a.toList⟩` is `a` by structure eta), so each field delegates to `paramListR` on the
-underlying lists.
+reduces to `l`, and `⟨a.toList⟩` is `a` by structure eta), so each field delegates to `List`'s graded
+halves (`listCov`/`listContra`) on the underlying lists.
 
   • TYPE FORMER `ArrayR` — so `paramType` can cross `Array a`.
   • TERM primitive `ListToArrayR` keyed by `List.toArray` — an array literal `#[…]` elaborates to

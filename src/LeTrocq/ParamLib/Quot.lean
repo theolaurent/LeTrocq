@@ -1,24 +1,18 @@
 /-
 The LeTrocq STANDARD LIBRARY: `Quot` (the kernel quotient).
 
-`Quot`/`Quot.mk` are kernel constants, but their parametricity registers like any other prelude type — NOT as
-a hardcoded driver primitive. It registers on BOTH surfaces, base-agnostically:
+`Quot`/`Quot.mk` are kernel constants, but their parametricity registers like any prelude type — NOT a
+hardcoded driver primitive. Base-agnostically on BOTH surfaces:
+  • the TERM surface (`⟨·⟩`/`[·]`): `QuotRel` is the parametricity RELATION (a TYPE FORMER, so `paramType`
+    crosses `Quot r`); `Quot.mk` is a TERM primitive with relatedness `QuotMkR`.
+  • the tactic path: the GRADED relator `paramQuotRG`, from a base equivalence + the relations' correspondence.
 
-  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): `QuotRel` is the parametricity RELATION (a TYPE FORMER,
-    so `paramType` can cross `Quot r`), and the constructor `Quot.mk` is a TERM primitive whose relatedness is
-    `QuotMkR`. (Universe-wise this works because `Quot`/`Quot.mk` register through the same
-    `mkConstWithFreshMVarLevels` path the driver already used for them.)
-  • the SOLVER / tactic path (`trocq` / `transfer%`): the `(4,4)` relator `paramQuotR`, sending a base
-    equivalence + the two relations' correspondence to a `Quot` equivalence (the solver weakens it per use).
+A quotient is a former over a type `A` AND a relation `r : A → A → Prop` (a TERM argument, relatedness
+`rR : … PLift (r a b ↔ r' a' b')`). The parametricity relation is the standard one — related classes have
+`RA`-related representatives — stated EXISTENTIALLY so it is well-defined on both quotients and `Prop`-
+truncated (a subsingleton, so the `(4,4)` coherence is free).
 
-A quotient is a former over a type `A` AND a relation `r : A → A → Prop`; the relation is a TERM argument, and
-(thanks to the `Prop`-relation refinement) its relatedness is the equivalence
-`rR : ∀ a a' (aR) b b' (bR), PLift (r a b ↔ r' a' b')` — exactly "`r` and `r'` correspond under the element
-relation". The parametricity relation is the standard one (related classes have `RA`-related representatives),
-stated EXISTENTIALLY so it is automatically well-defined on both quotients and is `Prop`-truncated (hence a
-subsingleton, making the `(4,4)` coherence free).
-
-(`Quot.lift`, the eliminator, is not supported — see the `Quot.lift` note in `LeTrocq.TranslateTerm`.)
+(`Quot.lift`, the eliminator, is not supported.)
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib

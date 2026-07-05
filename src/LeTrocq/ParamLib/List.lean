@@ -1,24 +1,16 @@
 /-
 The LeTrocq STANDARD LIBRARY: `List`.
 
-A type CONSTRUCTOR `List : Type → Type` is a *relator*: its witness lifts a relation on elements to a
-relation on lists. Following the standard parametricity translation, that lifted relation is itself an
-INDUCTIVE — one constructor per the original's, each carrying the relations of its arguments (`ListR.cons`
-pairs an element relation with the tail relation). It registers on BOTH surfaces, each base-agnostic (it
-works for ANY element equivalence):
+`List : Type → Type` is a *relator*: its witness lifts an element relation to a relation on lists, itself an
+INDUCTIVE (`ListR`, one constructor per `List`'s). It registers base-agnostically on BOTH surfaces:
 
-  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): `ListR` is the parametricity RELATION (a TYPE FORMER,
-    so `paramType` can cross `List a`), and the constructors `List.nil` / `List.cons` are TERM primitives
-    whose relatedness is `ListR.nil` / `ListR.cons`. A list over `A` then rebuilds element-by-element over `B`.
+  • the TERM surface (`⟨·⟩`/`[·]`): `ListR` is the parametricity RELATION (a TYPE FORMER, so `paramType` crosses
+    `List a`); `List.nil`/`List.cons` are TERM primitives with relatedness `ListR.nil`/`ListR.cons`.
+  • the tactic path (`trocq`/`transfer%`): the GRADED relator `paramListRG`, building `List` at ANY output class
+    with the element at the `listVariance`-minimal class (parallel to `paramArrow`); completeness laws are
+    inductions, and `R_in_mapK` is free once the element relation is a subsingleton.
 
-  • the SOLVER / tactic path (`trocq` / `transfer%`): the GRADED relator `paramListRG`, sending an element
-    witness to a `List` witness at ANY output class `(m,n)`, with the element built at the `listVariance`-minimal
-    class (variance mechanism, parallel to `paramArrow`). Over the inductive relation the completeness laws are
-    inductions, and the coherence `R_in_mapK` is free once the relation is a subsingleton (from the element).
-
-This is a USER-LEVEL registration (it could live in a downstream project verbatim); it sits in the library
-only because `List` is part of Lean's prelude — exactly like the kernel constant `Quot`, which is itself an
-ordinary `@[trocq]` registration now (see `LeTrocq.ParamLib.Quot`).
+A USER-LEVEL registration (it sits in the library only because `List` is in the prelude).
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib
@@ -69,46 +61,53 @@ def mapListVariance : MapClass → ParamClass
 def listVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapListVariance c.1) (ParamClass.negate (mapListVariance c.2))
 
-/-- the covariant half `MapHas m (ListR R)` from the element at `mapListVariance m` (one arm per class). At
-    `map4` the coherence is free: a class-4 element relation is a subsingleton, so `ListR.allEq` applies. -/
+/-- the lifted soundness proof: `ListR` from `List.map f`, written ONCE for the `map2a`/`map3`/`map4` arms.
+    (`noncomputable def`, not `theorem`: `ListR` is `Type`-valued data built via `List.rec`.) -/
+noncomputable def listMapInR {A B : Type} {R : A → B → Type} (f : A → B) (fInR : ∀ a b, f a = b → R a b) :
+    ∀ la lb, List.map f la = lb → ListR A B R la lb := by
+  intro la lb h; subst h
+  induction la with
+  | nil => exact .nil
+  | cons a l ih => exact .cons (fInR a _ rfl) ih
+
+/-- the lifted completeness proof: `List.map f` from `ListR`, written ONCE for the `map2b`/`map3`/`map4` arms. -/
+theorem listRInMap {A B : Type} {R : A → B → Type} (f : A → B) (fRInMap : ∀ a b, R a b → f a = b) :
+    ∀ la lb, ListR A B R la lb → List.map f la = lb := by
+  intro _ _ r
+  induction r with
+  | nil => rfl
+  | cons aR lR ih => rw [List.map_cons, fRInMap _ _ aR, ih]
+
+/-- the covariant half `MapHas m (ListR R)` from the element at `mapListVariance m`. At `map4` the coherence
+    is free: a class-4 element relation is a subsingleton, so `ListR.allEq` applies. -/
 noncomputable def listCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapListVariance m).1 (mapListVariance m).2 A B) →
     MapHas m (ListR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := List.map pa.cov.map }
-  | map2a, pa =>
-      { map := List.map pa.cov.map
-        map_in_R := fun la lb h => by
-          subst h; induction la with
-          | nil => exact .nil
-          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih }
-  | map2b, pa =>
-      { map := List.map pa.cov.map
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih] }
-  | map3,  pa =>
-      { map := List.map pa.cov.map
-        map_in_R := fun la lb h => by
-          subst h; induction la with
-          | nil => exact .nil
-          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih] }
-  | map4,  pa =>
-      { map := List.map pa.cov.map
-        map_in_R := fun la lb h => by
-          subst h; induction la with
-          | nil => exact .nil
-          | cons a l ih => exact .cons (pa.cov.map_in_R a _ rfl) ih
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.cov.R_in_map _ _ aR, ih]
-        R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+  | map2a, pa => { map := List.map pa.cov.map, map_in_R := listMapInR pa.cov.map pa.cov.map_in_R }
+  | map2b, pa => { map := List.map pa.cov.map, R_in_map := listRInMap pa.cov.map pa.cov.R_in_map }
+  | map3,  pa => { map := List.map pa.cov.map, map_in_R := listMapInR pa.cov.map pa.cov.map_in_R,
+                   R_in_map := listRInMap pa.cov.map pa.cov.R_in_map }
+  | map4,  pa => { map := List.map pa.cov.map, map_in_R := listMapInR pa.cov.map pa.cov.map_in_R,
+                   R_in_map := listRInMap pa.cov.map pa.cov.R_in_map,
+                   R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+
+/-- contra soundness: `ListR` from `List.map g` on the B-side list — the mirror of `listMapInR`. -/
+noncomputable def listContraMapInR {A B : Type} {R : A → B → Type} (g : B → A) (gInR : ∀ b a, g b = a → R a b) :
+    ∀ lb la, List.map g lb = la → ListR A B R la lb := by
+  intro lb la h; subst h
+  induction lb with
+  | nil => exact .nil
+  | cons b l ih => exact .cons (gInR b _ rfl) ih
+
+/-- contra completeness: `List.map g` on the B-side list from `ListR` — the mirror of `listRInMap`. -/
+theorem listContraRInMap {A B : Type} {R : A → B → Type} (g : B → A) (gRInMap : ∀ b a, R a b → g b = a) :
+    ∀ lb la, ListR A B R la lb → List.map g lb = la := by
+  intro _ _ r
+  induction r with
+  | nil => rfl
+  | cons aR lR ih => rw [List.map_cons, gRInMap _ _ aR, ih]
 
 /-- the contravariant half `MapHas n (flip (ListR R))` from the element's contra at `mapListVariance n`. -/
 noncomputable def listContra {A B : Type} :
@@ -116,39 +115,13 @@ noncomputable def listContra {A B : Type} :
     MapHas n (fun (lb : List B) (la : List A) => ListR A B pa.R la lb)
   | map0,  _  => {}
   | map1,  pa => { map := List.map pa.contra.map }
-  | map2a, pa =>
-      { map := List.map pa.contra.map
-        map_in_R := fun lb la h => by
-          subst h; induction lb with
-          | nil => exact .nil
-          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih }
-  | map2b, pa =>
-      { map := List.map pa.contra.map
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih] }
-  | map3,  pa =>
-      { map := List.map pa.contra.map
-        map_in_R := fun lb la h => by
-          subst h; induction lb with
-          | nil => exact .nil
-          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih] }
-  | map4,  pa =>
-      { map := List.map pa.contra.map
-        map_in_R := fun lb la h => by
-          subst h; induction lb with
-          | nil => exact .nil
-          | cons b l ih => exact .cons (pa.contra.map_in_R b _ rfl) ih
-        R_in_map := fun _ _ r => by
-          induction r with
-          | nil => rfl
-          | cons aR lR ih => rw [List.map_cons, pa.contra.R_in_map _ _ aR, ih]
-        R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
+  | map2a, pa => { map := List.map pa.contra.map, map_in_R := listContraMapInR pa.contra.map pa.contra.map_in_R }
+  | map2b, pa => { map := List.map pa.contra.map, R_in_map := listContraRInMap pa.contra.map pa.contra.R_in_map }
+  | map3,  pa => { map := List.map pa.contra.map, map_in_R := listContraMapInR pa.contra.map pa.contra.map_in_R,
+                   R_in_map := listContraRInMap pa.contra.map pa.contra.R_in_map }
+  | map4,  pa => { map := List.map pa.contra.map, map_in_R := listContraMapInR pa.contra.map pa.contra.map_in_R,
+                   R_in_map := listContraRInMap pa.contra.map pa.contra.R_in_map,
+                   R_in_mapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
 
 /-- `List A ≃ List B` at ANY output class `(m,n)`, from the element at the `listVariance`-minimal class. The
     single element witness is weakened to what each half consumes; every obligation is `join ≥ component`,

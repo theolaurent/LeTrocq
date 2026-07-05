@@ -3,7 +3,7 @@ The map/comap-carrying COMBINATORS — one construction per file under `LeTrocq/
 
   • `LeTrocq.ParamCC.Arrow`    — `RArrow`, the graded `paramArrow`.
   • `LeTrocq.ParamCC.Forall`   — `RForall`, the graded dependent-Π `paramForall`.
-  • `LeTrocq.ParamCC.Universe` — `paramId`, `paramType`, `paramTypeAt` (the universe at ≤ (2a,2a)).
+  • `LeTrocq.ParamCC.Universe` — `paramRefl`/`paramTypeAtInner`/`paramProp` (the universe combinators, `Type` capped at (2a,2a)).
 
 This module re-exports them all. Each builds a `Param` out of `Param`s for its parts, at a class governed by
 the dependency tables in `Lattice`. (Parameterized prelude types like `List`/`Quot` are not here —

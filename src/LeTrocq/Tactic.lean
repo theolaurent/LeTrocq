@@ -8,7 +8,7 @@ The USER SURFACE: the four elaborators/tactics, on top of the driver (`Solver` +
   • `trocq`  transfers the current goal `G` to its counterpart `G'` (seeded at the comap class (0,1))
     and refines `G` by the backward transport `G' → G`, leaving you to prove `G'`.
 
-  • `translate% t`  ⤳ the native `B`-side counterpart `t'`; `relate% t` ⤳ its relatedness `tR : 〚T〛 t t'`.
+  • `translate% t`  ⤳ the `B`-side counterpart `t'`; `relate% t` ⤳ its relatedness `tR : 〚T〛 t t'`.
 
 Everything reads its registries from the `@[trocq]` environment extension; every registered base is available
 in both directions (forward, and backward via `Param.sym`), so a goal/term over either side of an equivalence

@@ -45,6 +45,30 @@ def mapProdVariance : MapClass → ParamClass
 def prodVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapProdVariance c.1) (ParamClass.negate (mapProdVariance c.2))
 
+/-- lifted soundness/completeness for `ProdR` over both components, shared across the `prodCov`/`prodContra`
+    arms (the contra arms swap each component's map direction). No recursion, so computable. -/
+def prodMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
+    (fInR : ∀ a a', f a = a' → RA a a') (gInR : ∀ b b', g b = b' → RB b b') :
+    ∀ p q, (f p.1, g p.2) = q → ProdR A A' RA B B' RB p q :=
+  fun p _ h => by subst h; exact .mk (fInR p.1 _ rfl) (gInR p.2 _ rfl)
+
+theorem prodRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
+    (fRInMap : ∀ a a', RA a a' → f a = a') (gRInMap : ∀ b b', RB b b' → g b = b') :
+    ∀ p q, ProdR A A' RA B B' RB p q → (f p.1, g p.2) = q :=
+  fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+    show (f a, g b) = (a', b'); rw [fRInMap a a' aR, gRInMap b b' bR]
+
+def prodContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
+    (fInR : ∀ a' a, f a' = a → RA a a') (gInR : ∀ b' b, g b' = b → RB b b') :
+    ∀ q p, (f q.1, g q.2) = p → ProdR A A' RA B B' RB p q :=
+  fun q _ h => by subst h; exact .mk (fInR q.1 _ rfl) (gInR q.2 _ rfl)
+
+theorem prodContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
+    (fRInMap : ∀ a' a, RA a a' → f a' = a) (gRInMap : ∀ b' b, RB b b' → g b' = b) :
+    ∀ q p, ProdR A A' RA B B' RB p q → (f q.1, g q.2) = p :=
+  fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
+    show (f a', g b') = (a, b); rw [fRInMap a' a aR, gRInMap b' b bR]
+
 /-- the covariant half from the two components at `mapProdVariance m`. -/
 def prodCov {A A' B B' : Type} :
     (m : MapClass) →
@@ -53,31 +77,18 @@ def prodCov {A A' B B' : Type} :
     MapHas m (ProdR A A' pa.R B B' pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2) }
-  | map2a, pa, pb =>
-      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
-        map_in_R := fun p _ h => by
-          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl) }
-  | map2b, pa, pb =>
-      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.cov.map a, pb.cov.map b) = (a', b')
-          rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR] }
-  | map3,  pa, pb =>
-      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
-        map_in_R := fun p _ h => by
-          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.cov.map a, pb.cov.map b) = (a', b')
-          rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR] }
-  | map4,  pa, pb =>
-      { map := fun p => (pa.cov.map p.1, pb.cov.map p.2)
-        map_in_R := fun p _ h => by
-          subst h; exact .mk (pa.cov.map_in_R p.1 _ rfl) (pb.cov.map_in_R p.2 _ rfl)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.cov.map a, pb.cov.map b) = (a', b')
-          rw [pa.cov.R_in_map a a' aR, pb.cov.R_in_map b b' bR]
-        R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-          (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+  | map2a, pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
+                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R }
+  | map2b, pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
+                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+  | map3,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
+                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
+                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+  | map4,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
+                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
+                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map,
+                       R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
+                         (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
 
 /-- the contravariant half from the two components' contra at `mapProdVariance n`. -/
 def prodContra {A A' B B' : Type} :
@@ -87,31 +98,18 @@ def prodContra {A A' B B' : Type} :
     MapHas n (fun (q : A' × B') (p : A × B) => ProdR A A' pa.R B B' pb.R p q)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2) }
-  | map2a, pa, pb =>
-      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
-        map_in_R := fun q _ h => by
-          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl) }
-  | map2b, pa, pb =>
-      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.contra.map a', pb.contra.map b') = (a, b)
-          rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR] }
-  | map3,  pa, pb =>
-      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
-        map_in_R := fun q _ h => by
-          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.contra.map a', pb.contra.map b') = (a, b)
-          rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR] }
-  | map4,  pa, pb =>
-      { map := fun q => (pa.contra.map q.1, pb.contra.map q.2)
-        map_in_R := fun q _ h => by
-          subst h; exact .mk (pa.contra.map_in_R q.1 _ rfl) (pb.contra.map_in_R q.2 _ rfl)
-        R_in_map := fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-          show (pa.contra.map a', pb.contra.map b') = (a, b)
-          rw [pa.contra.R_in_map a' a aR, pb.contra.R_in_map b' b bR]
-        R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
-          (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
+  | map2a, pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
+                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R }
+  | map2b, pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
+                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+  | map3,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
+                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
+                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+  | map4,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
+                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
+                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map,
+                       R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
+                         (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
 
 /-- `A × B ≃ A' × B'` at ANY output class `(m,n)`, each component at the `prodVariance`-minimal class. -/
 @[trocq] noncomputable def paramProdRG (m n : MapClass) (A A' : Type)

@@ -1,17 +1,12 @@
 /-
 The UNIVERSE construction: relating `Type` to `Type`.
 
-The no-univalence ceiling is class (2a,2a): `map_in_R : A = A' → Param A A'` is `Eq.rec` (free), but the
-completeness field `R_in_map : Param A A' → A = A'` would need univalence — so `Type` is BLOCKED above 2a,
-exactly what `Lattice`'s `requiresAxiom` marks. `mkUniv` in the driver enforces the cap directly (a `Type`
-demand above `(2a,2a)` fails), so there is no separate sort table.
-
-The relation a `Param_Type` *carries* between `A` and `A'` is itself a `Param p q A A'` — and that INNER
-class `(p,q)` is **independent** of the (capped) outer class: it just records how strongly the bound type
-variable is related, which is whatever the body demands. This is LeTrocq's `Map_Type` table. The inner
-witness is built by weakening the reflexive identity `paramRefl` (the identity IS an equivalence, so it
-exists at the top class) down to `(p,q)`. `paramTypeAtInner` is the general form; `paramType`/`paramTypeAt`
-are the `(1,1)`-inner specializations kept for the simple cases.
+The no-univalence ceiling is (2a,2a): `map_in_R : A = A' → Param A A'` is `Eq.rec` (free), but completeness
+`R_in_map : Param A A' → A = A'` would need univalence — so `Type` is blocked above 2a (`mkUniv` enforces
+the cap directly). The relation a `Param_Type` carries between `A` and `A'` is itself a `Param p q A A'`,
+and that INNER class `(p,q)` is independent of the (capped) outer class: it records how strongly the bound
+type variable is related. The inner witness is `paramRefl` (the identity equivalence) weakened to `(p,q)`;
+`paramTypeAtInner` is the general form, `paramType` the `(1,1)`-inner specialization.
 -/
 import LeTrocq.Hierarchy
 universe u w
@@ -40,9 +35,6 @@ def paramRefl (A : Sort u) : Param.{u,0} map4 map4 A A where
 def paramIdAt (p q : MapClass) (A : Sort u) : Param.{u,0} p q A A :=
   (paramRefl A).weaken (MapClass.le_map4 p) (MapClass.le_map4 q)
 
-/-- a reflexive `Param` at (1,1) — the identity. -/
-def paramId (A : Sort u) : Param.{u,0} map1 map1 A A := paramIdAt map1 map1 A
-
 /-- the universe combinator at the ceiling (2a,2a), carrying INNER relation class `(p,q)` (the
     `Map_Type` table). `map_in_R : A = A' → Param p q A A'` is `Eq.rec` of `paramIdAt` — no univalence;
     the inner class `(p,q)` is free (it records how the bound type variable must be related). -/
@@ -63,12 +55,6 @@ def paramTypeAtInner (m n p q : MapClass)
 
 /-- the universe combinator at (2a,2a) with the simplest inner class (1,1). -/
 def paramType : Param map2a map2a (Type w) (Type w) := paramTypeInner map1 map1
-
-/-- the universe combinator at any class `≤ (2a,2a)`, inner class (1,1). -/
-def paramTypeAt (m n : MapClass)
-    (hm : MapClass.le m map2a = true) (hn : MapClass.le n map2a = true) :
-    Param m n (Type w) (Type w) :=
-  paramTypeAtInner m n map1 map1 hm hn
 
 /-- the PROP universe combinator at the TOP class `(4,4)`. Unlike the `Type` universe (capped at `2a`
     by the absence of univalence), `Prop` reaches the full equivalence: `map_in_R` is `Eq.rec`,
@@ -93,27 +79,8 @@ def paramPropAt (m n : MapClass) : Param m n Prop Prop :=
   paramProp.weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
 /-- read the equivalence `P ↔ P'` off a `Param map1 map1` between two propositions (its forward/backward
-    maps). The inverse of `paramOfIff` on the map level — used by the connective relators to turn their
-    `Param` component arguments back into the `iff`s their congruence lemmas consume. -/
+    maps). Used by `Transfer.assembleTerm` to project a proposition's `(1,1)` witness to `PLift (P ↔ P')`. -/
 def iffOfParam {P P' : Prop} (p : Param map1 map1 P P') : P ↔ P' := ⟨p.cov.map, p.contra.map⟩
-
-/-- lift a logical equivalence `P ↔ P'` to a `Param (4,4)` between the two PROPOSITIONS, carrying the
-    equivalence as its relation `PLift (P ↔ P')` (= `〚Prop〛`, `paramProp.R`). Completeness is proof
-    irrelevance (`R_in_map`/coherence are `rfl`), so it reaches the top class with no axiom beyond the given
-    `iff`. This is the shared builder for every `Prop`-valued relator (`Eq`, the connectives): a relator maps
-    its parts' equivalences to the whole's, then hands the result here. -/
-def paramOfIff {P P' : Prop} (i : P ↔ P') : Param.{0,0} map4 map4 P P' where
-  R := fun _ _ => PLift (P ↔ P')
-  cov :=
-    { map := i.mp
-      map_in_R := fun _ _ _ => PLift.up i
-      R_in_map := fun _ _ _ => rfl
-      R_in_mapK := fun _ _ _ => rfl }
-  contra :=
-    { map := i.mpr
-      map_in_R := fun _ _ _ => PLift.up i
-      R_in_map := fun _ _ _ => rfl
-      R_in_mapK := fun _ _ _ => rfl }
 
 /-- `MapHas m` for the trivial Prop relation `fun _ _ => PLift True`, from a SINGLE forward map `P → P'`.
     Because `P'` is a proposition, every completeness field is FREE: `map_in_R` returns `PLift.up trivial`,

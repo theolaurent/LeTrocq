@@ -1,10 +1,8 @@
 /-
 The TERM TRANSLATION `⟨·⟩` (the counterpart translation).
 
-For a term/type `e` it produces ONLY the B-side counterpart `[e]` (`e` rebuilt leaf-by-leaf over `B` — NOT
-`iso ∘ e ∘ iso⁻¹`). It recurses structurally (`.const`, `.fvar`, `.app`, `.lam`, `∀`, sort, `Nat` numerals)
-and bottoms out at registered PRIMITIVES; an unregistered head is an ERROR — the translation never unfolds a
-definition.
+For a term/type `e` it produces the B-side counterpart `⟨e⟩` — `e` rebuilt leaf-by-leaf over `B` (NOT
+`iso ∘ e ∘ iso⁻¹`), bottoming at registered PRIMITIVES; an unregistered head is an ERROR (never unfolds).
 
   ⟨c⟩        = registered counterpart (term primitive / type former / Prop predicate; else error)
   ⟨x⟩        = x'                                       (bound variable's counterpart)
@@ -12,9 +10,8 @@ definition.
   ⟨fun x=>b⟩ = fun x'=>⟨b⟩
   ⟨Πx:A. B⟩  = Πx':⟨A⟩. ⟨B⟩
 
-This is HALF of the twofold translation: the RELATEDNESS `[e] : 〚T〛 e ⟨e⟩` is the graded relational
-translation `[·]` in `LeTrocq.Transfer`, which is the sole consumer of `⟨·⟩` (`[t u] = [t] u ⟨u⟩ [u]`).
-`translate% e` elaborates to `⟨e⟩`; the shared `Ctx`/`buildCtx`/`sym*` below serve both `⟨·⟩` and `[·]`.
+The other half is the RELATEDNESS `[e] : 〚T〛 e ⟨e⟩`, the graded `[·]` in `LeTrocq.Transfer` (the sole
+consumer of `⟨·⟩`). `translate% e` elaborates to `⟨e⟩`; the shared `Ctx`/`buildCtx`/`sym*` below serve both.
 -/
 import LeTrocq.ParamCC
 import LeTrocq.Attr

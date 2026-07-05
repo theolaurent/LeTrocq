@@ -1,13 +1,12 @@
 /-
-THE `@[trocq]` REGISTRIES + relator argument-routing — the pure lookups the graded translation
-(`LeTrocq.Transfer`) reads. This is NOT a grading solver anymore: grading is done inline by `Transfer.assemble`,
-which pushes a demanded class top-down through the `arrowVariance`/`forallVariance` tables (no constraint graph, no
-fixpoint). What remains here is the registry side of the front↔back contract:
+THE `@[trocq]` REGISTRIES + relator argument-routing — the pure lookups the graded translation reads. Despite
+the name, NOT a grading solver: grading is inline in `Transfer.assemble`. What remains is the registry side:
 
-  • `buildAtomPairs` — the type-atom registry from every `@[trocq]` BASE (both directions via `Param.sym`), pair-indexed `srcHead ↦ tgtHead ↦ …` with a preferred (last-registered) target.
+  • `buildAtomPairs` — the type-atom registry from every `@[trocq]` BASE (both directions via `Param.sym`),
+    pair-indexed `srcHead ↦ tgtHead ↦ …` with a preferred (last-registered) target.
   • `buildConsts` — the relator registry from every `@[trocq]` RELATOR (keyed by the applied head).
-  • `relatorArgKinds` — read a relator's per-argument routing (`type` / `family` / `term`) off its type, so the
-    abstraction-theorem `app` rule in `Transfer.assemble` knows how to consume each argument.
+  • `relatorArgKinds` — a relator's per-argument routing (`type`/`family`/`term`), read off its type, so the
+    `app` rule in `Transfer.assemble` knows how to consume each argument.
 -/
 import LeTrocq.Attr
 import Lean

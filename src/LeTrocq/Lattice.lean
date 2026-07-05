@@ -63,7 +63,6 @@ namespace ParamClass
 open MapClass
 def le (a b : ParamClass) : Bool := MapClass.le a.1 b.1 && MapClass.le a.2 b.2
 def join (a b : ParamClass) : ParamClass := (MapClass.join a.1 b.1, MapClass.join a.2 b.2)
-def meet (a b : ParamClass) : ParamClass := (MapClass.meet a.1 b.1, MapClass.meet a.2 b.2)
 /-- swap the two transport directions (relation symmetry). -/
 def negate (a : ParamClass) : ParamClass := (a.2, a.1)
 def bot : ParamClass := (map0, map0)

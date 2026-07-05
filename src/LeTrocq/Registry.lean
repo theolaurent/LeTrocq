@@ -17,25 +17,13 @@ import Lean
 open Lean Lean.Meta
 namespace LeTrocq
 
-/-- install a registered witness in BOTH directions, keyed by head: the forward entry at `hA` always, and a
-    backward entry at the B-side head `hB?` only when it is present and DISTINCT from `hA`. A homogeneous head
-    (`hB? = none` or `some hA` — e.g. a polymorphic constructor `List.cons ↦ List.cons`) needs no backward
-    entry: its forward witness already serves both directions (it is polymorphic in the direction-carrying
-    relation), and a second entry under the same key would clobber it. The backward value is a thunk, run only
-    when actually inserted. This is the single home of the forward/backward + homogeneous-skip POLICY that the
-    solver (`buildAtomPairs`) and the translation (`buildCtx`) both consume; the value type `α` differs per map. `insertBidirPair` is the pair-indexed sibling (nested `srcHead ↦ tgtHead ↦ α` + a preferred-target map). -/
-def insertBidir {α} (m : NameMap α) (hA : Name) (hB? : Option Name)
-    (fwd : α) (bwd : MetaM α) : MetaM (NameMap α) := do
-  let m := m.insert hA fwd
-  match hB? with
-  | some hB => if hB == hA then return m else return m.insert hB (← bwd)
-  | none    => return m
-
-/-- pair-indexed sibling of `insertBidir`: install a witness in a NESTED map `srcHead ↦ tgtHead ↦ α`
-    (so several registrations for one source no longer clobber), and record the PREFERRED (last-registered)
-    target head in `pref` — the synth default when no target is demanded. Same forward/backward +
-    homogeneous-skip policy as `insertBidir`: forward `[hA][hB] := fwd` and `pref[hA] := hB` always; the
-    backward `[hB][hA] := bwd`, `pref[hB] := hA` only when `hB` is present and DISTINCT from `hA`. -/
+/-- install a registered witness in a NESTED map `srcHead ↦ tgtHead ↦ α` (so several registrations for one
+    source no longer clobber), recording the PREFERRED (last-registered) target head in `pref` (the synth
+    default when no target is demanded). BOTH directions: forward `[hA][hB] := fwd` and `pref[hA] := hB`
+    always; the backward `[hB][hA] := bwd`, `pref[hB] := hA` only when `hB` is present and DISTINCT from `hA`
+    (a homogeneous head like `List.cons ↦ List.cons` needs no backward entry — its forward witness already
+    serves both directions). The backward value is a thunk, run only when inserted. This forward/backward +
+    homogeneous-skip policy is what `buildAtomPairs` and `buildCtx` consume. -/
 def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
     (hA : Name) (hB? : Option Name) (fwd : α) (bwd : MetaM α) :
     MetaM (NameMap (NameMap α) × NameMap Name) := do

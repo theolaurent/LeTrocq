@@ -41,7 +41,7 @@ example : True := by
   trivial
 
 /- FORALL + TYPE end-to-end: transfer the POLYMORPHIC `∀ A : Type, A → A` at (0,1) — the driver builds
-   the universe domain (`paramTypeAt`), goes under the binder, and assembles the body `A → A` from the
+   the universe domain (`paramTypeAtInner`, via `mkUniv`), goes under the binder, and assembles the body `A → A` from the
    bound variable's relatedness witness. This is the paper's flagship, now *assembled*, not just inferred. -/
 def flagshipTy2 := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
@@ -152,8 +152,8 @@ run_cmd Command.liftTermElabM do
 example : LeTrocq.Tests.listNatLow.cov.map [Nat.zero, Nat.succ Nat.zero] = [Unary.z, Unary.s Unary.z] := rfl
 
 /- EXPRESSIVENESS: a PARTIAL base (a one-way (1,0) map, NOT an equivalence) between two `Type 0` types now
-   composes under `List`. Under the old fixed-(4,4) `paramListR` the element was forced to (4,4) — unreachable
-   from a (1,0) base — so `List Src` did not transfer; the graded relator needs the element only at (1,0). -/
+   composes under `List`. Under the former fixed-(4,4) `List` relator the element was forced to (4,4) —
+   unreachable from a (1,0) base — so `List Src` did not transfer; the graded relator needs the element only at (1,0). -/
 inductive Src | a | b
 inductive Tgt | x | y
 def SrcTgtR : Src → Tgt → Type := fun _ _ => PLift True

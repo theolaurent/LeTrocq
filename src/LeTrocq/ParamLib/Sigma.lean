@@ -1,22 +1,15 @@
 /-
 The LeTrocq STANDARD LIBRARY: `Sigma` (Σ, the dependent pair).
 
-This goes beyond `List`/`Option`: `Sigma` is parameterized by a type FAMILY `β : α → Type`, not just a type.
-That is exactly the case the parametricity translation is built for — and it needs no new machinery, because
-`param`'s λ-rule already turns a family argument `B : A → Type` into the RELATED FAMILY `(B', RB)` with
-`RB : ∀ a a' (aR : RA a a'), B a → B' a' → Type`. So the inductive parametricity relation just takes that
-family relation `RB` as a parameter and uses it in its constructors.
+Beyond `List`/`Option`: `Sigma` is parameterized by a type FAMILY `β : α → Type`. This needs no new machinery
+— `param`'s λ-rule turns `B : A → Type` into the RELATED FAMILY `RB : ∀ a a' (aR : RA a a'), B a → B' a' →
+Type`, which the inductive relation takes as a parameter. Registers base-agnostically on BOTH surfaces:
+  • the TERM surface (`⟨·⟩`/`[·]`): the relation `SigmaR` (a TYPE FORMER) + `SigmaMkR` (a TERM primitive);
+  • the tactic path: the GRADED relator `paramSigmaRG`, whose FAMILY argument `β` is a whole family of `Param`s
+    (built like `paramForall`'s codomain). Proofs are dependent — `cases`/`induction` unify the index,
+    `Subsingleton` identifies the proof slots.
 
-It registers on BOTH surfaces, base-agnostically:
-  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): the inductive relation `SigmaR` (a TYPE FORMER) + the
-    constructor `SigmaMkR` as a TERM primitive;
-  • the `trocq` / `transfer%` tactic: a `(4,4)` relator `paramSigmaR`. The driver's relator framework
-    supports a FAMILY argument — the `β`'s relatedness is a whole family of `Param`s
-    `∀ a a' (aR : pa.R a a'), Param … (β a) (β' a')` — built like `paramForall`'s codomain. The relator
-    proofs are dependent (the second component lives over the first), handled by the inductive relation:
-    `cases`/`induction` do the index unification, `Subsingleton` identifies the proof slots.
-
-(A non-prelude dependent example using the same family machinery — a W-type — lives in `Examples/DepParam`.)
+(A non-prelude example with the same family machinery — a W-type — lives in `Examples/DepParam`.)
 -/
 import LeTrocq.Attr
 namespace LeTrocq.ParamLib
@@ -122,8 +115,7 @@ noncomputable def sigmaCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
         R_in_mapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
           (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
 
-/-- the contravariant half. `R_in_mapK` takes the relation's subsingleton from `pa.contra`/`pb.contra` (here
-    `pa.cov` is trivial, unlike the ungraded relator which had the full `(4,4)` on both sides). -/
+/-- the contravariant half. `R_in_mapK` takes the relation's subsingleton from `pa.contra`/`pb.contra`. -/
 noncomputable def sigmaContra {A A' : Type} {B : A → Type} {B' : A' → Type} :
     (n : MapClass) →
     (pa : Param (mapSigmaVariance n).1.2 (mapSigmaVariance n).1.1 A A') →

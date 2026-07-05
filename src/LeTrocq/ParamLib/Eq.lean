@@ -1,18 +1,13 @@
 /-
 The LeTrocq STANDARD LIBRARY: `Eq` (propositional equality).
 
-`a = b` relates to `a' = b'` whenever the underlying type is related by a full equivalence and the two
-sides are related pointwise (`aR : pa.R a a'`, `bR : pa.R b b'`). Unlike `List`/`Prod`, equality's
-parametricity needs MORE than the bare element relation — it needs the type's `map`/`R_in_map`, i.e. that
-the map is a bijection — so `Eq`'s type argument is carried as a whole `Param` (not just its `.R` relation),
-which the RELATOR classification provides.
+`a = b` relates to `a' = b'` when the underlying type is a FULL equivalence and the two sides are related
+pointwise. Unlike `List`/`Prod`, equality needs more than the bare element relation — it needs the map to
+be a bijection (`eqCorr` uses both `R_in_map`s) — so `Eq`'s type argument is a whole `Param map4 map4`,
+fixed at (4,4) regardless of the output class. The two related objects are propositions, so completeness is
+proof irrelevance and the coherence is free.
 
-The forward `a = b → a' = b'` transports along `pa.cov` (`map a = a'`, `map b = b'`, so `a = b` gives
-`a' = b'`); the backward direction is the mirror through `pa.contra`. Registered at the top class `(4,4)`:
-the two related objects are propositions (subsingletons), so completeness is proof irrelevance and the
-coherence is free.
-
-(Monomorphic at `Type`, like the other prelude relators; a `Sort`-polymorphic `Eq` witness is future work.)
+(Monomorphic at `Type`; a `Sort`-polymorphic `Eq` witness is future work.)
 -/
 import LeTrocq.Attr
 import LeTrocq.ParamCC.Universe
@@ -26,8 +21,9 @@ theorem eqCorr {A A' : Type} (pa : Param map4 map4 A A')
   ⟨fun h => by rw [← pa.cov.R_in_map a a' aR, ← pa.cov.R_in_map b b' bR, h],
    fun h => by rw [← pa.contra.R_in_map a' a aR, ← pa.contra.R_in_map b' b bR, h]⟩
 
-/-- `a = b ≃ a' = b'` at the top class, carrying `〚Prop〛 = PLift (·↔·)` (via `paramOfIff`). A RELATOR keyed
-    by `Eq`: its first triple is the TYPE argument (a `Param`), the next two are the term arguments. -/
+/-- `a = b ≃ a' = b'` at any output class `(m,n)`, from the correspondence `eqCorr` via `paramPropMapsAt`
+    (relation `fun _ _ => PLift True`). A RELATOR keyed by `Eq`: first triple is the TYPE argument
+    (a `Param map4 map4`), the next two are the term arguments. -/
 @[trocq] def paramEqR (m n : MapClass) (A A' : Type) (pa : Param map4 map4 A A')
     (a : A) (a' : A') (aR : pa.R a a') (b : A) (b' : A') (bR : pa.R b b') :
     Param m n (a = b) (a' = b') :=

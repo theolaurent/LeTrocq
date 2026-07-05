@@ -45,6 +45,36 @@ def mapSumVariance : MapClass → ParamClass
 def sumVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapSumVariance c.1) (ParamClass.negate (mapSumVariance c.2))
 
+/-- lifted soundness/completeness for `SumR` over both summands, shared across the `sumCov`/`sumContra`
+    arms (contra swaps each summand's map direction). No recursion, so computable. -/
+def sumMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
+    (fInR : ∀ a a', f a = a' → RA a a') (gInR : ∀ b b', g b = b' → RB b b') :
+    ∀ s t, Sum.map f g s = t → SumR A A' RA B B' RB s t :=
+  fun s _ h => by subst h; cases s with
+    | inl a => exact .inl (fInR a _ rfl)
+    | inr b => exact .inr (gInR b _ rfl)
+
+theorem sumRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
+    (fRInMap : ∀ a a', RA a a' → f a = a') (gRInMap : ∀ b b', RB b b' → g b = b') :
+    ∀ s t, SumR A A' RA B B' RB s t → Sum.map f g s = t :=
+  fun _ _ r => by cases r with
+    | inl aR => exact congrArg Sum.inl (fRInMap _ _ aR)
+    | inr bR => exact congrArg Sum.inr (gRInMap _ _ bR)
+
+def sumContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
+    (fInR : ∀ a' a, f a' = a → RA a a') (gInR : ∀ b' b, g b' = b → RB b b') :
+    ∀ t s, Sum.map f g t = s → SumR A A' RA B B' RB s t :=
+  fun t _ h => by subst h; cases t with
+    | inl a => exact .inl (fInR a _ rfl)
+    | inr b => exact .inr (gInR b _ rfl)
+
+theorem sumContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
+    (fRInMap : ∀ a' a, RA a a' → f a' = a) (gRInMap : ∀ b' b, RB b b' → g b' = b) :
+    ∀ t s, SumR A A' RA B B' RB s t → Sum.map f g t = s :=
+  fun _ _ r => by cases r with
+    | inl aR => exact congrArg Sum.inl (fRInMap _ _ aR)
+    | inr bR => exact congrArg Sum.inr (gRInMap _ _ bR)
+
 /-- the covariant half from the two summands at `mapSumVariance m`. -/
 def sumCov {A A' B B' : Type} :
     (m : MapClass) →
@@ -53,34 +83,18 @@ def sumCov {A A' B B' : Type} :
     MapHas m (SumR A A' pa.R B B' pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := Sum.map pa.cov.map pb.cov.map }
-  | map2a, pa, pb =>
-      { map := Sum.map pa.cov.map pb.cov.map
-        map_in_R := fun s _ h => by subst h; cases s with
-          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.cov.map_in_R b _ rfl) }
-  | map2b, pa, pb =>
-      { map := Sum.map pa.cov.map pb.cov.map
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR) }
-  | map3,  pa, pb =>
-      { map := Sum.map pa.cov.map pb.cov.map
-        map_in_R := fun s _ h => by subst h; cases s with
-          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.cov.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR) }
-  | map4,  pa, pb =>
-      { map := Sum.map pa.cov.map pb.cov.map
-        map_in_R := fun s _ h => by subst h; cases s with
-          | inl a => exact .inl (pa.cov.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.cov.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.cov.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.cov.R_in_map _ _ bR)
-        R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
-          (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
+  | map2a, pa, pb => { map := Sum.map pa.cov.map pb.cov.map,
+                       map_in_R := sumMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R }
+  | map2b, pa, pb => { map := Sum.map pa.cov.map pb.cov.map,
+                       R_in_map := sumRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+  | map3,  pa, pb => { map := Sum.map pa.cov.map pb.cov.map,
+                       map_in_R := sumMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
+                       R_in_map := sumRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+  | map4,  pa, pb => { map := Sum.map pa.cov.map pb.cov.map,
+                       map_in_R := sumMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
+                       R_in_map := sumRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map,
+                       R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
+                         (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
 
 /-- the contravariant half from the two summands' contra at `mapSumVariance n`. -/
 def sumContra {A A' B B' : Type} :
@@ -90,34 +104,18 @@ def sumContra {A A' B B' : Type} :
     MapHas n (fun (t : A' ⊕ B') (s : A ⊕ B) => SumR A A' pa.R B B' pb.R s t)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := Sum.map pa.contra.map pb.contra.map }
-  | map2a, pa, pb =>
-      { map := Sum.map pa.contra.map pb.contra.map
-        map_in_R := fun t _ h => by subst h; cases t with
-          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.contra.map_in_R b _ rfl) }
-  | map2b, pa, pb =>
-      { map := Sum.map pa.contra.map pb.contra.map
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR) }
-  | map3,  pa, pb =>
-      { map := Sum.map pa.contra.map pb.contra.map
-        map_in_R := fun t _ h => by subst h; cases t with
-          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.contra.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR) }
-  | map4,  pa, pb =>
-      { map := Sum.map pa.contra.map pb.contra.map
-        map_in_R := fun t _ h => by subst h; cases t with
-          | inl a => exact .inl (pa.contra.map_in_R a _ rfl)
-          | inr b => exact .inr (pb.contra.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | inl aR => exact congrArg Sum.inl (pa.contra.R_in_map _ _ aR)
-          | inr bR => exact congrArg Sum.inr (pb.contra.R_in_map _ _ bR)
-        R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
-          (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
+  | map2a, pa, pb => { map := Sum.map pa.contra.map pb.contra.map,
+                       map_in_R := sumContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R }
+  | map2b, pa, pb => { map := Sum.map pa.contra.map pb.contra.map,
+                       R_in_map := sumContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+  | map3,  pa, pb => { map := Sum.map pa.contra.map pb.contra.map,
+                       map_in_R := sumContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
+                       R_in_map := sumContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+  | map4,  pa, pb => { map := Sum.map pa.contra.map pb.contra.map,
+                       map_in_R := sumContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
+                       R_in_map := sumContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map,
+                       R_in_mapK := fun _ _ _ => SumR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
+                         (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
 
 /-- `A ⊕ B ≃ A' ⊕ B'` at ANY output class `(m,n)`, each summand at the `sumVariance`-minimal class. -/
 @[trocq] noncomputable def paramSumRG (m n : MapClass) (A A' : Type)

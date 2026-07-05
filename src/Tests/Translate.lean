@@ -1,4 +1,4 @@
-/- The native parametricity translation: `translate% t` rebuilds a term over `B` (here `Unary`). -/
+/- The counterpart translation: `translate% t` rebuilds a term over `B` (here `Unary`). -/
 import Lean
 import LeTrocq.Tactic
 import Examples.NatUnary
@@ -109,8 +109,8 @@ example : (translate% (#[] : Array Nat)) = (#[] : Array Unary) := rfl
 example : ArrayR Nat Unary RNU #[1, 2] #[Unary.s Unary.z, Unary.s (Unary.s Unary.z)] :=
   relate% (#[1, 2] : Array Nat)
 
-/- BOOL is registered DIAGONALLY (no other equivalence for it is in scope), so a bool crosses to ITSELF and
-   its relatedness is the diagonal `BoolR` — exercising a ground inductive with nullary constructors. -/
+/- BOOL has no registered equivalence in scope, so a bool crosses to ITSELF via the whole-diagonal
+   short-circuit — its relatedness is `PLift (a = b)` (the generic `paramRefl` relation), e.g. `PLift.up rfl`. -/
 example : (translate% (fun b : Bool => b)) = (fun b : Bool => b) := rfl
 example : (translate% (true, false)) = (true, false) := rfl
 example : PLift (true = true) := relate% true

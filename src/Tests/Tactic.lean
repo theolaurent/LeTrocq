@@ -104,15 +104,15 @@ example : ∀ A : Type, IsInhab (fun (a : A) => a) := by
   exact fun _ => trivial
 
 /- PARAMETERIZED TYPES in the tactic: `transfer% (List Nat)` lifts the base `Nat ≃ Unary` through the
-   `paramListR` relator. The witness's forward map is `List.map` over the base map — and it COMPUTES. -/
+   `paramListRG` relator. The witness's forward map is `List.map` over the base map — and it COMPUTES. -/
 example : (transfer% (List Nat)).cov.map [Nat.zero, Nat.succ Nat.zero] = [Unary.z, Unary.s Unary.z] := rfl
 /- a `List`-valued function type transfers: the codomain `List Nat` goes through the same relator. -/
 example : (transfer% (Nat → List Nat)).cov.map (fun n => [n]) Unary.z = [Unary.z] := rfl
-/- nested formers compose: `Option (List Nat)` chains `paramOptionR` over `paramListR` over the base. -/
+/- nested formers compose: `Option (List Nat)` chains `paramOptionRG` over `paramListRG` over the base. -/
 example : (transfer% (Option (List Nat))).cov.map (some [Nat.zero]) = some [Unary.z] := rfl
 
 /- DEPENDENT Π over a PARAMETERIZED-TYPE binder: `∀ l : List Unary, P l`. The driver now builds the domain
-   witness (`paramListR` over the base) for ANY domain type, not just a bare base — the bound variable `l`
+   witness (`paramListRG` over the base) for ANY domain type, not just a bare base — the bound variable `l`
    flows into the body's `app` node as a term argument whose relatedness is that domain witness. -/
 def AllTriv  (_l : List Unary) : Prop := True
 def AllTriv' (_l : List Nat)   : Prop := True
@@ -125,13 +125,13 @@ example : ∀ l : List Unary, AllTriv l := by
   exact fun _ => trivial
 
 /- DEPENDENT type formers: the relator framework now handles a type FAMILY argument (`Sigma`'s `β`), built as
-   a FAMILY of `Param`s. `transfer% (Σ _ : Nat, Nat)` lifts the base through `paramSigmaR`; the forward map (a
+   a FAMILY of `Param`s. `transfer% (Σ _ : Nat, Nat)` lifts the base through `paramSigmaRG`; the forward map (a
    dependent-pair map) COMPUTES. -/
 example :
     (transfer% (Σ _ : Nat, Nat)).cov.map ⟨Nat.zero, Nat.succ Nat.zero⟩ = ⟨Unary.z, Unary.s Unary.z⟩ := rfl
 
 /- and a `Prop` goal binding a `Σ`-typed variable transfers — the dependent-Π domain `Σ _ : Unary, Unary` is
-   built via `paramSigmaR` (the family machinery feeding the generalized `piTerm`). -/
+   built via `paramSigmaRG` (the family machinery feeding the generalized `piTerm`). -/
 def SigTriv  (_s : Σ _ : Unary, Unary) : Prop := True
 def SigTriv' (_s : Σ _ : Nat, Nat)     : Prop := True
 @[trocq] def SigTrivR (mc nc : MapClass) (s : Σ _ : Unary, Unary) (t : Σ _ : Nat, Nat)
@@ -139,11 +139,11 @@ def SigTriv' (_s : Σ _ : Nat, Nat)     : Prop := True
     Param mc nc (SigTriv s) (SigTriv' t) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ s : Σ _ : Unary, Unary, SigTriv s := by
-  trocq                       -- ⊢ ∀ s : Σ _ : Nat, Nat, SigTriv' s   (Σ-typed binder, domain via `paramSigmaR`)
+  trocq                       -- ⊢ ∀ s : Σ _ : Nat, Nat, SigTriv' s   (Σ-typed binder, domain via `paramSigmaRG`)
   exact fun _ => trivial
 
 /- W-types in the tactic too: a goal binding a `WTree`-typed variable transfers, its domain built via the
-   recursive `paramWTreeR` (again the family machinery feeding `piTerm`). -/
+   recursive `paramWTreeRG` (again the family machinery feeding `piTerm`). -/
 def WTriv  (_t : WTree Unary (fun _ => Unary)) : Prop := True
 def WTriv' (_t : WTree Nat (fun _ => Nat))     : Prop := True
 @[trocq] def WTrivR (mc nc : MapClass) (s : WTree Unary (fun _ => Unary)) (t : WTree Nat (fun _ => Nat))
@@ -151,34 +151,35 @@ def WTriv' (_t : WTree Nat (fun _ => Nat))     : Prop := True
     Param mc nc (WTriv s) (WTriv' t) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : ∀ t : WTree Unary (fun _ => Unary), WTriv t := by
-  trocq                       -- ⊢ ∀ t : WTree Nat (fun _ => Nat), WTriv' t   (W-typed binder, domain via `paramWTreeR`)
+  trocq                       -- ⊢ ∀ t : WTree Nat (fun _ => Nat), WTriv' t   (W-typed binder, domain via `paramWTreeRG`)
   exact fun _ => trivial
 
 /- QUOTIENTS in the tactic: `Quot r` is a former over a type AND a relation (the relation is a term arg). The
-   `(4,4)` relator `paramQuotR` builds `Quot r ≃ Quot r'` (maps are `Quot.lift`s); the forward map COMPUTES on
+   graded relator `paramQuotRG` builds `Quot r ≃ Quot r'` (maps are `Quot.lift`s); the forward map COMPUTES on
    a concrete class. -/
 example : (transfer% (Quot (fun _ _ : Nat => True))).cov.map (Quot.mk _ (Nat.succ Nat.zero))
     = Quot.mk (fun _ _ : Unary => True) (Unary.s Unary.z) := rfl
 
-/- CARTESIAN PRODUCT in the tactic: `paramProdR` lifts the base through BOTH parameters; its forward map acts
+/- CARTESIAN PRODUCT in the tactic: `paramProdRG` lifts the base through BOTH parameters; its forward map acts
    componentwise — and it COMPUTES. (`Bool` rides along DIAGONALLY in the mixed `Nat × Bool`.) -/
 example : (transfer% (Nat × Nat)).cov.map (Nat.zero, Nat.succ Nat.zero) = (Unary.z, Unary.s Unary.z) := rfl
 example : (transfer% (Nat × Bool)).cov.map (Nat.zero, true) = (Unary.z, true) := rfl
 
-/- NON-DEPENDENT SUM: `paramSumR`'s forward map is `Sum.map` of the two base maps; each injection computes. -/
+/- NON-DEPENDENT SUM: `paramSumRG`'s forward map is `Sum.map` of the two base maps; each injection computes. -/
 example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inl Nat.zero) = (Sum.inl Unary.z : Unary ⊕ Unary) := rfl
 example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inr (Nat.succ Nat.zero))
     = (Sum.inr (Unary.s Unary.z) : Unary ⊕ Unary) := rfl
 
-/- ARRAY: `paramArrayR` delegates to `paramListR` through `toList`; the forward map rebuilds the array. -/
+/- ARRAY: `paramArrayRG` delegates to `paramListRG` through `toList`; the forward map rebuilds the array. -/
 example : (transfer% (Array Nat)).cov.map #[Nat.zero, Nat.succ Nat.zero] = #[Unary.z, Unary.s Unary.z] := rfl
 
-/- BOOL is registered DIAGONALLY: `paramBoolR` is the identity equivalence, so `Bool` transfers to itself.
-   `transfer% (Bool → Bool)` transports a function over the diagonal — the forward map is the function itself. -/
+/- BOOL takes the WHOLE-DIAGONAL short-circuit: `Bool`'s counterpart is itself, so `assemble` builds the
+   generic `paramRefl` (relation `PLift (a=b)`, identity maps) — no per-type registration. `transfer% (Bool →
+   Bool)` transports a function over that diagonal — the forward map is the function itself. -/
 example : (transfer% (Bool → Bool)).cov.map (fun b => !b) true = false := rfl
 
-/- EMPTY / UNIT (in `Type`): registered as `(4,4)` bases (`paramEmptyR`/`paramUnitR`), so they transfer as
-   leaves and compose with the formers. `Empty` is a pure solver leaf (no values); `Unit` rides trivially. -/
+/- EMPTY / UNIT (in `Type`): also unregistered — they take the same whole-diagonal short-circuit (`paramRefl`),
+   so they transfer as leaves and compose with the formers. `Empty` has no values; `Unit` rides trivially. -/
 example : (transfer% (Option Empty)).cov.map none = none := rfl
 example : (transfer% (Nat → Unit)).cov.map (fun _ => Unit.unit) Unary.z = Unit.unit := rfl
 example : (transfer% (Nat × Unit)).cov.map (Nat.zero, Unit.unit) = (Unary.z, Unit.unit) := rfl
@@ -204,7 +205,7 @@ example : ∀ u : Unary, u = u := by
 example : ∀ (n : Nat) (n' : Unary), RN.R n n' → PLift (n = n ↔ n' = n') :=
   relate% (fun n : Nat => n = n)
 
-/- CONNECTIVES IN GOALS: `And`/`Or`/`Not`/`Iff` are `(4,4)` relators (`LeTrocq.ParamLib.Logic`), so the
+/- CONNECTIVES IN GOALS: `And`/`Or`/`Not`/`Iff` are graded relators (`LeTrocq.ParamLib.Logic`), so the
    SOLVER path crosses them — a goal headed by a connective transfers, its `Prop` parts each recursing as a
    `Param` component (like `Prod`). Nesting works (`(· ∧ ·) ∨ ¬¬·`). -/
 example : ∀ u : Unary, Pos u ∧ Pos u := by

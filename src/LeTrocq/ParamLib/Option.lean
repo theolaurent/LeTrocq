@@ -39,39 +39,45 @@ def mapOptionVariance : MapClass → ParamClass
 def optionVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapOptionVariance c.1) (ParamClass.negate (mapOptionVariance c.2))
 
+/-- lifted soundness/completeness for `OptionR`, shared across the `optionCov` arms (cov + its `contra`
+    mirror, which swaps the map direction). Non-recursive, so these stay computable. -/
+def optionMapInR {A B : Type} {R : A → B → Type} (f : A → B) (fInR : ∀ a b, f a = b → R a b) :
+    ∀ oa ob, Option.map f oa = ob → OptionR A B R oa ob :=
+  fun oa ob h => by subst h; cases oa with
+    | none => exact .none
+    | some a => exact .some (fInR a _ rfl)
+
+theorem optionRInMap {A B : Type} {R : A → B → Type} (f : A → B) (fRInMap : ∀ a b, R a b → f a = b) :
+    ∀ oa ob, OptionR A B R oa ob → Option.map f oa = ob :=
+  fun _ _ r => by cases r with
+    | none => rfl
+    | some aR => exact congrArg some (fRInMap _ _ aR)
+
+def optionContraMapInR {A B : Type} {R : A → B → Type} (g : B → A) (gInR : ∀ b a, g b = a → R a b) :
+    ∀ ob oa, Option.map g ob = oa → OptionR A B R oa ob :=
+  fun ob oa h => by subst h; cases ob with
+    | none => exact .none
+    | some b => exact .some (gInR b _ rfl)
+
+theorem optionContraRInMap {A B : Type} {R : A → B → Type} (g : B → A) (gRInMap : ∀ b a, R a b → g b = a) :
+    ∀ ob oa, OptionR A B R oa ob → Option.map g ob = oa :=
+  fun _ _ r => by cases r with
+    | none => rfl
+    | some aR => exact congrArg some (gRInMap _ _ aR)
+
 /-- the covariant half `MapHas m (OptionR R)` from the element at `mapOptionVariance m`. -/
 def optionCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapOptionVariance m).1 (mapOptionVariance m).2 A B) →
     MapHas m (OptionR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.cov.map }
-  | map2a, pa =>
-      { map := Option.map pa.cov.map
-        map_in_R := fun oa ob h => by subst h; cases oa with
-          | none => exact .none
-          | some a => exact .some (pa.cov.map_in_R a _ rfl) }
-  | map2b, pa =>
-      { map := Option.map pa.cov.map
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.cov.R_in_map _ _ aR) }
-  | map3,  pa =>
-      { map := Option.map pa.cov.map
-        map_in_R := fun oa ob h => by subst h; cases oa with
-          | none => exact .none
-          | some a => exact .some (pa.cov.map_in_R a _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.cov.R_in_map _ _ aR) }
-  | map4,  pa =>
-      { map := Option.map pa.cov.map
-        map_in_R := fun oa ob h => by subst h; cases oa with
-          | none => exact .none
-          | some a => exact .some (pa.cov.map_in_R a _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.cov.R_in_map _ _ aR)
-        R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+  | map2a, pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R }
+  | map2b, pa => { map := Option.map pa.cov.map, R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map }
+  | map3,  pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R,
+                   R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map }
+  | map4,  pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R,
+                   R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map,
+                   R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
 /-- the contravariant half `MapHas n (flip (OptionR R))` from the element's contra at `mapOptionVariance n`. -/
 def optionContra {A B : Type} :
@@ -79,33 +85,13 @@ def optionContra {A B : Type} :
     MapHas n (fun (ob : Option B) (oa : Option A) => OptionR A B pa.R oa ob)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.contra.map }
-  | map2a, pa =>
-      { map := Option.map pa.contra.map
-        map_in_R := fun ob oa h => by subst h; cases ob with
-          | none => exact .none
-          | some b => exact .some (pa.contra.map_in_R b _ rfl) }
-  | map2b, pa =>
-      { map := Option.map pa.contra.map
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.contra.R_in_map _ _ aR) }
-  | map3,  pa =>
-      { map := Option.map pa.contra.map
-        map_in_R := fun ob oa h => by subst h; cases ob with
-          | none => exact .none
-          | some b => exact .some (pa.contra.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.contra.R_in_map _ _ aR) }
-  | map4,  pa =>
-      { map := Option.map pa.contra.map
-        map_in_R := fun ob oa h => by subst h; cases ob with
-          | none => exact .none
-          | some b => exact .some (pa.contra.map_in_R b _ rfl)
-        R_in_map := fun _ _ r => by cases r with
-          | none => rfl
-          | some aR => exact congrArg some (pa.contra.R_in_map _ _ aR)
-        R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
+  | map2a, pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R }
+  | map2b, pa => { map := Option.map pa.contra.map, R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map }
+  | map3,  pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R,
+                   R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map }
+  | map4,  pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R,
+                   R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map,
+                   R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
 
 /-- `Option A ≃ Option B` at ANY output class `(m,n)`, element at the `optionVariance`-minimal class. -/
 @[trocq] noncomputable def paramOptionRG (m n : MapClass) (A B : Type)

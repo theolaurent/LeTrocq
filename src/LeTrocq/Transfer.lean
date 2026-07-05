@@ -1,27 +1,20 @@
 /-
-THE GRADED RELATIONAL TRANSLATION `[·]`: produce the relatedness witness
-`[e] : 〚T〛 e ⟨e⟩` (with `〚T〛 := [T].R`), relying on the one term translation `⟨·⟩` (`LeTrocq.Translate.term`).
+THE GRADED RELATIONAL TRANSLATION `[·]`: the relatedness witness `[e] : 〚T〛 e ⟨e⟩` (`〚T〛 := [T].R`), on top
+of the one term translation `⟨·⟩` (`Translate.term`). Two mutually-recursive halves:
 
-It has two mutually-recursive halves, splitting `[Πx:A.B]` from `[t u]`:
+  • the TYPE half (`assemble`) — a SINGLE syntax-directed pass driven by a DEMANDED output class. It walks `T`
+    top-down and at each former pushes the demand through the `arrowVariance`/`forallVariance` tables to the
+    minimal class each part needs, building the node with its graded combinator at exactly that class. A LEAF
+    (registered atom or bound type var) reads its available class and WEAKENS to the demand. No constraint
+    graph, no fixpoint — infeasibility is just a stuck `assemble` (a `Type` above the `(2a,2a)` ceiling, or a
+    leaf that can't weaken).
+  • the TERM half (`assembleTerm`) — the abstraction theorem `[t u] = [t] u ⟨u⟩ [u]`, bottoming at registered
+    TERM primitives. A PROPOSITION is a `Sort 0` type: `[P] : PLift (P ↔ P')` is the type witness projected by
+    `iffOfParam`, so there is no separate `Prop` arm.
 
-  • the TYPE half (`assemble`) is a SINGLE syntax-directed pass driven by a DEMANDED output class:
-    `assemble : Expr → ParamClass → MetaM Expr`. It walks the type `Expr` top-down, and at each structural former
-    pushes the demand THROUGH the `arrowVariance`/`forallVariance` tables (`ParamCC`) to the minimal class each part
-    needs, building the node with its graded combinator (`paramArrow`, `paramForall`, the universe combinator) at
-    exactly that class. A LEAF (a registered base atom, or a bound type variable) reads its available class and
-    WEAKENS down to the demand. No constraint graph, no fixpoint — feasibility is just a stuck `assemble` (a `Type`
-    demand above the `(2a,2a)` univalence ceiling, or a leaf that can't weaken to the demand).
-  • the TERM half (`assembleTerm`) is the abstraction theorem: `[t u] = [t] u ⟨u⟩ [u]`,
-    `[λx:A.t] = fun x x' xR => [t]`, bottoming at registered TERM primitives; every counterpart it needs comes
-    from `⟨·⟩`. A PROPOSITION is just a `Sort 0` type — `[P] : PLift (P ↔ P')` is the relator/type witness
-    `assemble` builds, projected by `iffOfParam` — so there is no separate `Prop` arm.
-
-BOUND VARIABLES ARE PINNED AT `(4,4)` (type and term alike): a `∀ A : Type` binder offers `A` at inner class
-`(4,4)` (the universe combinator's inner relation strength, independent of the capped outer class), and each use
-weakens down. This is what removes the fixpoint — a bound variable's class is no longer the join of its uses.
-
-There is ONE relational translation (this file) and ONE term translation (`Translate.term`); the previous
-separate "native" pass is gone. `transfer`/`relate` are the type/term entry points.
+BOUND VARIABLES ARE PINNED AT `(4,4)` (the universe combinator's inner class, independent of the capped outer
+class); each use weakens down. This is what removes the fixpoint — a var's class is no longer the join of its
+uses. `transfer`/`relate` are the type/term entry points.
 -/
 import LeTrocq.Solver
 import LeTrocq.TranslateTerm
