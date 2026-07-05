@@ -10,8 +10,8 @@ types, terms, and goals across it — generating verified `Param` witnesses whos
 compute.
 
 Two design aims set this port apart. **Library-agnostic:** no dependencies beyond Lean core, and
-the driver hardcodes no types — even `Nat`, `List`, and `Quot` are ordinary `@[trocq]` registrations
-it reads from an environment extension. **Predictable:** transfer is a single deterministic top-down
+the driver hardcodes no types — even `List` and the kernel constant `Quot` are ordinary `@[trocq]`
+registrations it reads from an environment extension. **Predictable:** transfer is a single deterministic top-down
 pass — no typeclass resolution, no backtracking search, no constraint-solving fixpoint — so it either
 produces a witness or fails with a definite reason. Every generated proof is choice-free (only
 `propext`/`Quot.sound`).
@@ -48,8 +48,10 @@ Prove a witness and tag it `@[trocq]`; the driver reads it from the environment.
 classified by its type into a **base** (`Param m n A B`), a **relator** (`∀ …, Param … (F …) (F' …)` — also
 how a `Prop` predicate or connective registers, since a proposition is just a `Sort 0` type), a **type
 former** (the parametricity relation of a parameterized type), or a **term primitive**. See
-`Examples/NatUnary.lean` (a base) and `LeTrocq/ParamLib/` (prelude types) for the recipes. Ground types
-register an *overridable* diagonal.
+`Examples/NatUnary.lean` (a base) and `LeTrocq/ParamLib/` (prelude types) for the recipes. A ground type
+needs no registration at all: a type (or term) whose counterpart is itself is short-circuited to the generic
+diagonal `paramRefl` (relation `PLift (a = b)`, identity maps), so `Nat`/`Bool`/`Empty`/`Unit` transfer to
+themselves out of the box — and a registered equivalence (e.g. `Nat ≃ Unary`) overrides that whenever it applies.
 
 ## How it works
 

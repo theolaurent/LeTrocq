@@ -21,12 +21,12 @@ The library, module by module (each builds on the previous):
                           `relate%` (terms) and `transfer%`/`trocq` (types).
   • `LeTrocq.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
   • `LeTrocq.ParamLib`    — the parametricity library: `@[trocq]` registrations for prelude types
-                          (`Bool`, `Nat`, `List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, the empty/unit
-                          types `Empty`/`Unit`/`False`/`True`, the kernel constant `Quot`, propositional
-                          equality `Eq`, and the logical connectives `Not`/`And`/`Or`/`Iff`), so
-                          `import LeTrocq` gives transfer over them out of the box. The ground types
-                          (`Bool`/`Nat`/…) register the diagonal, overridable by a user equivalence (e.g.
-                          `Nat ≃ Unary`).
+                          (`List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, the kernel constant `Quot`,
+                          propositional equality `Eq`, and the logical connectives `Not`/`And`/`Or`/`Iff`), so
+                          `import LeTrocq` gives transfer over them out of the box. Ground types (`Bool`, `Nat`,
+                          `Empty`, `Unit`, `True`, `False`) need NO registration — a type/term whose counterpart
+                          is itself is short-circuited to the generic diagonal `paramRefl` in `Transfer` — and a
+                          user equivalence (e.g. `Nat ≃ Unary`) overrides that diagonal whenever it applies.
 -/
 import LeTrocq.Lattice
 import LeTrocq.Hierarchy

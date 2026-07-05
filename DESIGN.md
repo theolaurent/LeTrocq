@@ -105,7 +105,13 @@ i.e. to transport that Π, the domain relation is needed only at `〚A〛@(2a,0)
 ## 5. Leaves: registered witnesses, never unfolding
 
 The structural rules bottom out at `@[trocq]`-registered constants; the translation NEVER unfolds a
-definition (an unregistered head is an error).
+definition (an unregistered head that is not diagonal is an error). The one exception is the **whole-diagonal
+short-circuit**: a type (or term) whose counterpart is *itself* — e.g. an unregistered ground type like `Nat`
+or `Bool`, or any composite built entirely from such parts — is transferred by the generic reflexive witness
+`paramRefl` (relation `PLift (a = b)`, identity maps), with no per-type registration and no structural
+descent. So ground types need no `@[trocq]` witness; a registered equivalence overrides the diagonal when one
+applies. (Excluded: a bare sort or a universe binder, which must keep their parametric witness — the free
+theorem — rather than collapse to discrete equality.)
 
     ⟨c⟩   := registered counterpart   (a term primitive's B-side, a type former's B-head, a Prop predicate's B-side)
     [c]   := registered relatedness   (a term primitive witness, a relator, a Prop primitive)

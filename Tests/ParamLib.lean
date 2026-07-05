@@ -1,43 +1,47 @@
 /-
 The STANDARD-LIBRARY registrations, exercised WITHOUT a user base in scope.
 
-This module imports only `LeTrocq` (not `Examples/NatUnary`), so the library's OWN registrations are the
-only ones present — in particular `Nat` is the `LeTrocq.ParamLib` DIAGONAL (`Nat ≃ Nat`), not the worked
-example's `Nat ≃ Unary` (which shadows it in the other test modules). So these checks pin down the default,
-overridable registrations on their own terms: `Nat`/`Bool` cross to themselves, and the parameterized
-formers (`Prod`/`Sum`/`Array`/`List`) lift the diagonal componentwise.
+This module imports only `LeTrocq` (not `Examples/NatUnary`), so NO ground-type equivalence is in scope.
+With none registered, a ground type transfers to ITSELF via the whole-diagonal short-circuit in `Transfer`
+(the generic `paramRefl`, relation `PLift (a = b)`, identity maps) — there is no `Nat ≃ Nat` registration.
+A user base like `Nat ≃ Unary` (present in the other test modules) overrides that diagonal whenever it
+applies. So these checks pin down the default: `Nat`/`Bool`/`Empty`/`Unit` cross to themselves, and a
+composite over only-diagonal parts (`Prod`/`Sum`/`Array`/`List` of `Nat`/`Bool`) is itself diagonal, so it
+short-circuits as a whole.
 -/
 import LeTrocq
 namespace LeTrocq.Tests.ParamLib
 open LeTrocq MapClass LeTrocq.Translate LeTrocq.ParamLib
 
-/- DIAGONAL `Nat`: with no other equivalence registered, `Nat` transfers to itself. The numeral leaf expands
-   to `Nat.succ`/`Nat.zero`, which the constructor term primitives (`NatSuccR`/`NatZeroR`) carry. -/
+/- DIAGONAL `Nat`: with no equivalence registered, `Nat` transfers to itself. A numeral expands to
+   `Nat.succ`/`Nat.zero`; those heads are unregistered, so `⟨·⟩` leaves each as itself (the diagonal). -/
 example : (translate% (fun n : Nat => Nat.succ (Nat.succ n))) = (fun n : Nat => Nat.succ (Nat.succ n)) := rfl
 example : (translate% (2 : Nat)) = (2 : Nat) := rfl
 /- the relatedness is the generic diagonal `PLift (a = b)` (the whole-diagonal short-circuit's reflexivity). -/
 example : PLift ((2 : Nat) = 2) := relate% (2 : Nat)
-/- and the solver path: `transfer% (Nat → Nat)` is the identity equivalence, so its forward map is the
-   function itself — `paramNatR` weakened/threaded through `paramArrow`. -/
+/- and the solver path: `transfer% (Nat → Nat)` is diagonal (both sides cross to themselves), so it is the
+   generic `paramRefl` and its forward map is the identity — `(· + 1)` transported is `(· + 1)` itself. -/
 example : (transfer% (Nat → Nat)).cov.map (· + 1) 0 = 1 := rfl
 
-/- `Bool` is diagonal in BOTH environments (no other `Bool` equivalence exists). The translation crosses the
-   CONSTRUCTORS (`true`/`false`); an ELIMINATOR like `!` (which unfolds to `Bool.rec`) is not registered, just
-   as `Quot.lift`/recursors aren't — the solver path still transports a `Bool → Bool` function wholesale. -/
+/- `Bool` is diagonal in BOTH environments (no `Bool` equivalence is ever registered). Its constructors
+   `true`/`false` are unregistered, so `⟨·⟩` crosses them by the diagonal; a `Bool → Bool` function transports
+   through the generic `paramRefl` (identity map), `!` and all — no `Bool.rec`/eliminator registration needed. -/
 example : (translate% (true, false)) = (true, false) := rfl
 example : PLift (false = false) := relate% false
 example : (transfer% (Bool → Bool)).cov.map (fun b => !b) false = true := rfl
 
-/- the parameterized formers over the diagonal: each lifts `Nat ≃ Nat` componentwise, so they too transfer
-   to themselves — exercising `paramProdR`/`paramSumR`/`paramArrayR` with a non-`Unary` base. -/
+/- composites over only-diagonal parts: `Nat × Bool`, `Nat ⊕ Nat`, `Array Nat` are each diagonal as a WHOLE
+   (every part crosses to itself), so `assemble` short-circuits the whole type to `paramRefl` — the per-type
+   relators (`paramProdRG`/`paramSumRG`/`paramArrayRG`) are exercised elsewhere, with a real base. -/
 example : (transfer% (Nat × Bool)).cov.map (3, true) = (3, true) := rfl
 example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inr 2) = (Sum.inr 2 : Nat ⊕ Nat) := rfl
 example : (transfer% (Array Nat)).cov.map #[1, 2, 3] = #[1, 2, 3] := rfl
 example : (translate% (#[1, 2] : Array Nat)) = (#[1, 2] : Array Nat) := rfl
 
-/- the EMPTY and UNIT types, in `Type` (`Empty`/`Unit`) and `Prop` (`False`/`True`): each is a parameter-less
-   `(4,4)` base, so it transfers to itself. `Empty`/`Unit` are `Type` leaves (testable via a `Type` former or
-   a value); `True`/`False` are `Prop` and can't sit under a `Type` former, so we confirm they assemble. -/
+/- the EMPTY and UNIT types, in `Type` (`Empty`/`Unit`) and `Prop` (`False`/`True`): each is an unregistered
+   leaf that crosses to itself, so it transfers by the diagonal short-circuit (`paramRefl`, at `(4,4)`).
+   `Empty`/`Unit` are `Type` (testable via a `Type` former or a value); `True`/`False` are `Prop` and can't
+   sit under a `Type` former, so we confirm they assemble directly. -/
 example : (transfer% (List Unit)).cov.map [Unit.unit, Unit.unit] = [Unit.unit, Unit.unit] := rfl
 example : (transfer% (Option Empty)).cov.map none = none := rfl
 example : (transfer% True).cov.map True.intro = True.intro := rfl
