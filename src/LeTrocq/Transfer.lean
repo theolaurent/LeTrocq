@@ -1,10 +1,10 @@
 /-
-THE GRADED RELATIONAL TRANSLATION `[·]` (DESIGN.md's `[·]`): produce the relatedness witness
+THE GRADED RELATIONAL TRANSLATION `[·]`: produce the relatedness witness
 `[e] : 〚T〛 e ⟨e⟩` (with `〚T〛 := [T].R`), relying on the one term translation `⟨·⟩` (`LeTrocq.Translate.term`).
 
-It has two mutually-recursive halves — as DESIGN.md itself splits `[Πx:A.B]` from `[t u]`:
+It has two mutually-recursive halves, splitting `[Πx:A.B]` from `[t u]`:
 
-  • the TYPE half (`assemble`) is a SINGLE syntax-directed pass driven by a DEMANDED output class (bidir_solver.md):
+  • the TYPE half (`assemble`) is a SINGLE syntax-directed pass driven by a DEMANDED output class:
     `assemble : Expr → ParamClass → MetaM Expr`. It walks the type `Expr` top-down, and at each structural former
     pushes the demand THROUGH the `arrowVariance`/`forallVariance` tables (`ParamCC`) to the minimal class each part
     needs, building the node with its graded combinator (`paramArrow`, `paramForall`, the universe combinator) at
@@ -67,7 +67,7 @@ def typeLevelOf (dom : Expr) : MetaM Level := do
   | l       => throwError "assemble: universe binder over `Sort {l}` — only `Type w` domains supported"
 
 /-- the INNER class of every universe combinator: the strength of the `Param p q A A'` a bound type variable is
-    offered at. Pinned `(4,4)` (bidir_solver.md): it is the top, independent of the capped outer class, and
+    offered at. Pinned `(4,4)`: it is the top, independent of the capped outer class, and
     weakens to satisfy every use — which is exactly what lets a bound variable have a fixed class (no fixpoint).
     `paramIdAt (4,4)` is `paramRefl` weakened, so this needs no axiom. -/
 def innerClass : ParamClass := (map4, map4)
@@ -278,7 +278,7 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
 partial def assembleType (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr :=
   assemble reg senv T (map0, map0) none
 
-/-- `〚·〛 := [·].R` (DESIGN.md's `〚A〛 := A.R`): the RELATION of a type `T`, projected off the graded witness
+/-- `〚·〛 := [·].R` (`〚A〛 := [A].R`): the RELATION of a type `T`, projected off the graded witness
     `[·]` (`assembleType`) builds. All a TERM position ever consumes of a type, and grade-invariant — so
     `assembleType`'s cheapest `(0,0)` witness suffices. -/
 partial def assembleRel (reg : Reg) (senv : SEnv) (T : Expr) : MetaM Expr := do

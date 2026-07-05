@@ -12,7 +12,7 @@ The library, module by module (each builds on the previous):
                           (module `LeTrocq.TranslateTerm`, namespace `LeTrocq.Translate`).
   • `LeTrocq.Solver`      — the `@[trocq]` registries the translation reads (`buildAtomPairs`/`buildConsts`) plus
                           `relatorArgKinds` (a relator's per-argument routing). NOT a grading solver anymore —
-                          grading is inline in `Transfer` (bidir_solver.md).
+                          grading is inline in `Transfer`.
   • `LeTrocq.Transfer`    — the graded relational translation `[·]`, a single demand-driven pass: `assemble`
                           walks a type top-down, pushing the demanded class through the dependency tables to the
                           minimal class each part needs and building it with its graded combinator (no constraint

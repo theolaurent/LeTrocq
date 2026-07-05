@@ -4,7 +4,7 @@ The lattice algebra: the MapClass/ParamClass diamond, its order/join/meet, and t
 The computational spine of the graded system (the port of Trocq's `elpi/class.elpi`). Pure, finite, no
 proofs/metaprogramming — validated with `rfl`/`#eval` in the tests. The per-former GRADING tables
 (`arrowVariance`/`forallVariance`) now live with their combinators in `ParamCC/`; `Transfer.assemble`
-pushes a demanded class top-down through them (bidir_solver.md). The proof-heavy combinators (`ParamCC`)
+pushes a demanded class top-down through them. The proof-heavy combinators (`ParamCC`)
 and the driver (`Transfer`) build on top of this.
 -/
 namespace LeTrocq

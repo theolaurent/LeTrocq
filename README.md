@@ -68,8 +68,7 @@ class-4 relation is forced to be a subsingleton.
 
 See the [documentation book](https://theolaurent.github.io/LeTrocq/) for the full account — a user
 guide plus the formal design (the graded translation and the demand-driven solver). The book is an
-[mdBook](https://rust-lang.github.io/mdBook/) under [`docs/`](docs/); `DESIGN.md` remains the concise
-in-repo summary.
+[mdBook](https://rust-lang.github.io/mdBook/) under [`docs/`](docs/).
 
 ### Module map
 

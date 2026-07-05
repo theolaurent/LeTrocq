@@ -43,7 +43,7 @@ example : Unary → Unary := by
 - The **design** part is the formal account: [the graded parametricity
   translation](design/translation.md) (the hierarchy, the combinators, grading) and [the
   demand-driven witness solver](design/solver.md) (the single top-down pass that produces the
-  witnesses). It is a faithful port of the project's design blueprint; each result names the Lean
-  declaration that realises it.
+  witnesses). This is the project's formal design account; each result names the Lean declaration
+  that realises it.
 
 The source lives at [github.com/theolaurent/LeTrocq](https://github.com/theolaurent/LeTrocq).

@@ -1,6 +1,6 @@
 /- The driver: Expr → demand-driven `assemble` → witness, end to end. `Transfer.assemble` walks the type once,
    pushing a demanded class top-down through the dependency tables and building each node's `Param` at the minimal
-   class the demand dictates (no constraint graph, no fixpoint — bidir_solver.md). -/
+   class the demand dictates (no constraint graph, no fixpoint). -/
 import Lean
 import LeTrocq
 import Examples.NatUnary

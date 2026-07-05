@@ -1,5 +1,5 @@
 /-
-The TERM TRANSLATION `⟨·⟩` (DESIGN.md's simple term translation).
+The TERM TRANSLATION `⟨·⟩` (the counterpart translation).
 
 For a term/type `e` it produces ONLY the B-side counterpart `[e]` (`e` rebuilt leaf-by-leaf over `B` — NOT
 `iso ∘ e ∘ iso⁻¹`). It recurses structurally (`.const`, `.fvar`, `.app`, `.lam`, `∀`, sort, `Nat` numerals)
@@ -71,7 +71,7 @@ def splitPi? (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := do
     | _ => return (none, none)
   | none => return (none, none)
 
-/-- `⟨·⟩` — THE TERM TRANSLATION (DESIGN.md's `⟨·⟩`): rebuild `e`'s B-side counterpart leaf by leaf. A
+/-- `⟨·⟩` — THE TERM TRANSLATION: rebuild `e`'s B-side counterpart leaf by leaf. A
     registered head maps to its counterpart (a term primitive `Nat.succ ↦ Unary.s`, a type former
     `List ↦ List`, or a `Prop` predicate `p ↦ p'`); a bound variable to its counterpart `x'`; a Π/λ/app/sort
     structurally; a `Nat` numeral through its `succ`/`zero` normal form. An unregistered head is an ERROR —

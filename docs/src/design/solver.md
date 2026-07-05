@@ -135,3 +135,18 @@ pass (driving `transfer%` at $\cls{4}{4}$ and the `trocq` tactic at the comap cl
 refines the goal by the backward map); `relate` runs the term judgment (driving `relate%`).
 `translate%` is $\Cpt{\cdot}$ ([Definition 18](translation.md#def-translate-term)), unchanged.
 *(Lean: `LeTrocq.Transfer.transfer`, `LeTrocq.Transfer.relate`.)*
+
+## Map to the code
+
+Where the notation of these two chapters lives in the source (all under `src/LeTrocq/`):
+
+| Notation / concept | Lean declaration | File |
+|---|---|---|
+| ⟨·⟩ — the counterpart translation | `LeTrocq.Translate.term` | `TranslateTerm.lean` |
+| [·] on a type — the graded witness | `LeTrocq.Transfer.assemble` | `Transfer.lean` |
+| [·] on a term — the abstraction theorem | `LeTrocq.Transfer.assembleTerm` | `Transfer.lean` |
+| 〚·〛 := [·].R — the carried relation | `LeTrocq.Transfer.assembleRel` | `Transfer.lean` |
+| `Param` + the class diamond | `LeTrocq.Param` / `LeTrocq.MapClass` | `Hierarchy.lean`, `Lattice.lean` |
+| grading (demand → part classes) | inline in `assemble`, via the variance tables | `Transfer.lean`, `ParamCC/` |
+| `@[trocq]` registries | `Solver.buildAtomPairs` / `buildConsts` / `relatorArgKinds` | `Solver.lean` |
+| the four surfaces | `transfer%` / `trocq` / `translate%` / `relate%` | `Tactic.lean` |
