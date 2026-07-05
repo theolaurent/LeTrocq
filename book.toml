@@ -1,11 +1,13 @@
-# mdbook configuration for the LeTrocq documentation.
+# mdbook configuration for the LeTrocq documentation. Lives at the repo root, so `mdbook`
+# runs at top level; the Markdown chapters are the `src` directory `docs/` (the repo's own
+# `src/` holds the Lean sources).
 #
 # Math is rendered at BUILD TIME by the `mdbook-katex` preprocessor (so a malformed
 # formula fails the build). Its shared macros — the counterparts of the old blueprint
-# `common.tex` — live in `macros.txt`.
+# `common.tex` — live in `docs/texmacros.txt`.
 #
-#   mdbook serve docs      # live preview at http://localhost:3000
-#   mdbook build docs      # render to docs/book/
+#   mdbook serve      # live preview at http://localhost:3000
+#   mdbook build      # render to ./book/
 # (both require `mdbook` and `mdbook-katex` on PATH; CI installs them.)
 
 [book]
@@ -13,7 +15,7 @@ title = "LeTrocq"
 description = "A Lean-native, graded reformulation of the Trocq proof-transfer framework."
 authors = ["Théo Laurent"]
 language = "en"
-src = "src"
+src = "docs"
 
 [output.html]
 # Served as a GitHub project page at <user>.github.io/LeTrocq/, so absolute links and
@@ -26,4 +28,4 @@ enable = true
 level = 1
 
 [preprocessor.katex]
-macros = "./macros.txt"
+macros = "docs/texmacros.txt"

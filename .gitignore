@@ -1,5 +1,5 @@
 # Lake build output
 /.lake/
 
-# mdBook output (docs/)
-/docs/book/
+# mdBook output
+/book/

@@ -68,7 +68,8 @@ class-4 relation is forced to be a subsingleton.
 
 See the [documentation book](https://theolaurent.github.io/LeTrocq/) for the full account — a user
 guide plus the formal design (the graded translation and the demand-driven solver). The book is an
-[mdBook](https://rust-lang.github.io/mdBook/) under [`docs/`](docs/).
+[mdBook](https://rust-lang.github.io/mdBook/) — `book.toml` at the repo root, chapters under
+[`docs/`](docs/).
 
 ### Module map
 
@@ -88,6 +89,9 @@ ParamLib/    @[trocq] registrations for prelude types
 ## Build
 
 ```sh
-lake build   # warnings are errors
-lake test    # test suite + axiom-footprint guard
+lake build     # the library (warnings are errors)
+lake test      # test suite + axiom-footprint guard
+
+mdbook build   # the documentation book → ./book/ (needs mdbook + mdbook-katex)
+mdbook serve   # live preview at http://localhost:3000
 ```
