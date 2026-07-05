@@ -40,6 +40,49 @@ def arrowVariance (c : ParamClass) : ParamClass × ParamClass :=
   (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
 
 /- ===================== the graded arrow family (every output class, incl. (4,4)) ===================== -/
+/- The lifted arrow soundness/completeness obligations, each written ONCE and shared across the 2a/3/4 (resp.
+   2b/3/4) arms. cov and contra are mirrors — cov reconstructs the codomain via `pb.cov`, contra via
+   `pb.contra` — so they need separate helpers. The `map_in_R` ones return `RArrow` data (a `def`); the
+   `R_in_map` ones return a function equality (a `theorem`). -/
+def arrowCovMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+    (amap : A' → A) (aRInMap : ∀ a' a, RA a a' → amap a' = a)
+    (bmap : B → B') (bMapInR : ∀ b b', bmap b = b' → RB b b') :
+    ∀ f f', (fun a' => bmap (f (amap a'))) = f' → RArrow RA RB f f' := by
+  intro f f' h a a' raa
+  have ha : amap a' = a := aRInMap a' a raa
+  have hf : f' a' = bmap (f (amap a')) := (congrFun h a').symm
+  rw [hf, ha]; exact bMapInR (f a) (bmap (f a)) rfl
+
+theorem arrowCovRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+    (amap : A' → A) (aMapInR : ∀ a' a, amap a' = a → RA a a')
+    (bmap : B → B') (bRInMap : ∀ b b', RB b b' → bmap b = b') :
+    ∀ f f', RArrow RA RB f f' → (fun a' => bmap (f (amap a'))) = f' := by
+  intro f f' r; funext a'
+  have hra : RA (amap a') a' := aMapInR a' (amap a') rfl
+  exact bRInMap _ _ (r (amap a') a' hra)
+
+def arrowContraMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+    (amap : A → A') (aRInMap : ∀ a a', RA a a' → amap a = a')
+    (bmap : B' → B) (bMapInR : ∀ b' b, bmap b' = b → RB b b') :
+    ∀ f' f, (fun a => bmap (f' (amap a))) = f → RArrow RA RB f f' := by
+  intro f' f h a a' raa
+  have ha : amap a = a' := aRInMap a a' raa
+  have hf : f a = bmap (f' (amap a)) := (congrFun h a).symm
+  rw [hf, ha]; exact bMapInR (f' a') (bmap (f' a')) rfl
+
+theorem arrowContraRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+    (amap : A → A') (aMapInR : ∀ a a', amap a = a' → RA a a')
+    (bmap : B' → B) (bRInMap : ∀ b' b, RB b b' → bmap b' = b) :
+    ∀ f' f, RArrow RA RB f f' → (fun a => bmap (f' (amap a))) = f := by
+  intro f' f r; funext a
+  have hra : RA a (amap a) := aMapInR a (amap a) rfl
+  exact bRInMap _ _ (r a (amap a) hra)
+
+/-- the arrow relation is a subsingleton when the codomain part is (at `map4`), so the coherence is free. -/
+theorem RArrow.allEq {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+    (hB : ∀ b b', Subsingleton (RB b b')) {f : A → B} {f' : A' → B'} (x y : RArrow RA RB f f') : x = y :=
+  funext fun a => funext fun a' => funext fun _ => @Subsingleton.elim _ (hB (f a) (f' a')) _ _
+
 /-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov (one arm per class). At
     `map4` the coherence `R_in_mapK` is FREE: class-4 parts have subsingleton relations
     (`Map4Has.subsingleton`), so the arrow relation is a subsingleton and any two proofs are equal. -/
@@ -50,40 +93,18 @@ def arrowCov {A B A' B' : Type u} :
     MapHas m (RArrow pa.R pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')) }
-  | map2a, pa, pb =>
-      { map := fun f a' => pb.cov.map (f (pa.contra.map a'))
-        map_in_R := fun f f' h a a' raa => by
-          have ha : pa.contra.map a' = a := pa.contra.R_in_map a' a raa
-          have hf : f' a' = pb.cov.map (f (pa.contra.map a')) := (congrFun h a').symm
-          rw [hf, ha]; exact pb.cov.map_in_R (f a) (pb.cov.map (f a)) rfl }
-  | map2b, pa, pb =>
-      { map := fun f a' => pb.cov.map (f (pa.contra.map a'))
-        R_in_map := fun f f' r => funext fun a' => by
-          have hra : pa.R (pa.contra.map a') a' := pa.contra.map_in_R a' (pa.contra.map a') rfl
-          exact pb.cov.R_in_map _ _ (r (pa.contra.map a') a' hra) }
-  | map3,  pa, pb =>
-      { map := fun f a' => pb.cov.map (f (pa.contra.map a'))
-        map_in_R := fun f f' h a a' raa => by
-          have ha : pa.contra.map a' = a := pa.contra.R_in_map a' a raa
-          have hf : f' a' = pb.cov.map (f (pa.contra.map a')) := (congrFun h a').symm
-          rw [hf, ha]; exact pb.cov.map_in_R (f a) (pb.cov.map (f a)) rfl
-        R_in_map := fun f f' r => funext fun a' => by
-          have hra : pa.R (pa.contra.map a') a' := pa.contra.map_in_R a' (pa.contra.map a') rfl
-          exact pb.cov.R_in_map _ _ (r (pa.contra.map a') a' hra) }
-  | map4,  pa, pb =>
-      { map := fun f a' => pb.cov.map (f (pa.contra.map a'))
-        map_in_R := fun f f' h a a' raa => by
-          have ha : pa.contra.map a' = a := pa.contra.R_in_map a' a raa
-          have hf : f' a' = pb.cov.map (f (pa.contra.map a')) := (congrFun h a').symm
-          rw [hf, ha]; exact pb.cov.map_in_R (f a) (pb.cov.map (f a)) rfl
-        R_in_map := fun f f' r => funext fun a' => by
-          have hra : pa.R (pa.contra.map a') a' := pa.contra.map_in_R a' (pa.contra.map a') rfl
-          exact pb.cov.R_in_map _ _ (r (pa.contra.map a') a' hra)
-        R_in_mapK := fun f f' _ => by
-          haveI : Subsingleton (RArrow pa.R pb.R f f') :=
-            ⟨fun x y => funext fun a => funext fun a' => funext fun raa =>
-              @Subsingleton.elim _ (pb.cov.subsingleton (f a) (f' a')) _ _⟩
-          exact Subsingleton.elim _ _ }
+  | map2a, pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')),
+                       map_in_R := arrowCovMapInR pa.contra.map pa.contra.R_in_map pb.cov.map pb.cov.map_in_R }
+  | map2b, pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')),
+                       R_in_map := arrowCovRInMap pa.contra.map pa.contra.map_in_R pb.cov.map pb.cov.R_in_map }
+  | map3,  pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')),
+                       map_in_R := arrowCovMapInR pa.contra.map pa.contra.R_in_map pb.cov.map pb.cov.map_in_R,
+                       R_in_map := arrowCovRInMap pa.contra.map pa.contra.map_in_R pb.cov.map pb.cov.R_in_map }
+  | map4,  pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')),
+                       map_in_R := arrowCovMapInR pa.contra.map pa.contra.R_in_map pb.cov.map pb.cov.map_in_R,
+                       R_in_map := arrowCovRInMap pa.contra.map pa.contra.map_in_R pb.cov.map pb.cov.R_in_map,
+                       R_in_mapK := fun _ _ _ =>
+                         RArrow.allEq (fun b b' => pb.cov.subsingleton b b') _ _ }
 
 /-- the contravariant half `MapHas n (sym (RArrow RA RB))` from A's cov + B's contra (the mirror). -/
 def arrowContra {A B A' B' : Type u} :
@@ -93,40 +114,18 @@ def arrowContra {A B A' B' : Type u} :
     MapHas n (fun (f' : A' → B') (f : A → B) => RArrow pa.R pb.R f f')
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)) }
-  | map2a, pa, pb =>
-      { map := fun f' a => pb.contra.map (f' (pa.cov.map a))
-        map_in_R := fun f' f h a a' raa => by
-          have ha : pa.cov.map a = a' := pa.cov.R_in_map a a' raa
-          have hf : f a = pb.contra.map (f' (pa.cov.map a)) := (congrFun h a).symm
-          rw [hf, ha]; exact pb.contra.map_in_R (f' a') (pb.contra.map (f' a')) rfl }
-  | map2b, pa, pb =>
-      { map := fun f' a => pb.contra.map (f' (pa.cov.map a))
-        R_in_map := fun f' f r => funext fun a => by
-          have hra : pa.R a (pa.cov.map a) := pa.cov.map_in_R a (pa.cov.map a) rfl
-          exact pb.contra.R_in_map _ _ (r a (pa.cov.map a) hra) }
-  | map3,  pa, pb =>
-      { map := fun f' a => pb.contra.map (f' (pa.cov.map a))
-        map_in_R := fun f' f h a a' raa => by
-          have ha : pa.cov.map a = a' := pa.cov.R_in_map a a' raa
-          have hf : f a = pb.contra.map (f' (pa.cov.map a)) := (congrFun h a).symm
-          rw [hf, ha]; exact pb.contra.map_in_R (f' a') (pb.contra.map (f' a')) rfl
-        R_in_map := fun f' f r => funext fun a => by
-          have hra : pa.R a (pa.cov.map a) := pa.cov.map_in_R a (pa.cov.map a) rfl
-          exact pb.contra.R_in_map _ _ (r a (pa.cov.map a) hra) }
-  | map4,  pa, pb =>
-      { map := fun f' a => pb.contra.map (f' (pa.cov.map a))
-        map_in_R := fun f' f h a a' raa => by
-          have ha : pa.cov.map a = a' := pa.cov.R_in_map a a' raa
-          have hf : f a = pb.contra.map (f' (pa.cov.map a)) := (congrFun h a).symm
-          rw [hf, ha]; exact pb.contra.map_in_R (f' a') (pb.contra.map (f' a')) rfl
-        R_in_map := fun f' f r => funext fun a => by
-          have hra : pa.R a (pa.cov.map a) := pa.cov.map_in_R a (pa.cov.map a) rfl
-          exact pb.contra.R_in_map _ _ (r a (pa.cov.map a) hra)
-        R_in_mapK := fun f' f _ => by
-          haveI : Subsingleton (RArrow pa.R pb.R f f') :=
-            ⟨fun x y => funext fun a => funext fun a' => funext fun raa =>
-              @Subsingleton.elim _ (pb.contra.subsingleton (f' a') (f a)) _ _⟩
-          exact Subsingleton.elim _ _ }
+  | map2a, pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)),
+                       map_in_R := arrowContraMapInR pa.cov.map pa.cov.R_in_map pb.contra.map pb.contra.map_in_R }
+  | map2b, pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)),
+                       R_in_map := arrowContraRInMap pa.cov.map pa.cov.map_in_R pb.contra.map pb.contra.R_in_map }
+  | map3,  pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)),
+                       map_in_R := arrowContraMapInR pa.cov.map pa.cov.R_in_map pb.contra.map pb.contra.map_in_R,
+                       R_in_map := arrowContraRInMap pa.cov.map pa.cov.map_in_R pb.contra.map pb.contra.R_in_map }
+  | map4,  pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)),
+                       map_in_R := arrowContraMapInR pa.cov.map pa.cov.R_in_map pb.contra.map pb.contra.map_in_R,
+                       R_in_map := arrowContraRInMap pa.cov.map pa.cov.map_in_R pb.contra.map pb.contra.R_in_map,
+                       R_in_mapK := fun _ _ _ =>
+                         RArrow.allEq (fun b b' => pb.contra.subsingleton b' b) _ _ }
 
 /-- arrow at ANY output class `(m,n)`, incl. `(4,4)`, from parts at the `arrowVariance`-minimal classes.
     The single joined-class part is weakened down to what each half (cov/contra) consumes; every

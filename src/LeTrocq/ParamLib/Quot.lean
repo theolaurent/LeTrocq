@@ -54,6 +54,31 @@ def mapQuotVariance : MapClass → ParamClass
 def quotVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapQuotVariance c.1) (ParamClass.negate (mapQuotVariance c.2))
 
+/- The shared cov obligations, written ONCE via the raw `pa.cov` fields + the (ungraded) `rR`. `QuotRel` is
+   a `Prop`-truncated subsingleton, so `map_in_R` returns `PLift.up …` (a `def`) and coherence is `rfl`. -/
+noncomputable def quotFwdMap {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (amap : A → A') (aMapInR : ∀ a a', amap a = a' → RA a a')
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) : Quot r → Quot r' :=
+  Quot.lift (fun a => Quot.mk r' (amap a)) (fun a b hab =>
+    Quot.sound ((rR a (amap a) (aMapInR a (amap a) rfl) b (amap b) (aMapInR b (amap b) rfl)).down.mp hab))
+
+noncomputable def quotMapInR {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (amap : A → A') (aMapInR : ∀ a a', amap a = a' → RA a a')
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) :
+    ∀ q q', quotFwdMap r r' amap aMapInR rR q = q' → QuotRel A A' RA r r' rR q q' :=
+  fun q q' h => PLift.up (by
+    obtain ⟨a, ha⟩ := q.exists_rep; subst ha
+    exact ⟨a, amap a, rfl, h, ⟨aMapInR a (amap a) rfl⟩⟩)
+
+theorem quotRInMap {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (amap : A → A') (aMapInR : ∀ a a', amap a = a' → RA a a') (aRInMap : ∀ a a', RA a a' → amap a = a')
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) :
+    ∀ q q', QuotRel A A' RA r r' rR q q' → quotFwdMap r r' amap aMapInR rR q = q' :=
+  fun q q' hR => by
+    obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
+    show Quot.mk r' (amap a) = Quot.mk r' a'
+    rw [aRInMap a a' aR]
+
 /-- the covariant half from the domain at `mapQuotVariance m`. Coherence is `rfl` (subsingleton relation). -/
 noncomputable def quotCov {A A' : Type} (r : A → A → Prop) (r' : A' → A' → Prop) :
     (m : MapClass) →
@@ -61,48 +86,43 @@ noncomputable def quotCov {A A' : Type} (r : A → A → Prop) (r' : A' → A' �
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b')) →
     MapHas m (QuotRel A A' pa.R r r' rR)
   | map0,  _,  _  => {}
-  | map1,  pa, rR =>
-      { map := Quot.lift (fun a => Quot.mk r' (pa.cov.map a)) (fun a b hab =>
-          Quot.sound ((rR a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)
-                          b (pa.cov.map b) (pa.cov.map_in_R b _ rfl)).down.mp hab)) }
-  | map2a, pa, rR =>
-      { map := Quot.lift (fun a => Quot.mk r' (pa.cov.map a)) (fun a b hab =>
-          Quot.sound ((rR a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)
-                          b (pa.cov.map b) (pa.cov.map_in_R b _ rfl)).down.mp hab))
-        map_in_R := fun q q' h => PLift.up (by
-          obtain ⟨a, ha⟩ := q.exists_rep; subst ha
-          exact ⟨a, pa.cov.map a, rfl, h, ⟨pa.cov.map_in_R a _ rfl⟩⟩) }
-  | map2b, pa, rR =>
-      { map := Quot.lift (fun a => Quot.mk r' (pa.cov.map a)) (fun a b hab =>
-          Quot.sound ((rR a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)
-                          b (pa.cov.map b) (pa.cov.map_in_R b _ rfl)).down.mp hab))
-        R_in_map := fun q q' hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r' (pa.cov.map a) = Quot.mk r' a'
-          rw [pa.cov.R_in_map a a' aR] }
-  | map3,  pa, rR =>
-      { map := Quot.lift (fun a => Quot.mk r' (pa.cov.map a)) (fun a b hab =>
-          Quot.sound ((rR a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)
-                          b (pa.cov.map b) (pa.cov.map_in_R b _ rfl)).down.mp hab))
-        map_in_R := fun q q' h => PLift.up (by
-          obtain ⟨a, ha⟩ := q.exists_rep; subst ha
-          exact ⟨a, pa.cov.map a, rfl, h, ⟨pa.cov.map_in_R a _ rfl⟩⟩)
-        R_in_map := fun q q' hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r' (pa.cov.map a) = Quot.mk r' a'
-          rw [pa.cov.R_in_map a a' aR] }
-  | map4,  pa, rR =>
-      { map := Quot.lift (fun a => Quot.mk r' (pa.cov.map a)) (fun a b hab =>
-          Quot.sound ((rR a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)
-                          b (pa.cov.map b) (pa.cov.map_in_R b _ rfl)).down.mp hab))
-        map_in_R := fun q q' h => PLift.up (by
-          obtain ⟨a, ha⟩ := q.exists_rep; subst ha
-          exact ⟨a, pa.cov.map a, rfl, h, ⟨pa.cov.map_in_R a _ rfl⟩⟩)
-        R_in_map := fun q q' hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r' (pa.cov.map a) = Quot.mk r' a'
-          rw [pa.cov.R_in_map a a' aR]
-        R_in_mapK := fun _ _ _ => rfl }
+  | map1,  pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.map_in_R rR }
+  | map2a, pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.map_in_R rR,
+                       map_in_R := quotMapInR r r' pa.cov.map pa.cov.map_in_R rR }
+  | map2b, pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.map_in_R rR,
+                       R_in_map := quotRInMap r r' pa.cov.map pa.cov.map_in_R pa.cov.R_in_map rR }
+  | map3,  pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.map_in_R rR,
+                       map_in_R := quotMapInR r r' pa.cov.map pa.cov.map_in_R rR,
+                       R_in_map := quotRInMap r r' pa.cov.map pa.cov.map_in_R pa.cov.R_in_map rR }
+  | map4,  pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.map_in_R rR,
+                       map_in_R := quotMapInR r r' pa.cov.map pa.cov.map_in_R rR,
+                       R_in_map := quotRInMap r r' pa.cov.map pa.cov.map_in_R pa.cov.R_in_map rR,
+                       R_in_mapK := fun _ _ _ => rfl }
+
+/- the contra mirror: A-side uses `pa.contra` (`acMap : A' → A`), maps `Quot r' → Quot r` (`.mpr`). -/
+noncomputable def quotBwdMap {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a')
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) : Quot r' → Quot r :=
+  Quot.lift (fun a' => Quot.mk r (acMap a')) (fun a' b' hab =>
+    Quot.sound ((rR (acMap a') a' (acMapInR a' (acMap a') rfl)
+                    (acMap b') b' (acMapInR b' (acMap b') rfl)).down.mpr hab))
+
+noncomputable def quotContraMapInR {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a')
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) :
+    ∀ q' q, quotBwdMap r r' acMap acMapInR rR q' = q → QuotRel A A' RA r r' rR q q' :=
+  fun q' q h => PLift.up (by
+    obtain ⟨a', ha'⟩ := q'.exists_rep; subst ha'
+    exact ⟨acMap a', a', h, rfl, ⟨acMapInR a' (acMap a') rfl⟩⟩)
+
+theorem quotContraRInMap {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a') (acRInMap : ∀ a' a, RA a a' → acMap a' = a)
+    (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) :
+    ∀ q' q, QuotRel A A' RA r r' rR q q' → quotBwdMap r r' acMap acMapInR rR q' = q :=
+  fun q' q hR => by
+    obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
+    show Quot.mk r (acMap a') = Quot.mk r a
+    rw [acRInMap a' a aR]
 
 /-- the contravariant half from the domain's contra at `mapQuotVariance n`. -/
 noncomputable def quotContra {A A' : Type} (r : A → A → Prop) (r' : A' → A' → Prop) :
@@ -111,48 +131,18 @@ noncomputable def quotContra {A A' : Type} (r : A → A → Prop) (r' : A' → A
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b')) →
     MapHas n (fun (q' : Quot r') (q : Quot r) => QuotRel A A' pa.R r r' rR q q')
   | map0,  _,  _  => {}
-  | map1,  pa, rR =>
-      { map := Quot.lift (fun a' => Quot.mk r (pa.contra.map a')) (fun a' b' hab =>
-          Quot.sound ((rR (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)
-                          (pa.contra.map b') b' (pa.contra.map_in_R b' _ rfl)).down.mpr hab)) }
-  | map2a, pa, rR =>
-      { map := Quot.lift (fun a' => Quot.mk r (pa.contra.map a')) (fun a' b' hab =>
-          Quot.sound ((rR (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)
-                          (pa.contra.map b') b' (pa.contra.map_in_R b' _ rfl)).down.mpr hab))
-        map_in_R := fun q' q h => PLift.up (by
-          obtain ⟨a', ha'⟩ := q'.exists_rep; subst ha'
-          exact ⟨pa.contra.map a', a', h, rfl, ⟨pa.contra.map_in_R a' _ rfl⟩⟩) }
-  | map2b, pa, rR =>
-      { map := Quot.lift (fun a' => Quot.mk r (pa.contra.map a')) (fun a' b' hab =>
-          Quot.sound ((rR (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)
-                          (pa.contra.map b') b' (pa.contra.map_in_R b' _ rfl)).down.mpr hab))
-        R_in_map := fun q' q hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r (pa.contra.map a') = Quot.mk r a
-          rw [pa.contra.R_in_map a' a aR] }
-  | map3,  pa, rR =>
-      { map := Quot.lift (fun a' => Quot.mk r (pa.contra.map a')) (fun a' b' hab =>
-          Quot.sound ((rR (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)
-                          (pa.contra.map b') b' (pa.contra.map_in_R b' _ rfl)).down.mpr hab))
-        map_in_R := fun q' q h => PLift.up (by
-          obtain ⟨a', ha'⟩ := q'.exists_rep; subst ha'
-          exact ⟨pa.contra.map a', a', h, rfl, ⟨pa.contra.map_in_R a' _ rfl⟩⟩)
-        R_in_map := fun q' q hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r (pa.contra.map a') = Quot.mk r a
-          rw [pa.contra.R_in_map a' a aR] }
-  | map4,  pa, rR =>
-      { map := Quot.lift (fun a' => Quot.mk r (pa.contra.map a')) (fun a' b' hab =>
-          Quot.sound ((rR (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)
-                          (pa.contra.map b') b' (pa.contra.map_in_R b' _ rfl)).down.mpr hab))
-        map_in_R := fun q' q h => PLift.up (by
-          obtain ⟨a', ha'⟩ := q'.exists_rep; subst ha'
-          exact ⟨pa.contra.map a', a', h, rfl, ⟨pa.contra.map_in_R a' _ rfl⟩⟩)
-        R_in_map := fun q' q hR => by
-          obtain ⟨a, a', ha, ha', ⟨aR⟩⟩ := hR.down; subst ha; subst ha'
-          show Quot.mk r (pa.contra.map a') = Quot.mk r a
-          rw [pa.contra.R_in_map a' a aR]
-        R_in_mapK := fun _ _ _ => rfl }
+  | map1,  pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.map_in_R rR }
+  | map2a, pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.map_in_R rR,
+                       map_in_R := quotContraMapInR r r' pa.contra.map pa.contra.map_in_R rR }
+  | map2b, pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.map_in_R rR,
+                       R_in_map := quotContraRInMap r r' pa.contra.map pa.contra.map_in_R pa.contra.R_in_map rR }
+  | map3,  pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.map_in_R rR,
+                       map_in_R := quotContraMapInR r r' pa.contra.map pa.contra.map_in_R rR,
+                       R_in_map := quotContraRInMap r r' pa.contra.map pa.contra.map_in_R pa.contra.R_in_map rR }
+  | map4,  pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.map_in_R rR,
+                       map_in_R := quotContraMapInR r r' pa.contra.map pa.contra.map_in_R rR,
+                       R_in_map := quotContraRInMap r r' pa.contra.map pa.contra.map_in_R pa.contra.R_in_map rR,
+                       R_in_mapK := fun _ _ _ => rfl }
 
 /-- `Quot r ≃ Quot r'` at ANY output class `(m,n)`, domain at the `quotVariance`-minimal class. -/
 @[trocq] noncomputable def paramQuotRG (m n : MapClass) (A A' : Type)
