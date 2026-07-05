@@ -90,6 +90,52 @@ def wtreeVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (bd, bf) := mapWTreeVariance c.2
   (ParamClass.join ad (ParamClass.negate bd), ParamClass.join af (ParamClass.negate bf))
 
+/- The shared cov obligations, written ONCE via the family's RAW projected child maps
+   (`pullGen := fun a a' aR => (pb a a' aR).contra.map`, contravariant fiber). `wtreeCovMap` wraps `wfwdG` so
+   the `map` field and both proof helpers refer to the same map; the completeness rewrites need `simp only`
+   (not `rw`) because the child index is an un-beta-reduced redex. -/
+noncomputable def wtreeCovMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    (lab : A → A') (labMapInR : ∀ a a', lab a = a' → RA a a')
+    (pullGen : ∀ a a', RA a a' → B' a' → B a) : WTree A B → WTree A' B' :=
+  wfwdG lab (fun a => pullGen a (lab a) (labMapInR a (lab a) rfl))
+
+noncomputable def wtreeCovMapInR {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    {RB : ∀ a a', RA a a' → B a → B' a' → Type}
+    (lab : A → A') (labMapInR : ∀ a a', lab a = a' → RA a a')
+    (pullGen : ∀ a a', RA a a' → B' a' → B a)
+    (pullRInMap : ∀ a a' (aR : RA a a') b' b, RB a a' aR b b' → pullGen a a' aR b' = b) :
+    ∀ s t, wtreeCovMap lab labMapInR pullGen s = t → WTreeR A A' RA B B' RB s t := by
+  intro s _ h
+  subst h; induction s with
+  | @mk a f ih =>
+    refine .mk (labMapInR a (lab a) rfl) (fun b b' bR => ?_)
+    have hb : pullGen a (lab a) (labMapInR a (lab a) rfl) b' = b :=
+      pullRInMap a (lab a) (labMapInR a (lab a) rfl) b' b bR
+    show WTreeR _ _ _ _ _ _ (f b) (wtreeCovMap lab labMapInR pullGen (f _))
+    simp only [hb]; exact ih b
+
+theorem wtreeCovRInMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    {RB : ∀ a a', RA a a' → B a → B' a' → Type}
+    (lab : A → A') (labMapInR : ∀ a a', lab a = a' → RA a a')
+    (labRInMap : ∀ a a', RA a a' → lab a = a') (labSub : ∀ a a', Subsingleton (RA a a'))
+    (pullGen : ∀ a a', RA a a' → B' a' → B a)
+    (pullMapInR : ∀ a a' (aR : RA a a') b' b, pullGen a a' aR b' = b → RB a a' aR b b') :
+    ∀ s t, WTreeR A A' RA B B' RB s t → wtreeCovMap lab labMapInR pullGen s = t := by
+  intro _ _ r
+  induction r with
+  | @mk a a' f f' aR fR ih =>
+    have ha := labRInMap a a' aR
+    subst ha
+    show wtreeCovMap lab labMapInR pullGen ⟨a, f⟩ = ⟨lab a, f'⟩
+    refine congrArg (WTree.mk (lab a)) ?_
+    funext b'
+    have hb : pullGen a (lab a) (labMapInR a (lab a) rfl) b' = pullGen a (lab a) aR b' := by
+      haveI := labSub a (lab a)
+      rw [Subsingleton.elim (labMapInR a (lab a) rfl) aR]
+    show wtreeCovMap lab labMapInR pullGen (f _) = f' b'
+    simp only [hb]
+    exact ih (pullGen a (lab a) aR b') b' (pullMapInR a (lab a) aR b' _ rfl)
+
 /-- the covariant half: the map is `wfwdG` of `pa`'s label map and `pb`'s child pullback. -/
 noncomputable def wtreeCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
     (m : MapClass) →
@@ -98,99 +144,69 @@ noncomputable def wtreeCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
           Param (mapWTreeVariance m).2.1 (mapWTreeVariance m).2.2 (B a) (B' a')) →
     MapHas m (WTreeR A A' pa.R B B' (fun a a' aR => (pb a a' aR).R))
   | map0,  _,  _  => {}
-  | map1,  pa, pb =>
-      { map := wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) }
-  | map2a, pa, pb =>
-      { map := wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map)
-        map_in_R := fun s _ h => by
-          subst h; induction s with
-          | @mk a f ih =>
-            refine .mk (pa.cov.map_in_R a _ rfl) (fun b b' bR => ?_)
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b' = b :=
-              (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.R_in_map b' b bR
-            show WTreeR _ _ _ _ _ _ (f b)
-              (wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _))
-            simp only [hb]; exact ih b }
-  | map2b, pa, pb =>
-      { map := wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map)
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.cov.R_in_map a a' aR
-            subst ha
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) ⟨a, f⟩
-              = ⟨pa.cov.map a, f'⟩
-            refine congrArg (WTree.mk (pa.cov.map a)) ?_
-            funext b'
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b'
-                = (pb a (pa.cov.map a) aR).contra.map b' := by
-              haveI := pa.cov.subsingleton a (pa.cov.map a)
-              rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl) aR]
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _)
-              = f' b'
-            simp only [hb]
-            exact ih ((pb a (pa.cov.map a) aR).contra.map b') b'
-              ((pb a (pa.cov.map a) aR).contra.map_in_R b' _ rfl) }
-  | map3,  pa, pb =>
-      { map := wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map)
-        map_in_R := fun s _ h => by
-          subst h; induction s with
-          | @mk a f ih =>
-            refine .mk (pa.cov.map_in_R a _ rfl) (fun b b' bR => ?_)
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b' = b :=
-              (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.R_in_map b' b bR
-            show WTreeR _ _ _ _ _ _ (f b)
-              (wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _))
-            simp only [hb]; exact ih b
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.cov.R_in_map a a' aR
-            subst ha
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) ⟨a, f⟩
-              = ⟨pa.cov.map a, f'⟩
-            refine congrArg (WTree.mk (pa.cov.map a)) ?_
-            funext b'
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b'
-                = (pb a (pa.cov.map a) aR).contra.map b' := by
-              haveI := pa.cov.subsingleton a (pa.cov.map a)
-              rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl) aR]
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _)
-              = f' b'
-            simp only [hb]
-            exact ih ((pb a (pa.cov.map a) aR).contra.map b') b'
-              ((pb a (pa.cov.map a) aR).contra.map_in_R b' _ rfl) }
-  | map4,  pa, pb =>
-      { map := wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map)
-        map_in_R := fun s _ h => by
-          subst h; induction s with
-          | @mk a f ih =>
-            refine .mk (pa.cov.map_in_R a _ rfl) (fun b b' bR => ?_)
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b' = b :=
-              (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.R_in_map b' b bR
-            show WTreeR _ _ _ _ _ _ (f b)
-              (wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _))
-            simp only [hb]; exact ih b
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.cov.R_in_map a a' aR
-            subst ha
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) ⟨a, f⟩
-              = ⟨pa.cov.map a, f'⟩
-            refine congrArg (WTree.mk (pa.cov.map a)) ?_
-            funext b'
-            have hb : (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map b'
-                = (pb a (pa.cov.map a) aR).contra.map b' := by
-              haveI := pa.cov.subsingleton a (pa.cov.map a)
-              rw [Subsingleton.elim (pa.cov.map_in_R a (pa.cov.map a) rfl) aR]
-            show wfwdG pa.cov.map (fun a => (pb a (pa.cov.map a) (pa.cov.map_in_R a _ rfl)).contra.map) (f _)
-              = f' b'
-            simp only [hb]
-            exact ih ((pb a (pa.cov.map a) aR).contra.map b') b'
-              ((pb a (pa.cov.map a) aR).contra.map_in_R b' _ rfl)
-        R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.cov.subsingleton a a')
-          (fun a a' aR b b' => (pb a a' aR).contra.subsingleton b' b) _ _ }
+  | map1,  pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.map_in_R (fun a a' aR => (pb a a' aR).contra.map) }
+  | map2a, pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.map_in_R (fun a a' aR => (pb a a' aR).contra.map),
+                       map_in_R := wtreeCovMapInR pa.cov.map pa.cov.map_in_R
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.R_in_map) }
+  | map2b, pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.map_in_R (fun a a' aR => (pb a a' aR).contra.map),
+                       R_in_map := wtreeCovRInMap pa.cov.map pa.cov.map_in_R pa.cov.R_in_map pa.cov.subsingleton
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.map_in_R) }
+  | map3,  pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.map_in_R (fun a a' aR => (pb a a' aR).contra.map),
+                       map_in_R := wtreeCovMapInR pa.cov.map pa.cov.map_in_R
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.R_in_map),
+                       R_in_map := wtreeCovRInMap pa.cov.map pa.cov.map_in_R pa.cov.R_in_map pa.cov.subsingleton
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.map_in_R) }
+  | map4,  pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.map_in_R (fun a a' aR => (pb a a' aR).contra.map),
+                       map_in_R := wtreeCovMapInR pa.cov.map pa.cov.map_in_R
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.R_in_map),
+                       R_in_map := wtreeCovRInMap pa.cov.map pa.cov.map_in_R pa.cov.R_in_map pa.cov.subsingleton
+                         (fun a a' aR => (pb a a' aR).contra.map) (fun a a' aR => (pb a a' aR).contra.map_in_R),
+                       R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.cov.subsingleton a a')
+                         (fun a a' aR b b' => (pb a a' aR).contra.subsingleton b' b) _ _ }
+
+/- the contra mirror: A-side uses `pa.contra` (`acMap : A' → A`), the fiber uses `pb.cov` (`pushGen : … →
+   B a → B' a'`), map via `wbwdG`. -/
+noncomputable def wtreeContraMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a')
+    (pushGen : ∀ a a', RA a a' → B a → B' a') : WTree A' B' → WTree A B :=
+  wbwdG acMap (fun a' => pushGen (acMap a') a' (acMapInR a' (acMap a') rfl))
+
+noncomputable def wtreeContraMapInR {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    {RB : ∀ a a', RA a a' → B a → B' a' → Type}
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a')
+    (pushGen : ∀ a a', RA a a' → B a → B' a')
+    (pushRInMap : ∀ a a' (aR : RA a a') b b', RB a a' aR b b' → pushGen a a' aR b = b') :
+    ∀ t s, wtreeContraMap acMap acMapInR pushGen t = s → WTreeR A A' RA B B' RB s t := by
+  intro t _ h
+  subst h; induction t with
+  | @mk a' f ih =>
+    refine .mk (acMapInR a' (acMap a') rfl) (fun b b' bR => ?_)
+    have hb : pushGen (acMap a') a' (acMapInR a' (acMap a') rfl) b = b' :=
+      pushRInMap (acMap a') a' (acMapInR a' (acMap a') rfl) b b' bR
+    show WTreeR _ _ _ _ _ _ (wtreeContraMap acMap acMapInR pushGen (f _)) (f b')
+    simp only [hb]; exact ih b'
+
+theorem wtreeContraRInMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
+    {RB : ∀ a a', RA a a' → B a → B' a' → Type}
+    (acMap : A' → A) (acMapInR : ∀ a' a, acMap a' = a → RA a a')
+    (acRInMap : ∀ a' a, RA a a' → acMap a' = a) (acSub : ∀ a' a, Subsingleton (RA a a'))
+    (pushGen : ∀ a a', RA a a' → B a → B' a')
+    (pushMapInR : ∀ a a' (aR : RA a a') b b', pushGen a a' aR b = b' → RB a a' aR b b') :
+    ∀ t s, WTreeR A A' RA B B' RB s t → wtreeContraMap acMap acMapInR pushGen t = s := by
+  intro _ _ r
+  induction r with
+  | @mk a a' f f' aR fR ih =>
+    have ha := acRInMap a' a aR
+    subst ha
+    show wtreeContraMap acMap acMapInR pushGen ⟨a', f'⟩ = ⟨acMap a', f⟩
+    refine congrArg (WTree.mk (acMap a')) ?_
+    funext b
+    have hb : pushGen (acMap a') a' (acMapInR a' (acMap a') rfl) b = pushGen (acMap a') a' aR b := by
+      haveI := acSub a' (acMap a')
+      rw [Subsingleton.elim (acMapInR a' (acMap a') rfl) aR]
+    show wtreeContraMap acMap acMapInR pushGen (f' _) = f b
+    simp only [hb]
+    exact ih b (pushGen (acMap a') a' aR b) (pushMapInR (acMap a') a' aR b _ rfl)
 
 /-- the contravariant half: the map is `wbwdG` of `pa`'s (backward) label map and `pb`'s child push. -/
 noncomputable def wtreeContra {A A' : Type} {B : A → Type} {B' : A' → Type} :
@@ -201,107 +217,25 @@ noncomputable def wtreeContra {A A' : Type} {B : A → Type} {B' : A' → Type} 
     MapHas n (fun (t : WTree A' B') (s : WTree A B) =>
       WTreeR A A' pa.R B B' (fun a a' aR => (pb a a' aR).R) s t)
   | map0,  _,  _  => {}
-  | map1,  pa, pb =>
-      { map := wbwdG pa.contra.map
-          (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) }
-  | map2a, pa, pb =>
-      { map := wbwdG pa.contra.map
-          (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map)
-        map_in_R := fun t _ h => by
-          subst h; induction t with
-          | @mk a' f ih =>
-            refine .mk (pa.contra.map_in_R a' _ rfl) (fun b b' bR => ?_)
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b = b' :=
-              (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.R_in_map b b' bR
-            show WTreeR _ _ _ _ _ _ (wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f _)) (f b')
-            simp only [hb]; exact ih b' }
-  | map2b, pa, pb =>
-      { map := wbwdG pa.contra.map
-          (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map)
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.contra.R_in_map a' a aR
-            subst ha
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) ⟨a', f'⟩
-              = ⟨pa.contra.map a', f⟩
-            refine congrArg (WTree.mk (pa.contra.map a')) ?_
-            funext b
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b
-                = (pb (pa.contra.map a') a' aR).cov.map b := by
-              haveI := pa.contra.subsingleton a' (pa.contra.map a')
-              rw [Subsingleton.elim (pa.contra.map_in_R a' (pa.contra.map a') rfl) aR]
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f' _) = f b
-            simp only [hb]
-            exact ih b ((pb (pa.contra.map a') a' aR).cov.map b)
-              ((pb (pa.contra.map a') a' aR).cov.map_in_R b _ rfl) }
-  | map3,  pa, pb =>
-      { map := wbwdG pa.contra.map
-          (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map)
-        map_in_R := fun t _ h => by
-          subst h; induction t with
-          | @mk a' f ih =>
-            refine .mk (pa.contra.map_in_R a' _ rfl) (fun b b' bR => ?_)
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b = b' :=
-              (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.R_in_map b b' bR
-            show WTreeR _ _ _ _ _ _ (wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f _)) (f b')
-            simp only [hb]; exact ih b'
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.contra.R_in_map a' a aR
-            subst ha
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) ⟨a', f'⟩
-              = ⟨pa.contra.map a', f⟩
-            refine congrArg (WTree.mk (pa.contra.map a')) ?_
-            funext b
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b
-                = (pb (pa.contra.map a') a' aR).cov.map b := by
-              haveI := pa.contra.subsingleton a' (pa.contra.map a')
-              rw [Subsingleton.elim (pa.contra.map_in_R a' (pa.contra.map a') rfl) aR]
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f' _) = f b
-            simp only [hb]
-            exact ih b ((pb (pa.contra.map a') a' aR).cov.map b)
-              ((pb (pa.contra.map a') a' aR).cov.map_in_R b _ rfl) }
-  | map4,  pa, pb =>
-      { map := wbwdG pa.contra.map
-          (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map)
-        map_in_R := fun t _ h => by
-          subst h; induction t with
-          | @mk a' f ih =>
-            refine .mk (pa.contra.map_in_R a' _ rfl) (fun b b' bR => ?_)
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b = b' :=
-              (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.R_in_map b b' bR
-            show WTreeR _ _ _ _ _ _ (wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f _)) (f b')
-            simp only [hb]; exact ih b'
-        R_in_map := fun _ _ r => by
-          induction r with
-          | @mk a a' f f' aR fR ih =>
-            have ha := pa.contra.R_in_map a' a aR
-            subst ha
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) ⟨a', f'⟩
-              = ⟨pa.contra.map a', f⟩
-            refine congrArg (WTree.mk (pa.contra.map a')) ?_
-            funext b
-            have hb : (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map b
-                = (pb (pa.contra.map a') a' aR).cov.map b := by
-              haveI := pa.contra.subsingleton a' (pa.contra.map a')
-              rw [Subsingleton.elim (pa.contra.map_in_R a' (pa.contra.map a') rfl) aR]
-            show wbwdG pa.contra.map
-              (fun a' => (pb (pa.contra.map a') a' (pa.contra.map_in_R a' _ rfl)).cov.map) (f' _) = f b
-            simp only [hb]
-            exact ih b ((pb (pa.contra.map a') a' aR).cov.map b)
-              ((pb (pa.contra.map a') a' aR).cov.map_in_R b _ rfl)
-        R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.contra.subsingleton a' a)
-          (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
+  | map1,  pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.map_in_R (fun a a' aR => (pb a a' aR).cov.map) }
+  | map2a, pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.map_in_R (fun a a' aR => (pb a a' aR).cov.map),
+                       map_in_R := wtreeContraMapInR pa.contra.map pa.contra.map_in_R
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.R_in_map) }
+  | map2b, pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.map_in_R (fun a a' aR => (pb a a' aR).cov.map),
+                       R_in_map := wtreeContraRInMap pa.contra.map pa.contra.map_in_R pa.contra.R_in_map pa.contra.subsingleton
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.map_in_R) }
+  | map3,  pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.map_in_R (fun a a' aR => (pb a a' aR).cov.map),
+                       map_in_R := wtreeContraMapInR pa.contra.map pa.contra.map_in_R
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.R_in_map),
+                       R_in_map := wtreeContraRInMap pa.contra.map pa.contra.map_in_R pa.contra.R_in_map pa.contra.subsingleton
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.map_in_R) }
+  | map4,  pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.map_in_R (fun a a' aR => (pb a a' aR).cov.map),
+                       map_in_R := wtreeContraMapInR pa.contra.map pa.contra.map_in_R
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.R_in_map),
+                       R_in_map := wtreeContraRInMap pa.contra.map pa.contra.map_in_R pa.contra.R_in_map pa.contra.subsingleton
+                         (fun a a' aR => (pb a a' aR).cov.map) (fun a a' aR => (pb a a' aR).cov.map_in_R),
+                       R_in_mapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.contra.subsingleton a' a)
+                         (fun a a' aR b b' => (pb a a' aR).cov.subsingleton b b') _ _ }
 
 /-- `WTree A B ≃ WTree A' B'` at ANY output class `(m,n)`, domain and family at the `wtreeVariance` classes. -/
 @[trocq] noncomputable def paramWTreeRG (m n : MapClass) (A A' : Type)
