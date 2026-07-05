@@ -19,10 +19,10 @@ import Examples.NatUnary   -- registers `Nat ≃ Unary` via `@[trocq]`
 
 open LeTrocq.Examples
 
--- transport a function across the equivalence; the map COMPUTES
+-- transport a function across the equivalence; the map does compute
 example : (transfer% (Nat → Nat)).cov.map (· + 1) Unary.z = Unary.s Unary.z := rfl
 
--- prove a `Unary` goal by transferring it to the easier `Nat` side
+-- prove a `Unary` goal by transferring it to the `Nat` side
 example : Unary → Unary := by
   trocq            -- ⊢ Nat → Nat
   exact (· + 1)
