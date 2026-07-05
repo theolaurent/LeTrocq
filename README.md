@@ -66,7 +66,10 @@ a dedicated solver infers the least class each occurrence needs, and a weakening
 Without univalence the universe is capped at `(2a,2a)`, but concrete types still reach `(4,4)` because a
 class-4 relation is forced to be a subsingleton.
 
-See [`DESIGN.md`](DESIGN.md) for the full account.
+See the [documentation book](https://theolaurent.github.io/LeTrocq/) for the full account — a user
+guide plus the formal design (the graded translation and the demand-driven solver). The book is an
+[mdBook](https://rust-lang.github.io/mdBook/) under [`docs/`](docs/); `DESIGN.md` remains the concise
+in-repo summary.
 
 ### Module map
 

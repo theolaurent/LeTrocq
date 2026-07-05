@@ -1,0 +1,17 @@
+\Param:\mathsf{Param}
+\MapHas:\mathsf{MapHas}
+\MapClass:\mathsf{MapClass}
+\Type:\mathsf{Type}
+\PropSort:\mathsf{Prop}
+\SortU:\mathsf{Sort}
+\Cpt:\langle #1 \rangle
+\Rel:[ #1 ]
+\Sem:[\![ #1 ]\!]
+\cls:(#1,#2)
+\rw:\rightsquigarrow
+\wk:\Downarrow
+\chk:\Leftarrow
+\syn:\Rightarrow
+\RArrow:\mathsf{RArrow}
+\RForall:\mathsf{RForall}
+\irule:\dfrac{\begin{array}{c}#1\end{array}}{#2}

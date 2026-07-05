@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Let the docgen-action publish to GitHub Pages.
+# Let the deploy step publish to GitHub Pages.
 permissions:
   contents: read
   pages: write
@@ -18,52 +18,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  docs:
-    name: Blueprint & API docs
+  book:
+    name: Build & deploy the mdBook
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Pinned to the version mdbook-katex 0.9.4 is built against.
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
         with:
-          fetch-depth: 0
+          mdbook-version: '0.4.48'
 
-      # docgen-action runs doc-gen4 over the compiled output, so build the library first.
-      # No Mathlib here, so its cache is disabled (matches ci.yml). This also sets up elan
-      # so the `lake build` below is on PATH.
-      - name: Build Lean library
-        uses: leanprover/lean-action@v1
-        with:
-          use-mathlib-cache: false
+      # The KaTeX preprocessor renders every formula at BUILD TIME, so a malformed
+      # formula fails this step (rust/cargo are preinstalled on the runner).
+      - name: Install mdbook-katex
+        run: cargo install mdbook-katex --version 0.9.4 --locked
 
-      # `leanblueprint checkdecls` (run by docgen-action) uses `lake exe checkdecls`, which imports
-      # the ROOT module of every lean_lib (LeTrocq, Examples, Tests) to resolve `\lean{…}` names.
-      # lean-action only builds the default target (LeTrocq), so build the other roots too — else
-      # checkdecls aborts on a missing `Examples.olean`.
-      - name: Build remaining library roots (for checkdecls)
-        run: lake build Examples Tests
+      - name: Build the book
+        run: mdbook build docs   # → docs/book/
 
-      # Enable GitHub Pages (build_type = workflow) if it isn't already, so the deploy below has a
-      # Pages site to publish to — otherwise actions/deploy-pages fails with "Deployment failed,
-      # try again later". Removes the one-time manual "Settings → Pages → Source: GitHub Actions".
+      # Enable GitHub Pages (build_type = workflow) if it isn't already, so the deploy
+      # below has a Pages site to publish to.
       - name: Enable GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      # Builds the Jekyll landing page (home_page/, Cayman theme), the leanblueprint document
-      # (blueprint/src/), and the doc-gen4 API docs, then deploys them to Pages:
-      #   landing page at <pages>/, blueprint at <pages>/blueprint, API docs at <pages>/docs.
-      #   • build-page + homepage — render the home_page/ Jekyll site as the site root.
-      #   • deploy gated to main — other branches and PRs only validate the build.
-      - name: Build & deploy docs
-        uses: leanprover-community/docgen-action@main
+      # Deploy gated to main; other branches and PRs only validate that the book builds.
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
         with:
-          blueprint: true
-          # api-docs disabled for now: building doc-gen4 from source dominates the ~9 min runtime.
-          # Re-enable (drop this line) to publish API docs at <pages>/docs, and restore the
-          # "Documentation" button in home_page/_layouts/default.html + the link in index.md.
-          api-docs: false
-          build-page: true
-          homepage: home_page
-          deploy: ${{ github.ref == 'refs/heads/main' }}
+          path: docs/book
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4

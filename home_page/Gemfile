@@ -1,7 +1,0 @@
-source "https://rubygems.org"
-
-# Just core Jekyll 4 (Ruby-3.4-safe: it uses the prebuilt sass-embedded, not the native sassc that
-# the old github-pages/jekyll-3.9 stack needs). No theme/plugin gems — the Cayman look ships as a
-# static compiled stylesheet (assets/css/style.css), so nothing here can fail on Ruby 3.4.
-gem "jekyll", "~> 4.3"
-gem "webrick" # for `jekyll serve` locally

@@ -1,23 +1,5 @@
 # Lake build output
 /.lake/
 
-# Blueprint build output (leanblueprint / plasTeX)
-/blueprint/print/
-/blueprint/web/
-/blueprint/lean_decls
-/blueprint/src/.plastex/
-/blueprint/src/*.aux
-/blueprint/src/*.log
-/blueprint/src/*.out
-/blueprint/src/*.toc
-/blueprint/src/*.paux
-/blueprint/src/*.pdf
-/blueprint/src/*.fls
-/blueprint/src/*.fdb_latexmk
-
-# Jekyll landing-page (home_page/) build output
-/home_page/_site/
-/home_page/.jekyll-cache/
-/home_page/.jekyll-metadata
-/home_page/.bundle/
-/home_page/vendor/
+# mdBook output (docs/)
+/docs/book/
