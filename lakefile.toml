@@ -1,27 +1,16 @@
 name = "letrocq"
 defaultTargets = ["LeTrocq"]
 testDriver = "test"
-
-# All Lean sources live under `src/` (the module roots `LeTrocq`, `Examples`, `Tests` and their
-# submodules). Passed to `lean` as the root directory, so imports stay module-based and unchanged.
 srcDir = "src"
 
-# Treat every Lean warning (linter hits, deprecations, …) as a hard error, for ALL targets — so a plain
-# `lake build` / `lake test` fails locally exactly as it does in CI.
+# warnings as errors
 leanOptions = [{ name = "warningAsError", value = true }]
-
-# A Lean-native reformulation of LeTrocq (modular parametricity / proof transfer). The library has NO
-# external dependencies — only the Lean core `Lean` library. (Documentation lives under `docs/` as an
-# mdBook and needs no Lake dependency.)
-#
-#   lake build   — build the library (src/LeTrocq/)
-#   lake test    — run the test suite (src/Tests/) ; fails on any regression
 
 [[lean_lib]]
 name = "LeTrocq"
 
-# `src/Examples/` — worked examples of USING the library (e.g. registering the `Nat ≃ Unary` base).
-# Not part of the library; the tests import it to exercise the driver against a real registered base.
+# examples of using the library, not part of the library
+# The tests import them
 [[lean_lib]]
 name = "Examples"
 globs = ["Examples.*"]
