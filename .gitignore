@@ -2,4 +2,4 @@
 /.lake/
 
 # mdBook output
-/book/
+/.book/

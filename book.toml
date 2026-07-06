@@ -5,6 +5,9 @@ authors = ["Théo Laurent"]
 language = "en"
 src = "docs"
 
+[build]
+build-dir = ".book"
+
 [output.html]
 # served as a github project page at <user>.github.io/LeTrocq/, so absolute links and
 # the generated 404 page must carry the /LeTrocq/ prefix.
