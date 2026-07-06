@@ -5,17 +5,17 @@ Building this executable compiles all `Tests.*` modules; every `example … := r
 axiom-footprint check, and metaprogram `run_cmd` assertion in them fires at elaboration, so a
 regression fails the build and hence `lake test`. `main` only runs if everything elaborated.
 -/
-import Tests.Lattice
-import Tests.Hierarchy
-import Tests.ParamCC.Arrow
-import Tests.ParamCC.Forall
-import Tests.ParamCC.Universe
-import Tests.Solver
-import Tests.Tactic
-import Tests.Translate
-import Tests.ParamLib
-import Tests.DepFamily
-import Tests.TypeDirected
+import Tests.Core.Class
+import Tests.Core.Param
+import Tests.Combinators.Arrow
+import Tests.Combinators.Forall
+import Tests.Combinators.Universe
+import Tests.Driver.Registry
+import Tests.Driver.Counterpart
+import Tests.Driver.Tactic
+import Tests.Driver.DepFamily
+import Tests.Driver.TypeDirected
+import Tests.Lib
 
 /- AXIOM-FOOTPRINT GUARD (subsumes a `sorry`/`admit` check). EVERY `LeTrocq.*` declaration is checked — a
    stray `sorry`/`admit` adds `sorryAx` and any genuinely new axiom adds itself, so either fails this
@@ -36,7 +36,7 @@ run_cmd Lean.Elab.Command.liftCoreM do
   let mods := env.header.moduleNames
   -- the metaprogramming layer (irreducibly `Classical.choice`-using via `MetaM`); everything else is math.
   let metaModules : List Lean.Name :=
-    [`LeTrocq.Registry, `LeTrocq.Attr, `LeTrocq.TranslateTerm, `LeTrocq.Solver, `LeTrocq.Transfer, `LeTrocq.Tactic]
+    [`LeTrocq.Driver.Registry, `LeTrocq.Driver.Counterpart, `LeTrocq.Driver.Transfer, `LeTrocq.Driver.Tactic]
   let baseAllowed : List Lean.Name := [``propext, ``Quot.sound]
   for (name, _) in env.constants.toList do
     if (`LeTrocq).isPrefixOf name then
