@@ -39,6 +39,10 @@ jobs:
       - name: Install mdbook-katex
         run: cargo install mdbook-katex --version 0.9.4 --locked
 
+      # bibtex preprocessor
+      - name: Install mdbook-bib
+        run: cargo install mdbook-bib --version 0.0.6 --locked
+
       - name: Build the book
         run: mdbook build   # → ./.book/
 
