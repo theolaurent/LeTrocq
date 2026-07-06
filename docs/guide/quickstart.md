@@ -1,55 +1,47 @@
 # Quickstart
 
-## Getting the library
+> **DISCLAIMER:** This page was written by an AI assistant and still needs human polishing and proof-reading.
 
-LeTrocq depends only on Lean core — no Mathlib. Add it to your `lakefile` as a git dependency (or
-clone and build it directly), then `import LeTrocq`:
+## Install
+
+LeTrocq depends only on Lean core (no Mathlib). Add it as a git dependency, then:
 
 ```lean
 import LeTrocq
 ```
 
-That single import brings the driver into scope together with the standard-library registrations for
-the prelude types (`List`, `Option`, `Array`, `Prod`, `Sum`, `Sigma`, `Quot`, `Eq`, and the logical
-connectives — see [The standard library](stdlib.md)).
+That import brings in the driver and the prelude registrations ([standard library](stdlib.md)).
 
-## Building
+## Build
 
 ```sh
 lake build   # warnings are errors
-lake test    # the test suite + the axiom-footprint guard
+lake test    # test suite + axiom-footprint guard
 ```
 
-`lake test` compiles the whole codebase (library + examples + tests) and enforces, in one shot,
-`warningAsError`, every `example … := rfl` regression check, and the axiom guard (every generated
-`LeTrocq.*` proof may use only `propext` / `Quot.sound`).
+`lake test` enforces, in one shot, `warningAsError`, every `example … := rfl` check, and the
+[axiom guard](../meta/soundness.md) (generated proofs use only `propext` / `Quot.sound`).
 
-## Your first transfer
+## First transfer
 
-Nothing transfers non-trivially until you register an equivalence. The worked example
-`Examples/NatUnary.lean` registers `Nat ≃ Unary` (unary naturals):
+Nothing transfers non-trivially until an equivalence is registered; `Examples/NatUnary.lean` registers
+`Nat ≃ Unary`.
 
 ```lean
 import LeTrocq
 import Examples.NatUnary
-
 open LeTrocq.Examples
 
--- `transfer% T` exposes the counterpart type `T'` and its transport maps.
--- The forward map COMPUTES, so this is `rfl`:
+-- `transfer% T` exposes the counterpart and its maps; the forward map computes:
 example : (transfer% (Nat → Nat)).cov.map (· + 1) Unary.z = Unary.s Unary.z := rfl
 
--- `trocq` rewrites the current goal to its counterpart on the other side of the equivalence:
+-- `trocq` rewrites the goal to its counterpart on the other side:
 example : Unary → Unary := by
   trocq            -- ⊢ Nat → Nat
   exact (· + 1)
 ```
 
-Because a registered base is available in *both* directions (the driver derives the backward reading
-via `Param.sym`), a goal or term over *either* side of an equivalence resolves by head match.
+A registered base works in both directions (the backward reading is `Param.sym`), so a goal or term over
+either side resolves by head match.
 
-## Where to go next
-
-- [The user surfaces](surfaces.md) — the four elaborators/tactics in detail.
-- [Registering your own equivalence](registering.md) — the recipe for `@[trocq]`.
-- [The graded parametricity translation](../design/translation.md) — how it works underneath.
+Next: [the surfaces](surfaces.md), [registering your own equivalence](registering.md).

@@ -24,4 +24,4 @@ macros = "docs/texmacros.txt"
 
 [preprocessor.bib]
 bibliography = "refs.bib"
-
+render-bib = "all"    # for now show all entries from the bibliography file

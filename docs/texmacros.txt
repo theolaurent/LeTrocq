@@ -2,6 +2,7 @@
 \Param:\mathsf{Param}
 \MapHas:\mathsf{MapHas}
 \MapClass:\mathsf{MapClass}
+\ParamClass:\mathsf{ParamClass}
 \Type:\mathsf{Type}
 \PropSort:\mathsf{Prop}
 \SortU:\mathsf{Sort}
@@ -23,4 +24,11 @@
 \conjugate:\bar #1
 
 \Prod:\Pi(x: #1).\ #2
+
+\join:\sqcup
+\meet:\sqcap
+\negate:\mathord{\sim}
+\Dbump:\mathrm{D}
+\av:\mathrm{av}
+\variance:\mathsf{var}
 

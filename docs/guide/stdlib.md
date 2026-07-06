@@ -1,36 +1,34 @@
 # The standard library
 
-`import LeTrocq` ships `@[trocq]` registrations for Lean's prelude types, so transfer over them works
-out of the box. These are ordinary user-level registrations (each could live verbatim in a downstream
-project); they sit in the library only because their types are in the prelude. **The driver knows no
-type intrinsically** — even the kernel constant `Quot` registers here via `@[trocq]`.
+> **DISCLAIMER:** This page was written by an AI assistant and still needs human polishing and proof-reading.
 
-| Module (`LeTrocq/ParamLib/`) | Type | Notes |
+`import LeTrocq` ships `@[trocq]` registrations for Lean's prelude types, so transfer over them works out
+of the box. These are ordinary user-level registrations — they sit in the library only because their
+types are in the prelude. The driver knows no type intrinsically; even the kernel constant `Quot`
+registers here.
+
+| Module (`LeTrocq/Lib/`) | Type | Notes |
 |---|---|---|
 | `List`   | `List`   | relator + inductive relation + constructor primitives |
 | `Option` | `Option` | the same recipe, smaller |
-| `Array`  | `Array`  | reuses `List` through `toList`; literal head `List.toArray` |
+| `Array`  | `Array`  | reuses `List` through `toList` |
 | `Prod`   | `Prod` (×) | two type parameters, non-dependent |
 | `Sum`    | `Sum` (⊕)  | two type parameters, two constructors |
-| `Sigma`  | `Sigma` (Σ) | dependent — exercises the type-**family** relator machinery |
-| `Quot`   | `Quot`   | the kernel quotient: type former + constructor + graded relator |
+| `Sigma`  | `Sigma` (Σ) | dependent — the type-family relator machinery |
+| `Quot`   | `Quot`   | kernel quotient: type former + constructor + graded relator |
 | `Eq`     | `Eq`     | propositional equality, as a relator over the related type |
 | `Logic`  | `Not` / `And` / `Or` / `Iff` | the connectives, as `Prop` relators |
 
+Each type's variance table is in [the combinators](../design/combinators.md#the-lib-relators).
+
 ## Ground types
 
-There is **no** registration file for `Bool`, `Nat`, `Empty`, `Unit`, `True`, or `False`. They need
-none: a type or term whose counterpart is itself is short-circuited to the generic diagonal
-`paramRefl` in the driver, so they transfer to themselves — and a user equivalence like `Nat ≃ Unary`
-overrides that diagonal whenever it applies. A composite over only-diagonal parts (say `Nat × Bool`)
-is itself diagonal, so the whole type short-circuits as one, rather than going through the per-type
-relators.
+`Bool`, `Nat`, `Empty`, `Unit`, `True`, `False` have no registration file: the whole-diagonal
+short-circuit (`paramRefl`) handles them, and a composite over only-diagonal parts (e.g. `Nat × Bool`)
+short-circuits as one whole.
 
 ## Non-prelude examples
 
-`Examples/` holds registrations a *user* would write:
-
-- `Examples/NatUnary.lean` — the base equivalence `Nat ≃ Unary`, its term primitives, a recursor
-  primitive, and a predicate relator.
-- `Examples/DepParam.lean` — a W-tree, showing the type-family relator machinery on a user inductive
-  (including a family whose domain is not the adjacent type argument).
+`Examples/` holds registrations a user would write: `NatUnary.lean` (the base `Nat ≃ Unary`, term and
+recursor primitives, a predicate relator) and `WTree.lean` (a W-tree exercising the type-family
+machinery, including a non-adjacent family domain and a contravariant fiber).
