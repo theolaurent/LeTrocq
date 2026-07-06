@@ -1,3 +1,4 @@
+
 \Param:\mathsf{Param}
 \MapHas:\mathsf{MapHas}
 \MapClass:\mathsf{MapClass}
@@ -10,8 +11,16 @@
 \cls:(#1,#2)
 \rw:\rightsquigarrow
 \wk:\Downarrow
-\chk:\Leftarrow
-\syn:\Rightarrow
 \RArrow:\mathsf{RArrow}
 \RForall:\mathsf{RForall}
+
+
+
 \irule:\dfrac{\begin{array}{c}#1\end{array}}{#2}
+\chk:\triangleleft
+\syn:\triangleright
+
+\conjugate:\bar #1
+
+\Prod:\Pi(x: #1).\ #2
+

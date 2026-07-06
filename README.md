@@ -46,6 +46,6 @@ See the [documentation](https://theolaurent.github.io/LeTrocq/) for the full acc
 lake build     # the library
 lake test      # test suite + axiom-footprint guard
 
-mdbook build   # the documentation (needs mdbook + mdbook-katex)
+mdbook build   # the documentation (needs mdbook + mdbook-katex + mdbook-bib)
 mdbook serve   # live preview
 ```

@@ -18,3 +18,7 @@ level = 1
 # math is rendered at build time by the `mdbook-katex` preprocessor
 [preprocessor.katex]
 macros = "docs/texmacros.txt"
+
+[preprocessor.bib]
+bibliography = "refs.bib"
+
