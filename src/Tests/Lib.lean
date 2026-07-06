@@ -32,7 +32,7 @@ example : (transfer% (Bool → Bool)).cov.map (fun b => !b) false = true := rfl
 
 /- composites over only-diagonal parts: `Nat × Bool`, `Nat ⊕ Nat`, `Array Nat` are each diagonal as a WHOLE
    (every part crosses to itself), so `assemble` short-circuits the whole type to `paramRefl` — the per-type
-   relators (`paramProdRG`/`paramSumRG`/`paramArrayRG`) are exercised elsewhere, with a real base. -/
+   relators (`paramProd`/`paramSum`/`paramArray`) are exercised elsewhere, with a real base. -/
 example : (transfer% (Nat × Bool)).cov.map (3, true) = (3, true) := rfl
 example : (transfer% (Nat ⊕ Nat)).cov.map (Sum.inr 2) = (Sum.inr 2 : Nat ⊕ Nat) := rfl
 example : (transfer% (Array Nat)).cov.map #[1, 2, 3] = #[1, 2, 3] := rfl

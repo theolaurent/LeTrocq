@@ -40,7 +40,7 @@ def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
   return (m, pref.insert hB hA)
 
 /-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
-    `(a, a', aR)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
+    `(a, a', aRel)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
     (the error names `what`/`wit`) and return the triples in order. The single home of the `3·j` indexing
     that the solver (`relatorArgKinds`) and the translation (`symPrimitive`) both walk. -/
 def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (Expr × Expr × Expr)) := do
@@ -151,13 +151,13 @@ open MapClass
 
 /- ===================== per-argument kind of a relator ===================== -/
 /-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
-    triples `(a, a', aR)` by the SHAPE of the triple's relatedness `aR`:
-      • `.type (m,n)`          — `aR : Param m n A A'`                  (a TYPE argument);
-      • `.family (m,n) domIdx` — `aR : ∀ a a' (aR : RA a a'), Param m n (B a)(B' a')` (a dependent type
+    triples `(a, a', aRel)` by the SHAPE of the triple's relatedness `aRel`:
+      • `.type (m,n)`          — `aRel : Param m n A A'`                  (a TYPE argument);
+      • `.family (m,n) domIdx` — `aRel : ∀ a a' (aRel : RA a a'), Param m n (B a)(B' a')` (a dependent type
                                  FAMILY, e.g. `Sigma`/`WTree`'s `β`). `domIdx` is the index of the TYPE
                                  argument that is the family's domain `A` — read off `B`'s own binder type,
                                  so the family need NOT sit right after its domain;
-      • `.term`                — `aR` a bare relation                  (a TERM argument). -/
+      • `.term`                — `aRel` a bare relation                  (a TERM argument). -/
 inductive ArgKind
   | type   (cls : ParamClass)
   | family (cls : ParamClass) (domIdx : Nat)
@@ -173,8 +173,8 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
     let mut kinds : Array ArgKind := #[]
     let mut lastTypeIdx : Nat := 0
     for j in [0 : triples.size] do
-      let (aBinder, _, aR) := triples[j]!                 -- `(a, a', aR)`: the A-binder and the relatedness
-      let relTy ← inferType aR
+      let (aBinder, _, aRel) := triples[j]!                 -- `(a, a', aRel)`: the A-binder and the relatedness
+      let relTy ← inferType aRel
       if relTy.getAppFn.isConstOf ``Param then
         let a := relTy.getAppArgs
         -- `whnf` the class arguments: for a GRADED relator specialized to a demand they are `variance dem`
@@ -218,7 +218,7 @@ def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × Na
   return (m, pref)
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
-    prelude `Quot` relator (`LeTrocq.Lib.paramQuotRG`), which registers like any other — not a built-in.
+    prelude `Quot` relator (`LeTrocq.Lib.paramQuot`), which registers like any other — not a built-in.
     Every relator is GRADED: its witness opens with `(m n : MapClass)` and the driver specializes it to the
     demand before reading argument classes / applying (the result is already at the demand, no weakening). -/
 def buildConsts : MetaM (NameMap Expr) := do

@@ -16,13 +16,13 @@ def RNW : Nat → Wrap → Type := fun n w => PLift (w.val = n)
 @[trocq] def RNWit : Param map4 map4 Nat Wrap where
   R := RNW
   cov := { map := Wrap.mk
-           map_in_R := fun n w h => PLift.up (by subst h; rfl)
-           R_in_map := fun n w r => by obtain ⟨v⟩ := w; exact congrArg Wrap.mk r.down.symm
-           R_in_mapK := fun _ _ _ => rfl }
+           mapInR := fun n w h => PLift.up (by subst h; rfl)
+           rInMap := fun n w r => by obtain ⟨v⟩ := w; exact congrArg Wrap.mk r.down.symm
+           rInMapK := fun _ _ _ => rfl }
   contra := { map := Wrap.val
-              map_in_R := fun w n h => PLift.up h
-              R_in_map := fun w n r => r.down
-              R_in_mapK := fun _ _ _ => rfl }
+              mapInR := fun w n h => PLift.up h
+              rInMap := fun w n r => r.down
+              rInMapK := fun _ _ _ => rfl }
 
 /- ===================== (1) type-directed ATOM selection ===================== -/
 -- the SAME source `Nat → Nat` maps its codomain to `Unary` or `Wrap` per the `to` target (domain stays the

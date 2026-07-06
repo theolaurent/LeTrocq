@@ -23,19 +23,19 @@ structure Map1Has {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) 
   map : A → B
 structure Map2aHas {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
-  map_in_R : ∀ a b, map a = b → R a b
+  mapInR : ∀ a b, map a = b → R a b
 structure Map2bHas {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
-  R_in_map : ∀ a b, R a b → map a = b
+  rInMap : ∀ a b, R a b → map a = b
 structure Map3Has {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
-  map_in_R : ∀ a b, map a = b → R a b
-  R_in_map : ∀ a b, R a b → map a = b
+  mapInR : ∀ a b, map a = b → R a b
+  rInMap : ∀ a b, R a b → map a = b
 structure Map4Has {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
-  map_in_R : ∀ a b, map a = b → R a b
-  R_in_map : ∀ a b, R a b → map a = b
-  R_in_mapK : ∀ a b r, map_in_R a b (R_in_map a b r) = r
+  mapInR : ∀ a b, map a = b → R a b
+  rInMap : ∀ a b, R a b → map a = b
+  rInMapK : ∀ a b r, mapInR a b (rInMap a b r) = r
 
 /-- the structure a relation carries at a given map-class — all at the uniform `Sort (max u (v+1))`. -/
 def MapHas : MapClass → {A B : Sort u} → (A → B → Type v) → Sort (max u (v+1))
@@ -52,12 +52,12 @@ structure Param (m n : MapClass) (A B : Sort u) where
   contra : MapHas n (fun b a => R a b)
 
 /-- KEY (Lean-specific): a class-4 relation is necessarily a SUBSINGLETON. Two related elements both map
-    (via `R_in_map`) to proofs of `map a = b`, which are equal by Lean's proof irrelevance, so `R_in_mapK`
+    (via `rInMap`) to proofs of `map a = b`, which are equal by Lean's proof irrelevance, so `rInMapK`
     forces them equal. This is exactly "no univalence ⇒ class 4 = class 3 on h-props" — and it makes the
     `(4,4)` coherence FREE on any relation reachable from class-4 data. -/
 theorem Map4Has.subsingleton {A B : Sort u} {R : A → B → Type v} (m : Map4Has R) (a : A) (b : B) :
     Subsingleton (R a b) :=
-  ⟨fun r₁ r₂ => by rw [← m.R_in_mapK a b r₁, ← m.R_in_mapK a b r₂]⟩
+  ⟨fun r₁ r₂ => by rw [← m.rInMapK a b r₁, ← m.rInMapK a b r₂]⟩
 
 /-- symmetry: a `Param m n A B` is a `Param n m B A` on the reversed relation (swap cov/contra). -/
 def Param.sym {A B : Sort u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.{u,v} n m B A where
@@ -69,47 +69,47 @@ def Param.sym {A B : Sort u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.
 namespace MapClass
 variable {A B : Sort u} {R : A → B → Type v}
 
-def e43  (h : Map4Has R)  : Map3Has R  := { map := h.map, map_in_R := h.map_in_R, R_in_map := h.R_in_map }
-def e32a (h : Map3Has R)  : Map2aHas R := { map := h.map, map_in_R := h.map_in_R }
-def e32b (h : Map3Has R)  : Map2bHas R := { map := h.map, R_in_map := h.R_in_map }
-def e2a1 (h : Map2aHas R) : Map1Has R  := { map := h.map }
-def e2b1 (h : Map2bHas R) : Map1Has R  := { map := h.map }
-def e10  (_ : Map1Has R)  : Map0Has R  := {}
+def forget43  (h : Map4Has R)  : Map3Has R  := { map := h.map, mapInR := h.mapInR, rInMap := h.rInMap }
+def forget32a (h : Map3Has R)  : Map2aHas R := { map := h.map, mapInR := h.mapInR }
+def forget32b (h : Map3Has R)  : Map2bHas R := { map := h.map, rInMap := h.rInMap }
+def forget2a1 (h : Map2aHas R) : Map1Has R  := { map := h.map }
+def forget2b1 (h : Map2bHas R) : Map1Has R  := { map := h.map }
+def forget10  (_ : Map1Has R)  : Map0Has R  := {}
 
 /-- WEAKENING: forget down from `src` to any `tgt ≤ src`. Total via the order proof;
     the `tgt ≰ src` combinations are impossible and discharged by `nomatch`. -/
 def weaken : (src tgt : MapClass) → MapClass.le tgt src = true → MapHas src R → MapHas tgt R
   -- src = map4  (m : Map4Has R)
   | .map4, .map4, _, m => m
-  | .map4, .map3, _, m => e43 m
-  | .map4, .map2a, _, m => e32a (e43 m)
-  | .map4, .map2b, _, m => e32b (e43 m)
-  | .map4, .map1, _, m => e2a1 (e32a (e43 m))
-  | .map4, .map0, _, m => e10 (e2a1 (e32a (e43 m)))
+  | .map4, .map3, _, m => forget43 m
+  | .map4, .map2a, _, m => forget32a (forget43 m)
+  | .map4, .map2b, _, m => forget32b (forget43 m)
+  | .map4, .map1, _, m => forget2a1 (forget32a (forget43 m))
+  | .map4, .map0, _, m => forget10 (forget2a1 (forget32a (forget43 m)))
   -- src = map3  (m : Map3Has R)
   | .map3, .map3, _, m => m
-  | .map3, .map2a, _, m => e32a m
-  | .map3, .map2b, _, m => e32b m
-  | .map3, .map1, _, m => e2a1 (e32a m)
-  | .map3, .map0, _, m => e10 (e2a1 (e32a m))
+  | .map3, .map2a, _, m => forget32a m
+  | .map3, .map2b, _, m => forget32b m
+  | .map3, .map1, _, m => forget2a1 (forget32a m)
+  | .map3, .map0, _, m => forget10 (forget2a1 (forget32a m))
   | .map3, .map4, h, _ => nomatch h
   -- src = map2a  (m : Map2aHas R)
   | .map2a, .map2a, _, m => m
-  | .map2a, .map1, _, m => e2a1 m
-  | .map2a, .map0, _, m => e10 (e2a1 m)
+  | .map2a, .map1, _, m => forget2a1 m
+  | .map2a, .map0, _, m => forget10 (forget2a1 m)
   | .map2a, .map4, h, _ => nomatch h
   | .map2a, .map3, h, _ => nomatch h
   | .map2a, .map2b, h, _ => nomatch h
   -- src = map2b  (m : Map2bHas R)
   | .map2b, .map2b, _, m => m
-  | .map2b, .map1, _, m => e2b1 m
-  | .map2b, .map0, _, m => e10 (e2b1 m)
+  | .map2b, .map1, _, m => forget2b1 m
+  | .map2b, .map0, _, m => forget10 (forget2b1 m)
   | .map2b, .map4, h, _ => nomatch h
   | .map2b, .map3, h, _ => nomatch h
   | .map2b, .map2a, h, _ => nomatch h
   -- src = map1  (m : Map1Has R)
   | .map1, .map1, _, m => m
-  | .map1, .map0, _, m => e10 m
+  | .map1, .map0, _, m => forget10 m
   | .map1, .map4, h, _ => nomatch h
   | .map1, .map3, h, _ => nomatch h
   | .map1, .map2a, h, _ => nomatch h

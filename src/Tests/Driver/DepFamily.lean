@@ -37,14 +37,14 @@ noncomputable def paramBoxedR44 (b b' : Bool) (bR : PLift (b = b')) :
   R := BoxedR b b' bR
   cov :=
     { map := fun _ => Boxed.mk
-      map_in_R := fun o o' _ => by cases o; cases o'; exact .mk
-      R_in_map := fun _ _ r => by cases r; rfl
-      R_in_mapK := fun _ _ _ => BoxedR.allEq _ _ }
+      mapInR := fun o o' _ => by cases o; cases o'; exact .mk
+      rInMap := fun _ _ r => by cases r; rfl
+      rInMapK := fun _ _ _ => BoxedR.allEq _ _ }
   contra :=
     { map := fun _ => Boxed.mk
-      map_in_R := fun o o' _ => by cases o; cases o'; exact .mk
-      R_in_map := fun _ _ r => by cases r; rfl
-      R_in_mapK := fun _ _ _ => BoxedR.allEq _ _ }
+      mapInR := fun o o' _ => by cases o; cases o'; exact .mk
+      rInMap := fun _ _ r => by cases r; rfl
+      rInMapK := fun _ _ _ => BoxedR.allEq _ _ }
 
 @[trocq] noncomputable def paramBoxedR (m n : MapClass) (b b' : Bool) (bR : PLift (b = b')) :
     Param m n (Boxed b) (Boxed b') :=

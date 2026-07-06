@@ -4,7 +4,7 @@ The LeTrocq STANDARD LIBRARY: `Prod` (×, the cartesian product).
 `List` with TWO type parameters instead of one — and non-dependent (unlike `Sigma`, whose second component
 lives over the first). `ProdR` is the parametricity relation (a TYPE FORMER over both parameters: the
 translation crosses `A × B` by feeding each parameter's `(_, _, _)` triple in turn), `ProdMkR` the
-constructor TERM primitive, `paramProdRG` the GRADED relator (variance parallel to `List`, one `Param` argument
+constructor TERM primitive, `paramProd` the GRADED relator (variance parallel to `List`, one `Param` argument
 per parameter).
 -/
 import LeTrocq.Driver.Registry
@@ -15,22 +15,22 @@ open LeTrocq MapClass
     `(A, A', RA, B, B', RB)` is what the translation supplies (one `mkApp3` triple per type parameter). -/
 @[trocq] inductive ProdR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type) :
     A × B → A' × B' → Type
-  | mk {a a' b b'} (aR : RA a a') (bR : RB b b') : ProdR A A' RA B B' RB (a, b) (a', b')
+  | mk {a a' b b'} (aRel : RA a a') (bRel : RB b b') : ProdR A A' RA B B' RB (a, b) (a', b')
 
 theorem ProdR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B → B' → Type}
     (hA : ∀ a a' (x y : RA a a'), x = y) (hB : ∀ b b' (x y : RB b b'), x = y)
     {p : A × B} {q : A' × B'} (x y : ProdR A A' RA B B' RB p q) : x = y := by
-  cases x with | mk aR bR => cases y with | mk aR' bR' => rw [hA _ _ aR aR', hB _ _ bR bR']
+  cases x with | mk aRel bRel => cases y with | mk aRel' bRel' => rw [hA _ _ aRel aRel', hB _ _ bRel bRel']
 
 /-- `Prod.mk` as a TERM primitive: the four triples are the two type parameters then the two components. -/
 @[trocq] def ProdMkR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type)
-    (a : A) (a' : A') (aR : RA a a') (b : B) (b' : B') (bR : RB b b') :
-    ProdR A A' RA B B' RB (a, b) (a', b') := .mk aR bR
+    (a : A) (a' : A') (aRel : RA a a') (b : B) (b' : B') (bRel : RB b b') :
+    ProdR A A' RA B B' RB (a, b) (a', b') := .mk aRel bRel
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
    `Prod` is covariant in BOTH parameters, each with the identity variance of a covariant functor: at output
    class `(m,n)` each component is needed at exactly `(m,n)`. `mapProdVariance` is the shared per-parameter
-   table (both parameters use it), and `paramProdRG` builds the pair at any output class. -/
+   table (both parameters use it), and `paramProd` builds the pair at any output class. -/
 
 /-- per-map-class minimal class of EACH parameter of `Prod` (pure covariance; the same table for both). -/
 def mapProdVariance : MapClass → ParamClass
@@ -55,8 +55,8 @@ def prodMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Ty
 theorem prodRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
     (fRInMap : ∀ a a', RA a a' → f a = a') (gRInMap : ∀ b b', RB b b' → g b = b') :
     ∀ p q, ProdR A A' RA B B' RB p q → (f p.1, g p.2) = q :=
-  fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-    show (f a, g b) = (a', b'); rw [fRInMap a a' aR, gRInMap b b' bR]
+  fun _ _ r => by cases r with | @mk a a' b b' aRel bRel =>
+    show (f a, g b) = (a', b'); rw [fRInMap a a' aRel, gRInMap b b' bRel]
 
 def prodContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fInR : ∀ a' a, f a' = a → RA a a') (gInR : ∀ b' b, g b' = b → RB b b') :
@@ -66,8 +66,8 @@ def prodContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' 
 theorem prodContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fRInMap : ∀ a' a, RA a a' → f a' = a) (gRInMap : ∀ b' b, RB b b' → g b' = b) :
     ∀ q p, ProdR A A' RA B B' RB p q → (f q.1, g q.2) = p :=
-  fun _ _ r => by cases r with | @mk a a' b b' aR bR =>
-    show (f a', g b') = (a, b); rw [fRInMap a' a aR, gRInMap b' b bR]
+  fun _ _ r => by cases r with | @mk a a' b b' aRel bRel =>
+    show (f a', g b') = (a, b); rw [fRInMap a' a aRel, gRInMap b' b bRel]
 
 /-- the covariant half from the two components at `mapProdVariance m`. -/
 def prodCov {A A' B B' : Type} :
@@ -78,16 +78,16 @@ def prodCov {A A' B B' : Type} :
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2) }
   | map2a, pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
-                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R }
+                       mapInR := prodMapInR pa.cov.map pb.cov.map pa.cov.mapInR pb.cov.mapInR }
   | map2b, pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
-                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+                       rInMap := prodRInMap pa.cov.map pb.cov.map pa.cov.rInMap pb.cov.rInMap }
   | map3,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
-                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
-                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map }
+                       mapInR := prodMapInR pa.cov.map pb.cov.map pa.cov.mapInR pb.cov.mapInR,
+                       rInMap := prodRInMap pa.cov.map pb.cov.map pa.cov.rInMap pb.cov.rInMap }
   | map4,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
-                       map_in_R := prodMapInR pa.cov.map pb.cov.map pa.cov.map_in_R pb.cov.map_in_R,
-                       R_in_map := prodRInMap pa.cov.map pb.cov.map pa.cov.R_in_map pb.cov.R_in_map,
-                       R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
+                       mapInR := prodMapInR pa.cov.map pb.cov.map pa.cov.mapInR pb.cov.mapInR,
+                       rInMap := prodRInMap pa.cov.map pb.cov.map pa.cov.rInMap pb.cov.rInMap,
+                       rInMapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq)
                          (fun b b' => (pb.cov.subsingleton b b').allEq) _ _ }
 
 /-- the contravariant half from the two components' contra at `mapProdVariance n`. -/
@@ -99,20 +99,20 @@ def prodContra {A A' B B' : Type} :
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2) }
   | map2a, pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
-                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R }
+                       mapInR := prodContraMapInR pa.contra.map pb.contra.map pa.contra.mapInR pb.contra.mapInR }
   | map2b, pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
-                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+                       rInMap := prodContraRInMap pa.contra.map pb.contra.map pa.contra.rInMap pb.contra.rInMap }
   | map3,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
-                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
-                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map }
+                       mapInR := prodContraMapInR pa.contra.map pb.contra.map pa.contra.mapInR pb.contra.mapInR,
+                       rInMap := prodContraRInMap pa.contra.map pb.contra.map pa.contra.rInMap pb.contra.rInMap }
   | map4,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),
-                       map_in_R := prodContraMapInR pa.contra.map pb.contra.map pa.contra.map_in_R pb.contra.map_in_R,
-                       R_in_map := prodContraRInMap pa.contra.map pb.contra.map pa.contra.R_in_map pb.contra.R_in_map,
-                       R_in_mapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
+                       mapInR := prodContraMapInR pa.contra.map pb.contra.map pa.contra.mapInR pb.contra.mapInR,
+                       rInMap := prodContraRInMap pa.contra.map pb.contra.map pa.contra.rInMap pb.contra.rInMap,
+                       rInMapK := fun _ _ _ => ProdR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq)
                          (fun b b' => (pb.contra.subsingleton b' b).allEq) _ _ }
 
 /-- `A × B ≃ A' × B'` at ANY output class `(m,n)`, each component at the `prodVariance`-minimal class. -/
-@[trocq] noncomputable def paramProdRG (m n : MapClass) (A A' : Type)
+@[trocq] noncomputable def paramProd (m n : MapClass) (A A' : Type)
     (pa : Param (prodVariance (m, n)).1 (prodVariance (m, n)).2 A A')
     (B B' : Type)
     (pb : Param (prodVariance (m, n)).1 (prodVariance (m, n)).2 B B') :

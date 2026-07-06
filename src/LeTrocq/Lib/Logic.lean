@@ -46,11 +46,11 @@ def andCov {P P' Q Q' : Prop} :
     Param (mapPropVariance m).1 (mapPropVariance m).2 Q Q' →
     MapHas m (fun (_ : P ∧ Q) (_ : P' ∧ Q') => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => ⟨PR.cov.map h.1, QR.cov.map h.2⟩) map1
-  | map2a, PR, QR => propMapHas (fun h => ⟨PR.cov.map h.1, QR.cov.map h.2⟩) map2a
-  | map2b, PR, QR => propMapHas (fun h => ⟨PR.cov.map h.1, QR.cov.map h.2⟩) map2b
-  | map3,  PR, QR => propMapHas (fun h => ⟨PR.cov.map h.1, QR.cov.map h.2⟩) map3
-  | map4,  PR, QR => propMapHas (fun h => ⟨PR.cov.map h.1, QR.cov.map h.2⟩) map4
+  | map1,  pW, qW => propMapHas (fun h => ⟨pW.cov.map h.1, qW.cov.map h.2⟩) map1
+  | map2a, pW, qW => propMapHas (fun h => ⟨pW.cov.map h.1, qW.cov.map h.2⟩) map2a
+  | map2b, pW, qW => propMapHas (fun h => ⟨pW.cov.map h.1, qW.cov.map h.2⟩) map2b
+  | map3,  pW, qW => propMapHas (fun h => ⟨pW.cov.map h.1, qW.cov.map h.2⟩) map3
+  | map4,  pW, qW => propMapHas (fun h => ⟨pW.cov.map h.1, qW.cov.map h.2⟩) map4
 
 def andContra {P P' Q Q' : Prop} :
     (n : MapClass) →
@@ -58,21 +58,21 @@ def andContra {P P' Q Q' : Prop} :
     Param (mapPropVariance n).2 (mapPropVariance n).1 Q Q' →
     MapHas n (fun (_ : P' ∧ Q') (_ : P ∧ Q) => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => ⟨PR.contra.map h.1, QR.contra.map h.2⟩) map1
-  | map2a, PR, QR => propMapHas (fun h => ⟨PR.contra.map h.1, QR.contra.map h.2⟩) map2a
-  | map2b, PR, QR => propMapHas (fun h => ⟨PR.contra.map h.1, QR.contra.map h.2⟩) map2b
-  | map3,  PR, QR => propMapHas (fun h => ⟨PR.contra.map h.1, QR.contra.map h.2⟩) map3
-  | map4,  PR, QR => propMapHas (fun h => ⟨PR.contra.map h.1, QR.contra.map h.2⟩) map4
+  | map1,  pW, qW => propMapHas (fun h => ⟨pW.contra.map h.1, qW.contra.map h.2⟩) map1
+  | map2a, pW, qW => propMapHas (fun h => ⟨pW.contra.map h.1, qW.contra.map h.2⟩) map2a
+  | map2b, pW, qW => propMapHas (fun h => ⟨pW.contra.map h.1, qW.contra.map h.2⟩) map2b
+  | map3,  pW, qW => propMapHas (fun h => ⟨pW.contra.map h.1, qW.contra.map h.2⟩) map3
+  | map4,  pW, qW => propMapHas (fun h => ⟨pW.contra.map h.1, qW.contra.map h.2⟩) map4
 
-@[trocq] def paramAndR (m n : MapClass) (P P' : Prop)
-    (PR : Param (propVariance (m, n)).1 (propVariance (m, n)).2 P P')
-    (Q Q' : Prop) (QR : Param (propVariance (m, n)).1 (propVariance (m, n)).2 Q Q') :
+@[trocq] def paramAnd (m n : MapClass) (P P' : Prop)
+    (pW : Param (propVariance (m, n)).1 (propVariance (m, n)).2 P P')
+    (Q Q' : Prop) (qW : Param (propVariance (m, n)).1 (propVariance (m, n)).2 Q Q') :
     Param m n (P ∧ Q) (P' ∧ Q') where
   R := fun _ _ => PLift True
-  cov := andCov m (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-  contra := andContra n (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  cov := andCov m (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := andContra n (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 /- ===================== Or ===================== -/
 def orCov {P P' Q Q' : Prop} :
@@ -81,11 +81,11 @@ def orCov {P P' Q Q' : Prop} :
     Param (mapPropVariance m).1 (mapPropVariance m).2 Q Q' →
     MapHas m (fun (_ : P ∨ Q) (_ : P' ∨ Q') => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.cov.map p)) (fun q => .inr (QR.cov.map q))) map1
-  | map2a, PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.cov.map p)) (fun q => .inr (QR.cov.map q))) map2a
-  | map2b, PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.cov.map p)) (fun q => .inr (QR.cov.map q))) map2b
-  | map3,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.cov.map p)) (fun q => .inr (QR.cov.map q))) map3
-  | map4,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.cov.map p)) (fun q => .inr (QR.cov.map q))) map4
+  | map1,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.cov.map p)) (fun q => .inr (qW.cov.map q))) map1
+  | map2a, pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.cov.map p)) (fun q => .inr (qW.cov.map q))) map2a
+  | map2b, pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.cov.map p)) (fun q => .inr (qW.cov.map q))) map2b
+  | map3,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.cov.map p)) (fun q => .inr (qW.cov.map q))) map3
+  | map4,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.cov.map p)) (fun q => .inr (qW.cov.map q))) map4
 
 def orContra {P P' Q Q' : Prop} :
     (n : MapClass) →
@@ -93,49 +93,49 @@ def orContra {P P' Q Q' : Prop} :
     Param (mapPropVariance n).2 (mapPropVariance n).1 Q Q' →
     MapHas n (fun (_ : P' ∨ Q') (_ : P ∨ Q) => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.contra.map p)) (fun q => .inr (QR.contra.map q))) map1
-  | map2a, PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.contra.map p)) (fun q => .inr (QR.contra.map q))) map2a
-  | map2b, PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.contra.map p)) (fun q => .inr (QR.contra.map q))) map2b
-  | map3,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.contra.map p)) (fun q => .inr (QR.contra.map q))) map3
-  | map4,  PR, QR => propMapHas (fun h => h.elim (fun p => .inl (PR.contra.map p)) (fun q => .inr (QR.contra.map q))) map4
+  | map1,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.contra.map p)) (fun q => .inr (qW.contra.map q))) map1
+  | map2a, pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.contra.map p)) (fun q => .inr (qW.contra.map q))) map2a
+  | map2b, pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.contra.map p)) (fun q => .inr (qW.contra.map q))) map2b
+  | map3,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.contra.map p)) (fun q => .inr (qW.contra.map q))) map3
+  | map4,  pW, qW => propMapHas (fun h => h.elim (fun p => .inl (pW.contra.map p)) (fun q => .inr (qW.contra.map q))) map4
 
-@[trocq] def paramOrR (m n : MapClass) (P P' : Prop)
-    (PR : Param (propVariance (m, n)).1 (propVariance (m, n)).2 P P')
-    (Q Q' : Prop) (QR : Param (propVariance (m, n)).1 (propVariance (m, n)).2 Q Q') :
+@[trocq] def paramOr (m n : MapClass) (P P' : Prop)
+    (pW : Param (propVariance (m, n)).1 (propVariance (m, n)).2 P P')
+    (Q Q' : Prop) (qW : Param (propVariance (m, n)).1 (propVariance (m, n)).2 Q Q') :
     Param m n (P ∨ Q) (P' ∨ Q') where
   R := fun _ _ => PLift True
-  cov := orCov m (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-  contra := orContra n (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  cov := orCov m (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := orContra n (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 /- ===================== Not (contravariant) ===================== -/
 def notCov {P P' : Prop} :
     (m : MapClass) → Param (mapPropVariance m).2 (mapPropVariance m).1 P P' →
     MapHas m (fun (_ : ¬ P) (_ : ¬ P') => PLift True)
   | map0,  _  => {}
-  | map1,  PR => propMapHas (fun h p' => h (PR.contra.map p')) map1
-  | map2a, PR => propMapHas (fun h p' => h (PR.contra.map p')) map2a
-  | map2b, PR => propMapHas (fun h p' => h (PR.contra.map p')) map2b
-  | map3,  PR => propMapHas (fun h p' => h (PR.contra.map p')) map3
-  | map4,  PR => propMapHas (fun h p' => h (PR.contra.map p')) map4
+  | map1,  pW => propMapHas (fun h p' => h (pW.contra.map p')) map1
+  | map2a, pW => propMapHas (fun h p' => h (pW.contra.map p')) map2a
+  | map2b, pW => propMapHas (fun h p' => h (pW.contra.map p')) map2b
+  | map3,  pW => propMapHas (fun h p' => h (pW.contra.map p')) map3
+  | map4,  pW => propMapHas (fun h p' => h (pW.contra.map p')) map4
 
 def notContra {P P' : Prop} :
     (n : MapClass) → Param (mapPropVariance n).1 (mapPropVariance n).2 P P' →
     MapHas n (fun (_ : ¬ P') (_ : ¬ P) => PLift True)
   | map0,  _  => {}
-  | map1,  PR => propMapHas (fun h p => h (PR.cov.map p)) map1
-  | map2a, PR => propMapHas (fun h p => h (PR.cov.map p)) map2a
-  | map2b, PR => propMapHas (fun h p => h (PR.cov.map p)) map2b
-  | map3,  PR => propMapHas (fun h p => h (PR.cov.map p)) map3
-  | map4,  PR => propMapHas (fun h p => h (PR.cov.map p)) map4
+  | map1,  pW => propMapHas (fun h p => h (pW.cov.map p)) map1
+  | map2a, pW => propMapHas (fun h p => h (pW.cov.map p)) map2a
+  | map2b, pW => propMapHas (fun h p => h (pW.cov.map p)) map2b
+  | map3,  pW => propMapHas (fun h p => h (pW.cov.map p)) map3
+  | map4,  pW => propMapHas (fun h p => h (pW.cov.map p)) map4
 
-@[trocq] def paramNotR (m n : MapClass) (P P' : Prop)
-    (PR : Param (notVariance (m, n)).1 (notVariance (m, n)).2 P P') :
+@[trocq] def paramNot (m n : MapClass) (P P' : Prop)
+    (pW : Param (notVariance (m, n)).1 (notVariance (m, n)).2 P P') :
     Param m n (¬ P) (¬ P') where
   R := fun _ _ => PLift True
-  cov := notCov m (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-  contra := notContra n (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  cov := notCov m (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := notContra n (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 /- ===================== Iff (both directions of each part) ===================== -/
 def iffCov {P P' Q Q' : Prop} :
@@ -144,11 +144,11 @@ def iffCov {P P' Q Q' : Prop} :
     Param (mapIffVariance m).1 (mapIffVariance m).2 Q Q' →
     MapHas m (fun (_ : P ↔ Q) (_ : P' ↔ Q') => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => ⟨fun p' => QR.cov.map (h.mp (PR.contra.map p')), fun q' => PR.cov.map (h.mpr (QR.contra.map q'))⟩) map1
-  | map2a, PR, QR => propMapHas (fun h => ⟨fun p' => QR.cov.map (h.mp (PR.contra.map p')), fun q' => PR.cov.map (h.mpr (QR.contra.map q'))⟩) map2a
-  | map2b, PR, QR => propMapHas (fun h => ⟨fun p' => QR.cov.map (h.mp (PR.contra.map p')), fun q' => PR.cov.map (h.mpr (QR.contra.map q'))⟩) map2b
-  | map3,  PR, QR => propMapHas (fun h => ⟨fun p' => QR.cov.map (h.mp (PR.contra.map p')), fun q' => PR.cov.map (h.mpr (QR.contra.map q'))⟩) map3
-  | map4,  PR, QR => propMapHas (fun h => ⟨fun p' => QR.cov.map (h.mp (PR.contra.map p')), fun q' => PR.cov.map (h.mpr (QR.contra.map q'))⟩) map4
+  | map1,  pW, qW => propMapHas (fun h => ⟨fun p' => qW.cov.map (h.mp (pW.contra.map p')), fun q' => pW.cov.map (h.mpr (qW.contra.map q'))⟩) map1
+  | map2a, pW, qW => propMapHas (fun h => ⟨fun p' => qW.cov.map (h.mp (pW.contra.map p')), fun q' => pW.cov.map (h.mpr (qW.contra.map q'))⟩) map2a
+  | map2b, pW, qW => propMapHas (fun h => ⟨fun p' => qW.cov.map (h.mp (pW.contra.map p')), fun q' => pW.cov.map (h.mpr (qW.contra.map q'))⟩) map2b
+  | map3,  pW, qW => propMapHas (fun h => ⟨fun p' => qW.cov.map (h.mp (pW.contra.map p')), fun q' => pW.cov.map (h.mpr (qW.contra.map q'))⟩) map3
+  | map4,  pW, qW => propMapHas (fun h => ⟨fun p' => qW.cov.map (h.mp (pW.contra.map p')), fun q' => pW.cov.map (h.mpr (qW.contra.map q'))⟩) map4
 
 def iffContra {P P' Q Q' : Prop} :
     (n : MapClass) →
@@ -156,20 +156,20 @@ def iffContra {P P' Q Q' : Prop} :
     Param (mapIffVariance n).1 (mapIffVariance n).2 Q Q' →
     MapHas n (fun (_ : P' ↔ Q') (_ : P ↔ Q) => PLift True)
   | map0,  _,  _  => {}
-  | map1,  PR, QR => propMapHas (fun h => ⟨fun p => QR.contra.map (h.mp (PR.cov.map p)), fun q => PR.contra.map (h.mpr (QR.cov.map q))⟩) map1
-  | map2a, PR, QR => propMapHas (fun h => ⟨fun p => QR.contra.map (h.mp (PR.cov.map p)), fun q => PR.contra.map (h.mpr (QR.cov.map q))⟩) map2a
-  | map2b, PR, QR => propMapHas (fun h => ⟨fun p => QR.contra.map (h.mp (PR.cov.map p)), fun q => PR.contra.map (h.mpr (QR.cov.map q))⟩) map2b
-  | map3,  PR, QR => propMapHas (fun h => ⟨fun p => QR.contra.map (h.mp (PR.cov.map p)), fun q => PR.contra.map (h.mpr (QR.cov.map q))⟩) map3
-  | map4,  PR, QR => propMapHas (fun h => ⟨fun p => QR.contra.map (h.mp (PR.cov.map p)), fun q => PR.contra.map (h.mpr (QR.cov.map q))⟩) map4
+  | map1,  pW, qW => propMapHas (fun h => ⟨fun p => qW.contra.map (h.mp (pW.cov.map p)), fun q => pW.contra.map (h.mpr (qW.cov.map q))⟩) map1
+  | map2a, pW, qW => propMapHas (fun h => ⟨fun p => qW.contra.map (h.mp (pW.cov.map p)), fun q => pW.contra.map (h.mpr (qW.cov.map q))⟩) map2a
+  | map2b, pW, qW => propMapHas (fun h => ⟨fun p => qW.contra.map (h.mp (pW.cov.map p)), fun q => pW.contra.map (h.mpr (qW.cov.map q))⟩) map2b
+  | map3,  pW, qW => propMapHas (fun h => ⟨fun p => qW.contra.map (h.mp (pW.cov.map p)), fun q => pW.contra.map (h.mpr (qW.cov.map q))⟩) map3
+  | map4,  pW, qW => propMapHas (fun h => ⟨fun p => qW.contra.map (h.mp (pW.cov.map p)), fun q => pW.contra.map (h.mpr (qW.cov.map q))⟩) map4
 
-@[trocq] def paramIffR (m n : MapClass) (P P' : Prop)
-    (PR : Param (iffVariance (m, n)).1 (iffVariance (m, n)).2 P P')
-    (Q Q' : Prop) (QR : Param (iffVariance (m, n)).1 (iffVariance (m, n)).2 Q Q') :
+@[trocq] def paramIff (m n : MapClass) (P P' : Prop)
+    (pW : Param (iffVariance (m, n)).1 (iffVariance (m, n)).2 P P')
+    (Q Q' : Prop) (qW : Param (iffVariance (m, n)).1 (iffVariance (m, n)).2 Q Q') :
     Param m n (P ↔ Q) (P' ↔ Q') where
   R := fun _ _ => PLift True
-  cov := iffCov m (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-  contra := iffContra n (PR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
-    (QR.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  cov := iffCov m (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+  contra := iffContra n (pW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
+    (qW.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
 end LeTrocq.Lib

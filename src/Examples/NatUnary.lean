@@ -30,11 +30,11 @@ end Unary
 def RNU : Nat → Unary → Type := fun n u => PLift (u.toNat = n)
 @[trocq] def RN : Param .map4 .map4 Nat Unary where
   R := RNU
-  cov := { map := Unary.ofNat, map_in_R := fun n u h => PLift.up (by subst h; exact Unary.toNat_ofNat n),
-           R_in_map := fun n u r => by have h := r.down; rw [← h, Unary.ofNat_toNat],
-           R_in_mapK := fun _ _ _ => rfl }
-  contra := { map := Unary.toNat, map_in_R := fun u n h => PLift.up h,
-              R_in_map := fun u n r => r.down, R_in_mapK := fun _ _ _ => rfl }
+  cov := { map := Unary.ofNat, mapInR := fun n u h => PLift.up (by subst h; exact Unary.toNat_ofNat n),
+           rInMap := fun n u r => by have h := r.down; rw [← h, Unary.ofNat_toNat],
+           rInMapK := fun _ _ _ => rfl }
+  contra := { map := Unary.toNat, mapInR := fun u n h => PLift.up h,
+              rInMap := fun u n r => r.down, rInMapK := fun _ _ _ => rfl }
 
 /-- the base read backward, `Unary ≃ Nat` (the `trocq` tactic also gets this for free via `Param.sym`). -/
 def RNsym : Param map4 map4 Unary Nat := RN.sym
@@ -70,7 +70,7 @@ def RNsym : Param map4 map4 Unary Nat := RN.sym
 def Pos  (u : Unary) : Prop := 0 ≤ u.toNat
 def Pos' (n : Nat)   : Prop := 0 ≤ n
 @[trocq] def PosR (mc nc : MapClass) (u : Unary) (n : Nat) (uR : RNsym.R u n) : Param mc nc (Pos u) (Pos' n) :=
-  paramPropMapsAt mc nc
+  paramPropFromMaps mc nc
     (fun h => by unfold Pos at h; unfold Pos'; have := uR.down; omega)
     (fun h => by unfold Pos' at h; unfold Pos;  have := uR.down; omega)
 

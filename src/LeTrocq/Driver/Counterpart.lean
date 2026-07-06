@@ -141,20 +141,20 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : Meta
           (bodyTgt?.map (·.instantiate1 x')))
   | e => throwError "translate: unsupported {e}"
 
-/-- telescope a primitive's type into abstraction-theorem triples `[a,a',aR, b,b',bR, …]`, check the binder
+/-- telescope a primitive's type into abstraction-theorem triples `[a,a',aRel, b,b',bR, …]`, check the binder
     count is a multiple of 3, and run `k` with the binders `xs` and their VALUE-SWAPPED reordering
-    `[a',a,aR, b',b,bR, …]` (the relatedness slot stays put). The shared frame of the backward builders. -/
+    `[a',a,aRel, b',b,bR, …]` (the relatedness slot stays put). The shared frame of the backward builders. -/
 def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Expr → MetaM Expr) :
     MetaM Expr := do
   forallTelescope (← inferType wit) fun xs _ => do
     let mut swapped : Array Expr := #[]
-    for (a, a', aR) in ← chunkTriples what wit xs do
-      swapped := swapped.push a' |>.push a |>.push aR     -- swap the value pair, keep the relatedness
+    for (a, a', aRel) in ← chunkTriples what wit xs do
+      swapped := swapped.push a' |>.push a |>.push aRel     -- swap the value pair, keep the relatedness
     k xs swapped
 
 /-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the
-    BACKWARD-direction combinator. A primitive is `cWit : ∀ a a' (aR : R a a') …, R (c …) (c' …)`
-    (binders in triples); this returns `fun a' a aR … => cWit a a' aR …`. Its relatedness binder keeps the
+    BACKWARD-direction combinator. A primitive is `cWit : ∀ a a' (aRel : R a a') …, R (c …) (c' …)`
+    (binders in triples); this returns `fun a' a aRel … => cWit a a' aRel …`. Its relatedness binder keeps the
     type `R a a'`, which is *defeq* to the symmetric relation `R.sym a' a` the backward direction supplies —
     so the same proof term serves both directions, only the value arguments swap position. -/
 def symPrimitive (wit : Expr) : MetaM Expr :=

@@ -10,8 +10,8 @@ example : (RN.toRetraction.cov).map = Unary.ofNat := rfl
 example : (RN.toSection.cov).map = Unary.ofNat := rfl
 example : (RN.toFunction.cov).map = Unary.ofNat := rfl               -- map1 cov: the forward map
 example : (RN.toRetraction.contra).map = Unary.toNat := rfl          -- map2a contra: the backward map
-/- the soundness field also survives where it should (retraction keeps cov's map_in_R): -/
-example : ∀ n u, Unary.ofNat n = u → RNU n u := (RN.toRetraction.cov).map_in_R
+/- the soundness field also survives where it should (retraction keeps cov's mapInR): -/
+example : ∀ n u, Unary.ofNat n = u → RNU n u := (RN.toRetraction.cov).mapInR
 /- bottom is the bare relation, with no maps at all: -/
 example : (RN.toRel).R = RNU := rfl
 

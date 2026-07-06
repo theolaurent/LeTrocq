@@ -28,17 +28,17 @@ def pf2a : Param map2a map0 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
 example : pf2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 
 /- (3,3): full soundness+completeness — needs the domain at class 4 (RN is) and the `subst`+subsingleton
-   transport in `map_in_R`. Forward map still computes. -/
+   transport in `mapInR`. Forward map still computes. -/
 def pf33 : Param map3 map3 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
   paramForall map3 map3 (RN.weaken rfl rfl) (fun _ _ _ => RN.weaken rfl rfl)
 example : pf33.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 
-/- (4,4): the full dependent-Π equivalence — past the old 2b cap. The coherence `R_in_mapK` exists. -/
+/- (4,4): the full dependent-Π equivalence — past the old 2b cap. The coherence `rInMapK` exists. -/
 def pf44 : Param map4 map4 (∀ _ : Nat, Nat) (∀ _ : Unary, Unary) :=
   paramForall map4 map4 (RN.weaken rfl rfl) (fun _ _ _ => RN.weaken rfl rfl)
 example : pf44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 example : pf44.contra.map (fun u => u) 5 = 5 := rfl                                       -- backward transport
-example : ∀ f f' r, pf44.cov.map_in_R f f' (pf44.cov.R_in_map f f' r) = r := pf44.cov.R_in_mapK
+example : ∀ f f' r, pf44.cov.mapInR f f' (pf44.cov.rInMap f f' r) = r := pf44.cov.rInMapK
 
 /-- info: 'LeTrocq.Tests.pf44' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms pf44

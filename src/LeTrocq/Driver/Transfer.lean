@@ -79,7 +79,7 @@ def splitForallTgt (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := 
 /-- the shared `[·]` environment, threaded through EVERY arm (both halves): `fvar ↦ (counterpart x',
     witness-or-relatedness)`. For a TYPE binder the third slot is the bound type's `Param` *witness* at inner
     class `(4,4)` (the leaf rule weakens it to each use; a term-primitive consuming the bound type is fed its
-    `.R`); for a TERM binder it is the bare relatedness `xR`. The two never confuse the type/term judgments:
+    `.R`); for a TERM binder it is the bare relatedness `xRel`. The two never confuse the type/term judgments:
     a type variable's `fvar` has a `Sort` type, a term variable's does not. -/
 abbrev SEnv := List (FVarId × Expr × Expr)
 
@@ -150,9 +150,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
       weakenTo dem regC wit
   | .fvar id =>
       -- LEAF: a bound TYPE variable, offered at inner class `(4,4)`; weaken its witness to the demand.
-      let some (_, _, aR) := senv.find? (·.1 == id)
+      let some (_, _, aRel) := senv.find? (·.1 == id)
         | throwError "assemble: unbound type variable {T}"
-      weakenTo dem innerClass aR
+      weakenTo dem innerClass aRel
   | .sort lvl => do
       -- `Prop` (Sort 0) reaches the full `(4,4)` via `paramProp` (completeness = `propext`, coherence free by
       -- proof irrelevance); `Type w` (Sort (w+1)) uses the level-`w` universe combinator at `dem`, capped at the
@@ -175,9 +175,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
             let pb ← withLocalDeclD n A fun a =>
               withLocalDeclD (n.appendAfter "'") A fun a' => do
                 let raaTy ← mkAppM ``Param.R #[domWit, a, a']
-                withLocalDeclD (n.appendAfter "R") raaTy fun aR => do
-                  mkLambdaFVars #[a, a', aR]
-                    (← assemble reg ((a.fvarId!, a', aR) :: senv) (B.instantiate1 a) codDem
+                withLocalDeclD (n.appendAfter "R") raaTy fun aRel => do
+                  mkLambdaFVars #[a, a', aRel]
+                    (← assemble reg ((a.fvarId!, a', aRel) :: senv) (B.instantiate1 a) codDem
                         (bodyTgt?.map (·.instantiate1 a')))
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
         | _ => do
@@ -190,9 +190,9 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
             let pb ← withLocalDeclD n domTy[2]! fun x =>
               withLocalDeclD (n.appendAfter "'") domTy[3]! fun x' => do
                 let xRTy ← mkAppM ``Param.R #[domWit, x, x']
-                withLocalDeclD (n.appendAfter "R") xRTy fun xR => do
-                  mkLambdaFVars #[x, x', xR]
-                    (← assemble reg ((x.fvarId!, x', xR) :: senv) (B.instantiate1 x) codDem
+                withLocalDeclD (n.appendAfter "R") xRTy fun xRel => do
+                  mkLambdaFVars #[x, x', xRel]
+                    (← assemble reg ((x.fvarId!, x', xRel) :: senv) (B.instantiate1 x) codDem
                         (bodyTgt?.map (·.instantiate1 x')))
             mkAppM ``paramForall #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
       else
@@ -207,7 +207,7 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
       -- the abstraction theorem `[head a₁ … aₙ] = [head] a₁ ⟨a₁⟩ [a₁] … aₙ ⟨aₙ⟩ [aₙ]`, then WEAKEN to `dem`.
       -- Arguments come from the TERM (`getAppArgs`); routing (type/family/term) from the relator's `relatorArgKinds`.
       -- A TYPE arg's `Param` is assembled at the relator's declared arg class; a FAMILY arg's is the `Param` family
-      -- `fun a a' aR => ⟨B a ≃ B' a'⟩`; a TERM arg's `(⟨aᵢ⟩, [aᵢ])` come from the term-half `⟨·⟩`/`[·]` over `senv`.
+      -- `fun a a' aRel => ⟨B a ≃ B' a'⟩`; a TERM arg's `(⟨aᵢ⟩, [aᵢ])` come from the term-half `⟨·⟩`/`[·]` over `senv`.
       let some head := e.getAppFn.constName? | throwError "assemble: application head {e.getAppFn} is not a constant"
       let some relator0 := reg.consts.find? head | throwError "assemble: constant {head} not registered"
       -- every relator is GRADED: specialize it to the demanded output class FIRST; its residual argument
@@ -242,22 +242,22 @@ partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
             let paTy := (← whnf (← instantiateMVars (← inferType paWit))).getAppArgs
             let (famB', pbWit) ← withLocalDeclD `a paTy[2]! fun a => withLocalDeclD `a' paTy[3]! fun a' => do
               let aRTy ← mkAppM ``Param.R #[paWit, a, a']
-              withLocalDeclD `aR aRTy fun aR => do
+              withLocalDeclD `aRel aRTy fun aRel => do
                 -- the target family `B'` applied to this fiber's counterpart `a'` gives the body target.
-                let bodyWit ← assemble reg ((a.fvarId!, a', aR) :: senv) (arg.beta #[a]) cls
+                let bodyWit ← assemble reg ((a.fvarId!, a', aRel) :: senv) (arg.beta #[a]) cls
                   (argTgt?.map (·.beta #[a']))
-                -- the B-side family `B' : A' → Type` must depend only on `a'`, never on `a`/`aR`.
+                -- the B-side family `B' : A' → Type` must depend only on `a'`, never on `a`/`aRel`.
                 let bside := (← whnf (← instantiateMVars (← inferType bodyWit))).getAppArgs[3]!
-                if bside.hasAnyFVar (fun id => id == a.fvarId! || id == aR.fvarId!) then
+                if bside.hasAnyFVar (fun id => id == a.fvarId! || id == aRel.fvarId!) then
                   throwError "assemble: family B-side depends on the element/proof — unsupported dependent family in {head}"
-                return (← mkLambdaFVars #[a'] bside, ← mkLambdaFVars #[a, a', aR] bodyWit)
+                return (← mkLambdaFVars #[a'] bside, ← mkLambdaFVars #[a, a', aRel] bodyWit)
             argExprs := argExprs ++ #[arg, famB', pbWit]
         | .term => do                                      -- TERM arg: counterpart `⟨a⟩` + relatedness `[a]`
             -- CHECK mode: the arg's target TYPE is the type of the target-side counterpart `aᵢ'`.
             let termTgt? ← argTgt?.mapM (inferType ·)
             let a' ← LeTrocq.Counterpart.term reg.ctx senv.toTEnv arg termTgt?
-            let aR ← assembleTerm reg senv arg termTgt?
-            argExprs := argExprs ++ #[arg, a', aR]
+            let aRel ← assembleTerm reg senv arg termTgt?
+            argExprs := argExprs ++ #[arg, a', aRel]
       -- applied positionally (`mkAppN` fills implicit binders too, e.g. a predicate's `{A A'}`); the relators
       -- are monomorphic so no universe grounding is needed. Already at `dem`, so no final weakening.
       return mkAppN relator argExprs
@@ -318,7 +318,7 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
   match e with
   | .fvar id =>
       match senv.find? (·.1 == id) with
-      | some (_, _, xR) => return xR
+      | some (_, _, xRel) => return xRel
       | none => throwError "assemble: unbound variable {e}"
   | .const c _ =>
       -- CHECK mode: select the primitive's relatedness for the demanded target type; SYNTH: the preferred.
@@ -337,8 +337,8 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
           let f := e.appFn!; let a := e.appArg!
           let fR ← assembleTerm reg senv f none
           let a' ← LeTrocq.Counterpart.term reg.ctx senv.toTEnv a none
-          let aR ← assembleTerm reg senv a none
-          return mkApp3 fR a a' aR
+          let aRel ← assembleTerm reg senv a none
+          return mkApp3 fR a a' aRel
       | some _ =>
           -- SPINE (`[h a₁ … aₙ] = [h] a₁ ⟨a₁⟩ [a₁] …`): resolve the head against the result target, then take
           -- each argument's target from the head counterpart's domain type (dependent codomains via `⟨aᵢ⟩`).
@@ -351,8 +351,8 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
               | .forallE _ d b _ => pure (d, b)
               | other => throwError "assemble: head counterpart type {other} is not a function"
             let a' ← LeTrocq.Counterpart.term reg.ctx senv.toTEnv a (some dom)
-            let aR ← assembleTerm reg senv a (some dom)
-            acc := mkApp3 acc a a' aR; ty := cod.instantiate1 a'
+            let aRel ← assembleTerm reg senv a (some dom)
+            acc := mkApp3 acc a a' aRel; ty := cod.instantiate1 a'
           return acc
   | .lam n A b _ => do
       let (domTgt?, bodyTgt?) ← LeTrocq.Counterpart.splitPi? tgt?
@@ -362,9 +362,9 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
       let relA ← assembleRel reg senv A
       withLocalDeclD n A fun x =>
       withLocalDeclD (n.appendAfter "'") A' fun x' =>
-      withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xR => do
-        mkLambdaFVars #[x, x', xR]
-          (← assembleTerm reg ((x.fvarId!, x', xR) :: senv) (b.instantiate1 x)
+      withLocalDeclD (n.appendAfter "R") (mkApp2 relA x x') fun xRel => do
+        mkLambdaFVars #[x, x', xRel]
+          (← assembleTerm reg ((x.fvarId!, x', xRel) :: senv) (b.instantiate1 x)
             (bodyTgt?.map (·.instantiate1 x')))
   | e => throwError "assemble: unsupported term {e}"
 end

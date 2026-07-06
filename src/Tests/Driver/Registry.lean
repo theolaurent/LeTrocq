@@ -102,7 +102,7 @@ example : True := by
   trivial
 
 /- (4,4) end-to-end: `Nat → Nat` transferred at the TOP class — now possible since the arrow propagates
-   the full equivalence (the `(4,4)` coherence `R_in_mapK` holds by subsingleton). -/
+   the full equivalence (the `(4,4)` coherence `rInMapK` holds by subsingleton). -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
   let wit ← transfer e (map4, map4)
@@ -139,7 +139,7 @@ example : True := by
   have : Param .map1 .map0 ((Nat → Nat) → Nat) ((Unary → Unary) → Unary) := LeTrocq.Tests.trHO
   trivial
 
-/- ===================== VARIANCE for parameterized types (graded `paramListRG`) =====================
+/- ===================== VARIANCE for parameterized types (graded `paramList`) =====================
    `List` now crosses through a GRADED relator whose element class tracks the demanded output class
    (`listVariance`, parallel to `arrowVariance`), instead of a fixed-(4,4) relator weakened at the end.
 

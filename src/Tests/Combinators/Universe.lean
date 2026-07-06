@@ -4,21 +4,21 @@ import LeTrocq.Combinators.Universe
 namespace LeTrocq.Tests
 open LeTrocq MapClass
 
-/- the universe combinator at the ceiling: forward map = `id`, and `map_in_R` produces a real `Param`: -/
+/- the universe combinator at the ceiling: forward map = `id`, and `mapInR` produces a real `Param`: -/
 example : (paramTypeAt map2a map2a map1 map1 rfl rfl).cov.map = id := rfl
-example : ((paramTypeAt map2a map2a map1 map1 rfl rfl).cov.map_in_R Nat Nat rfl).cov.map = id := rfl
+example : ((paramTypeAt map2a map2a map1 map1 rfl rfl).cov.mapInR Nat Nat rfl).cov.map = id := rfl
 
 /- the reflexive identity at the top class computes (map = id) and carries the coherence field. -/
 example : (paramRefl Nat).cov.map = id := rfl
-example : ∀ a b r, (paramRefl Nat).cov.map_in_R a b ((paramRefl Nat).cov.R_in_map a b r) = r :=
-  (paramRefl Nat).cov.R_in_mapK
+example : ∀ a b r, (paramRefl Nat).cov.mapInR a b ((paramRefl Nat).cov.rInMap a b r) = r :=
+  (paramRefl Nat).cov.rInMapK
 example : (paramIdAt map4 map4 Nat).cov.map = id := rfl
 example : (paramIdAt map1 map1 Nat).cov.map = id := rfl
 
 /- `Map_Type`: the universe combinator can carry ANY inner relation class, independent of the (≤2a)
    outer class — here inner (3,3), and inner (4,4) at a lower outer class. -/
 example : (paramTypeAt map2a map2a map3 map3 rfl rfl).cov.map = id := rfl
-example : ((paramTypeAt map2a map2a map3 map3 rfl rfl).cov.map_in_R Nat Nat rfl).cov.map = id := rfl
+example : ((paramTypeAt map2a map2a map3 map3 rfl rfl).cov.mapInR Nat Nat rfl).cov.map = id := rfl
 example : (paramTypeAt map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 
 /- the Type-universe combinators are genuinely axiom-free (2a needs no univalence). -/
@@ -30,7 +30,7 @@ example : (paramTypeAt map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 /- the PROP universe combinator reaches the FULL (4,4) — completeness via `propext`, coherence free by
    proof irrelevance — where the `Type` universe stalls at 2a. -/
 example : paramProp.cov.map = id := rfl
-example : ∀ P P' r, paramProp.cov.map_in_R P P' (paramProp.cov.R_in_map P P' r) = r := paramProp.cov.R_in_mapK
+example : ∀ P P' r, paramProp.cov.mapInR P P' (paramProp.cov.rInMap P P' r) = r := paramProp.cov.rInMapK
 example : (paramPropAt map2a map0).cov.map = id := rfl
 /-- info: 'LeTrocq.paramProp' depends on axioms: [propext] -/
 #guard_msgs in #print axioms paramProp

@@ -70,14 +70,14 @@ example : (translate% (fun (a : Nat) (f : Nat → WTree Nat (fun _ => Nat)) => @
 def IsTrivN (_ : Nat)   : Prop := True
 def IsTrivU (_ : Unary) : Prop := True
 @[trocq] def IsTrivR (mc nc : MapClass) (n : Nat) (u : Unary) (_ : RNU n u) :
-    Param mc nc (IsTrivN n) (IsTrivU u) := paramPropMapsAt mc nc (fun _ => trivial) (fun _ => trivial)
+    Param mc nc (IsTrivN n) (IsTrivU u) := paramPropFromMaps mc nc (fun _ => trivial) (fun _ => trivial)
 
 example : (translate% (fun n : Nat => IsTrivN n)) = (fun u : Unary => IsTrivU u) := rfl
 /- the relatedness is `PLift (· ↔ ·)`, projected off the predicate's `Param` witness. -/
 example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ↔ IsTrivU u) :=
   relate% (fun n : Nat => IsTrivN n)
 /- connectives are ordinary `@[trocq]` RELATORS (`LeTrocq.Lib.Logic`), not hardcoded: `⟨And⟩` resolves by
-   registry lookup, and `[p n ∧ p n]` projects off the `paramAndR` witness — the same path as any type. -/
+   registry lookup, and `[p n ∧ p n]` projects off the `paramAnd` witness — the same path as any type. -/
 example : (translate% (fun n : Nat => IsTrivN n ∧ IsTrivN n))
     = (fun u : Unary => IsTrivU u ∧ IsTrivU u) := rfl
 example : ∀ (n : Nat) (u : Unary), RNU n u → PLift (IsTrivN n ∧ IsTrivN n ↔ IsTrivU u ∧ IsTrivU u) :=

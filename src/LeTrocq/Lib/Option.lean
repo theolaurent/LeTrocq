@@ -3,7 +3,7 @@ The LeTrocq STANDARD LIBRARY: `Option`.
 
 The same recipe as `List` (see `LeTrocq.Lib.List`), smaller — one constructor pair, no recursion. `OptionR` is
 the inductive parametricity relation (a TYPE FORMER), `OptionNoneR`/`OptionSomeR` are the constructor TERM
-primitives, and `paramOptionRG` is the GRADED relator for the solver/tactic path (variance parallel to `List`).
+primitives, and `paramOption` is the GRADED relator for the solver/tactic path (variance parallel to `List`).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
@@ -11,20 +11,20 @@ open LeTrocq MapClass
 
 @[trocq] inductive OptionR (A A' : Type) (R : A → A' → Type) : Option A → Option A' → Type
   | none : OptionR A A' R none none
-  | some {a a'} (aR : R a a') : OptionR A A' R (some a) (some a')
+  | some {a a'} (aRel : R a a') : OptionR A A' R (some a) (some a')
 
 theorem OptionR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : R a a'), x = y) :
     {oa : Option A} → {ob : Option A'} → (x y : OptionR A A' R oa ob) → x = y
   | _, _, .none,    .none     => rfl
-  | _, _, .some aR, .some aR' => by rw [hR _ _ aR aR']
+  | _, _, .some aRel, .some aRel' => by rw [hR _ _ aRel aRel']
 
 @[trocq] def OptionNoneR (A A' : Type) (R : A → A' → Type) : OptionR A A' R none none := .none
-@[trocq] def OptionSomeR (A A' : Type) (R : A → A' → Type) (a : A) (a' : A') (aR : R a a') :
-    OptionR A A' R (some a) (some a') := .some aR
+@[trocq] def OptionSomeR (A A' : Type) (R : A → A' → Type) (a : A) (a' : A') (aRel : R a a') :
+    OptionR A A' R (some a) (some a') := .some aRel
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
    `Option` is a COVARIANT functor, so — exactly like `List` — its variance is the identity: the element is
-   needed at the demanded output class. Same shape as `paramListRG`, `cases` in place of `induction`. -/
+   needed at the demanded output class. Same shape as `paramList`, `cases` in place of `induction`. -/
 
 /-- per-map-class minimal element class for `Option` (pure covariance). Parallel to `mapListVariance`. -/
 def mapOptionVariance : MapClass → ParamClass
@@ -51,7 +51,7 @@ theorem optionRInMap {A B : Type} {R : A → B → Type} (f : A → B) (fRInMap 
     ∀ oa ob, OptionR A B R oa ob → Option.map f oa = ob :=
   fun _ _ r => by cases r with
     | none => rfl
-    | some aR => exact congrArg some (fRInMap _ _ aR)
+    | some aRel => exact congrArg some (fRInMap _ _ aRel)
 
 def optionContraMapInR {A B : Type} {R : A → B → Type} (g : B → A) (gInR : ∀ b a, g b = a → R a b) :
     ∀ ob oa, Option.map g ob = oa → OptionR A B R oa ob :=
@@ -63,7 +63,7 @@ theorem optionContraRInMap {A B : Type} {R : A → B → Type} (g : B → A) (gR
     ∀ ob oa, OptionR A B R oa ob → Option.map g ob = oa :=
   fun _ _ r => by cases r with
     | none => rfl
-    | some aR => exact congrArg some (gRInMap _ _ aR)
+    | some aRel => exact congrArg some (gRInMap _ _ aRel)
 
 /-- the covariant half `MapHas m (OptionR R)` from the element at `mapOptionVariance m`. -/
 def optionCov {A B : Type} :
@@ -71,13 +71,13 @@ def optionCov {A B : Type} :
     MapHas m (OptionR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.cov.map }
-  | map2a, pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R }
-  | map2b, pa => { map := Option.map pa.cov.map, R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map }
-  | map3,  pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R,
-                   R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map }
-  | map4,  pa => { map := Option.map pa.cov.map, map_in_R := optionMapInR pa.cov.map pa.cov.map_in_R,
-                   R_in_map := optionRInMap pa.cov.map pa.cov.R_in_map,
-                   R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
+  | map2a, pa => { map := Option.map pa.cov.map, mapInR := optionMapInR pa.cov.map pa.cov.mapInR }
+  | map2b, pa => { map := Option.map pa.cov.map, rInMap := optionRInMap pa.cov.map pa.cov.rInMap }
+  | map3,  pa => { map := Option.map pa.cov.map, mapInR := optionMapInR pa.cov.map pa.cov.mapInR,
+                   rInMap := optionRInMap pa.cov.map pa.cov.rInMap }
+  | map4,  pa => { map := Option.map pa.cov.map, mapInR := optionMapInR pa.cov.map pa.cov.mapInR,
+                   rInMap := optionRInMap pa.cov.map pa.cov.rInMap,
+                   rInMapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
 /-- the contravariant half `MapHas n (flip (OptionR R))` from the element's contra at `mapOptionVariance n`. -/
 def optionContra {A B : Type} :
@@ -85,16 +85,16 @@ def optionContra {A B : Type} :
     MapHas n (fun (ob : Option B) (oa : Option A) => OptionR A B pa.R oa ob)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.contra.map }
-  | map2a, pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R }
-  | map2b, pa => { map := Option.map pa.contra.map, R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map }
-  | map3,  pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R,
-                   R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map }
-  | map4,  pa => { map := Option.map pa.contra.map, map_in_R := optionContraMapInR pa.contra.map pa.contra.map_in_R,
-                   R_in_map := optionContraRInMap pa.contra.map pa.contra.R_in_map,
-                   R_in_mapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
+  | map2a, pa => { map := Option.map pa.contra.map, mapInR := optionContraMapInR pa.contra.map pa.contra.mapInR }
+  | map2b, pa => { map := Option.map pa.contra.map, rInMap := optionContraRInMap pa.contra.map pa.contra.rInMap }
+  | map3,  pa => { map := Option.map pa.contra.map, mapInR := optionContraMapInR pa.contra.map pa.contra.mapInR,
+                   rInMap := optionContraRInMap pa.contra.map pa.contra.rInMap }
+  | map4,  pa => { map := Option.map pa.contra.map, mapInR := optionContraMapInR pa.contra.map pa.contra.mapInR,
+                   rInMap := optionContraRInMap pa.contra.map pa.contra.rInMap,
+                   rInMapK := fun _ _ _ => OptionR.allEq (fun a a' => (pa.contra.subsingleton a' a).allEq) _ _ }
 
 /-- `Option A ≃ Option B` at ANY output class `(m,n)`, element at the `optionVariance`-minimal class. -/
-@[trocq] noncomputable def paramOptionRG (m n : MapClass) (A B : Type)
+@[trocq] noncomputable def paramOption (m n : MapClass) (A B : Type)
     (pa : Param (optionVariance (m, n)).1 (optionVariance (m, n)).2 A B) :
     Param m n (Option A) (Option B) where
   R := OptionR A B pa.R
