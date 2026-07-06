@@ -7,7 +7,7 @@ rather than re-deriving an inductive — the `Array`/`List` conversions are defi
 reduces to `l`, and `⟨a.toList⟩` is `a` by structure eta), so each field delegates to `List`'s graded
 halves (`listCov`/`listContra`) on the underlying lists.
 
-  • TYPE FORMER `ArrayR` — so `paramType` can cross `Array a`.
+  • TYPE FORMER `ArrayR` — so `⟨·⟩` can cross `Array a` (counterpart head `Array ↦ Array`).
   • TERM primitive `ListToArrayR` keyed by `List.toArray` — an array literal `#[…]` elaborates to
     `List.toArray […]`, so this is the head the term translation `⟨·⟩` actually meets.
   • the GRADED relator `paramArrayRG` (for `trocq` / `transfer%`), delegating to `List`'s graded halves.

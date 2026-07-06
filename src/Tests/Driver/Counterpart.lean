@@ -2,7 +2,7 @@
 import Lean
 import LeTrocq.Driver.Tactic
 import Examples.NatUnary
-import Examples.DepParam
+import Examples.WTree
 namespace LeTrocq.Tests
 open LeTrocq LeTrocq.Counterpart LeTrocq.Lib LeTrocq.Examples
 

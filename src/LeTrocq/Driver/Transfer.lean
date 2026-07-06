@@ -41,14 +41,14 @@ def weakenTo (tgt src : ParamClass) (p : Expr) : MetaM Expr := do
   mkAppM ``Param.weaken #[← leProof tgt.1 src.1, ← leProof tgt.2 src.2, p]
 
 /-- the universe combinator for `Type w` at outer class `req`, carrying inner relation class `inner`. The
-    level `w` is PINNED explicitly (`mkConst … [w]`) because it is phantom in `paramTypeAtInner`'s result —
+    level `w` is PINNED explicitly (`mkConst … [w]`) because it is phantom in `paramTypeAt`'s result —
     no argument carries it, so `mkAppM` could only leave it a free mvar (later wrongly zeroed). -/
 def mkUniv (w : Level) (req inner : ParamClass) : MetaM Expr := do
   unless MapClass.le req.1 map2a && MapClass.le req.2 map2a do
     throwError "assemble: `Type` at {repr req} exceeds the universe ceiling (2a) — needs univalence"
   let hm ← leProof req.1 map2a
   let hn ← leProof req.2 map2a
-  return mkAppN (mkConst ``paramTypeAtInner [w])
+  return mkAppN (mkConst ``paramTypeAt [w])
     #[classToExpr req.1, classToExpr req.2, classToExpr inner.1, classToExpr inner.2, hm, hn]
 
 /-- recover `w` from a universe-binder domain `Type w = Sort (w+1)`; a bare `Sort u`/`Prop` domain is out of

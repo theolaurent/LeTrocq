@@ -2,7 +2,7 @@
 import Lean
 import LeTrocq.Driver.Tactic
 import Examples.NatUnary
-import Examples.DepParam
+import Examples.WTree
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Lib LeTrocq.Examples
 
@@ -183,6 +183,18 @@ example : (transfer% (Bool → Bool)).cov.map (fun b => !b) true = false := rfl
 example : (transfer% (Option Empty)).cov.map none = none := rfl
 example : (transfer% (Nat → Unit)).cov.map (fun _ => Unit.unit) Unary.z = Unit.unit := rfl
 example : (transfer% (Nat × Unit)).cov.map (Nat.zero, Unit.unit) = (Unary.z, Unit.unit) := rfl
+
+/- `Tw A C B` carries a phantom type parameter `C` BETWEEN the family's domain `A` and the family `B`, and is
+   just `Sigma B`, so its graded relator delegates to the standard library's `paramSigmaRG`. It exists only to
+   exercise the driver's non-adjacent-family-domain routing, so it lives here with its test (not in `Examples/`). -/
+def Tw (A _C : Type) (B : A → Type) : Type := Sigma B
+
+@[trocq] noncomputable def paramTwR (m n : MapClass) (A A' : Type)
+    (pa : Param (sigmaVariance (m, n)).1.1 (sigmaVariance (m, n)).1.2 A A')
+    (C C' : Type) (_pc : Param map4 map4 C C') (B : A → Type) (B' : A' → Type)
+    (pb : (a : A) → (a' : A') → pa.R a a' →
+          Param (sigmaVariance (m, n)).2.1 (sigmaVariance (m, n)).2.2 (B a) (B' a')) :
+    Param m n (Tw A C B) (Tw A' C' B') := paramSigmaRG m n A A' pa B B' pb
 
 /- NON-ADJACENT family domain: `Tw Nat Unary β` puts a phantom `C := Unary` between the family's domain
    `A := Nat` and `β`. The driver reads `β`'s domain off its binder type (the `Nat` arg), NOT the preceding

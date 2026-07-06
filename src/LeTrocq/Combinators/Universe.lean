@@ -6,7 +6,8 @@ The no-univalence ceiling is (2a,2a): `map_in_R : A = A' → Param A A'` is `Eq.
 the cap directly). The relation a `Param_Type` carries between `A` and `A'` is itself a `Param p q A A'`,
 and that INNER class `(p,q)` is independent of the (capped) outer class: it records how strongly the bound
 type variable is related. The inner witness is `paramRefl` (the identity equivalence) weakened to `(p,q)`;
-`paramTypeAtInner` is the general form, `paramType` the `(1,1)`-inner specialization.
+`paramTypeAt m n p q` is the sole combinator — built at the `(2a,2a)` ceiling and weakened to the outer
+class `(m,n) ≤ (2a,2a)`.
 -/
 import LeTrocq.Core.Param
 universe u w
@@ -35,26 +36,22 @@ def paramRefl (A : Sort u) : Param.{u,0} map4 map4 A A where
 def paramIdAt (p q : MapClass) (A : Sort u) : Param.{u,0} p q A A :=
   (paramRefl A).weaken (MapClass.le_map4 p) (MapClass.le_map4 q)
 
-/-- the universe combinator at the ceiling (2a,2a), carrying INNER relation class `(p,q)` (the
-    `Map_Type` table). `map_in_R : A = A' → Param p q A A'` is `Eq.rec` of `paramIdAt` — no univalence;
-    the inner class `(p,q)` is free (it records how the bound type variable must be related). -/
-def paramTypeInner (p q : MapClass) : Param map2a map2a (Type w) (Type w) where
-  R := fun A A' => Param p q A A'
-  cov :=
-    { map := id
-      map_in_R := fun A A' h => by subst h; exact paramIdAt p q A }
-  contra :=
-    { map := id
-      map_in_R := fun A' A h => by subst h; exact paramIdAt p q A' }
-
-/-- the universe combinator at outer class `≤ (2a,2a)` with inner relation class `(p,q)`. -/
-def paramTypeAtInner (m n p q : MapClass)
+/-- THE UNIVERSE COMBINATOR, at outer class `(m,n) ≤ (2a,2a)` and carrying INNER relation class `(p,q)` (the
+    `Map_Type` table): the relation is `fun A A' => Param p q A A'`, and `map_in_R : A = A' → Param p q A A'`
+    is `Eq.rec` of `paramIdAt` — no univalence. It is built at the `(2a,2a)` ceiling and weakened to `(m,n)`;
+    the inner class `(p,q)` is free (it records how strongly the bound type variable is related). This is the
+    driver's entry point — `mkUniv` calls it with inner `(4,4)`, the pinned top for a bound type variable. -/
+def paramTypeAt (m n p q : MapClass)
     (hm : MapClass.le m map2a = true) (hn : MapClass.le n map2a = true) :
     Param m n (Type w) (Type w) :=
-  (paramTypeInner p q).weaken hm hn
-
-/-- the universe combinator at (2a,2a) with the simplest inner class (1,1). -/
-def paramType : Param map2a map2a (Type w) (Type w) := paramTypeInner map1 map1
+  Param.weaken hm hn <| show Param map2a map2a (Type w) (Type w) from
+    { R := fun A A' => Param p q A A'
+      cov :=
+        { map := id
+          map_in_R := fun A A' h => by subst h; exact paramIdAt p q A }
+      contra :=
+        { map := id
+          map_in_R := fun A' A h => by subst h; exact paramIdAt p q A' } }
 
 /-- the PROP universe combinator at the TOP class `(4,4)`. Unlike the `Type` universe (capped at `2a`
     by the absence of univalence), `Prop` reaches the full equivalence: `map_in_R` is `Eq.rec`,

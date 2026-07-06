@@ -250,18 +250,4 @@ noncomputable def wtreeContra {A A' : Type} {B : A → Type} {B' : A' → Type} 
   contra := wtreeContra n (pa.weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
     (fun a a' aR => (pb a a' aR).weaken (by cases m <;> cases n <;> rfl) (by cases m <;> cases n <;> rfl))
 
-/- ===================== a family whose domain is NOT the adjacent type argument =====================
-   `Tw` carries a phantom type parameter `C` BETWEEN the family's domain `A` and the family `B`. The relator
-   framework reads `B`'s domain off its own binder type (`A`, the FIRST type arg), not "the preceding type
-   arg" (`C`), so the right witness is used. `Tw A C B` is just `Sigma B`, so its relator IS the standard
-   library's graded `paramSigmaRG` (`LeTrocq.Lib`), which it delegates to. -/
-def Tw (A _C : Type) (B : A → Type) : Type := Sigma B
-
-@[trocq] noncomputable def paramTwR (m n : MapClass) (A A' : Type)
-    (pa : Param (sigmaVariance (m, n)).1.1 (sigmaVariance (m, n)).1.2 A A')
-    (C C' : Type) (_pc : Param map4 map4 C C') (B : A → Type) (B' : A' → Type)
-    (pb : (a : A) → (a' : A') → pa.R a a' →
-          Param (sigmaVariance (m, n)).2.1 (sigmaVariance (m, n)).2.2 (B a) (B' a')) :
-    Param m n (Tw A C B) (Tw A' C' B') := paramSigmaRG m n A A' pa B B' pb
-
 end LeTrocq.Examples

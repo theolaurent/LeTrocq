@@ -9,7 +9,7 @@ Type`, which the inductive relation takes as a parameter. Registers base-agnosti
     (built like `paramForall`'s codomain). Proofs are dependent — `cases`/`induction` unify the index,
     `Subsingleton` identifies the proof slots.
 
-(A non-prelude example with the same family machinery — a W-type — lives in `Examples/DepParam`.)
+(A non-prelude example with the same family machinery — a W-type — lives in `Examples/WTree`.)
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib

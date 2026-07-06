@@ -3,8 +3,8 @@ The LeTrocq STANDARD LIBRARY: `Quot` (the kernel quotient).
 
 `Quot`/`Quot.mk` are kernel constants, but their parametricity registers like any prelude type — NOT a
 hardcoded driver primitive. Base-agnostically on BOTH surfaces:
-  • the TERM surface (`⟨·⟩`/`[·]`): `QuotRel` is the parametricity RELATION (a TYPE FORMER, so `paramType`
-    crosses `Quot r`); `Quot.mk` is a TERM primitive with relatedness `QuotMkR`.
+  • the TERM surface (`⟨·⟩`/`[·]`): `QuotRel` is the parametricity RELATION, registered as a TYPE FORMER so
+    `⟨·⟩` crosses `Quot r` (counterpart head `Quot ↦ Quot`); `Quot.mk` is a TERM primitive with relatedness `QuotMkR`.
   • the tactic path: the GRADED relator `paramQuotRG`, from a base equivalence + the relations' correspondence.
 
 A quotient is a former over a type `A` AND a relation `r : A → A → Prop` (a TERM argument, relatedness
@@ -20,7 +20,7 @@ open LeTrocq MapClass
 
 /-- the parametricity relation of `Quot`: related classes have `RA`-related representatives. Existential, so
     well-defined on both quotients by construction; `Prop`-truncated (`PLift` of an `∃`), hence subsingleton.
-    A TYPE FORMER keyed by `Quot` (its `(A, A', RA)` and `(r, r', rR)` come from `paramType`'s `mkApp3`). -/
+    A TYPE FORMER keyed by `Quot` (its `(A, A', RA)` and `(r, r', rR)` parameters are supplied by the graded relator `paramQuotRG`). -/
 @[trocq] def QuotRel (A A' : Type) (RA : A → A' → Type) (r : A → A → Prop) (r' : A' → A' → Prop)
     (_rR : (a : A) → (a' : A') → RA a a' → (b : A) → (b' : A') → RA b b' → PLift (r a b ↔ r' a' b')) :
     Quot r → Quot r' → Type :=

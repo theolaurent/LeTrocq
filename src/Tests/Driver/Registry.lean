@@ -4,7 +4,7 @@
 import Lean
 import LeTrocq
 import Examples.NatUnary
-import Examples.DepParam
+import Examples.WTree
 open Lean Lean.Meta Lean.Elab Lean.Elab.Command
 namespace LeTrocq.Tests
 open LeTrocq LeTrocq.Driver.Transfer MapClass LeTrocq.Examples
@@ -41,7 +41,7 @@ example : True := by
   trivial
 
 /- FORALL + TYPE end-to-end: transfer the POLYMORPHIC `∀ A : Type, A → A` at (0,1) — the driver builds
-   the universe domain (`paramTypeAtInner`, via `mkUniv`), goes under the binder, and assembles the body `A → A` from the
+   the universe domain (`paramTypeAt`, via `mkUniv`), goes under the binder, and assembles the body `A → A` from the
    bound variable's relatedness witness. This is the paper's flagship, now *assembled*, not just inferred. -/
 def flagshipTy2 := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
@@ -61,7 +61,7 @@ example : True := by
 
 /- MAP_TYPE: the same `∀ A : Type, A → A` at root (2b,0). The OUTER class of the universe is `forallVariance (2b,0).1 =
    (0,2a)` (≤ the (2a,2a) ceiling, so it assembles without univalence); the bound variable `A` is offered at
-   INNER class (4,4) — the pinned top, independent of the capped outer (`paramTypeAtInner` carries it). -/
+   INNER class (4,4) — the pinned top, independent of the capped outer (`paramTypeAt` carries it). -/
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
   let wit ← transfer e (map2b, map0)

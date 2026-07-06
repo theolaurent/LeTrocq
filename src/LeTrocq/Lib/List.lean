@@ -4,8 +4,9 @@ The LeTrocq STANDARD LIBRARY: `List`.
 `List : Type → Type` is a *relator*: its witness lifts an element relation to a relation on lists, itself an
 INDUCTIVE (`ListR`, one constructor per `List`'s). It registers base-agnostically on BOTH surfaces:
 
-  • the TERM surface (`⟨·⟩`/`[·]`): `ListR` is the parametricity RELATION (a TYPE FORMER, so `paramType` crosses
-    `List a`); `List.nil`/`List.cons` are TERM primitives with relatedness `ListR.nil`/`ListR.cons`.
+  • the TERM surface (`⟨·⟩`/`[·]`): `ListR` is the parametricity RELATION, registered as a TYPE FORMER so `⟨·⟩`
+    crosses `List a` (counterpart head `List ↦ List`); `List.nil`/`List.cons` are TERM primitives with
+    relatedness `ListR.nil`/`ListR.cons`.
   • the tactic path (`trocq`/`transfer%`): the GRADED relator `paramListRG`, building `List` at ANY output class
     with the element at the `listVariance`-minimal class (parallel to `paramArrow`); completeness laws are
     inductions, and `R_in_mapK` is free once the element relation is a subsingleton.
@@ -18,8 +19,8 @@ open LeTrocq MapClass
 
 /-- two lists are related iff they are cons-by-cons related: same length, corresponding elements `R`-related.
     This is the canonical relational interpretation of the inductive `List`. Its first three parameters
-    `(A, A', R)` are what `paramType`'s `mkApp3` supplies; the two list INDICES are read off as the related
-    objects, so `@[trocq]` classifies it as the `List` type former. -/
+    `(A, A', R)` are the element's `(A, A', RA)` triple that the graded relator `paramListRG` threads in; the
+    two list INDICES are read off as the related objects, so `@[trocq]` classifies it as the `List` type former. -/
 @[trocq] inductive ListR (A A' : Type) (R : A → A' → Type) : List A → List A' → Type
   | nil : ListR A A' R [] []
   | cons {a a' l l'} (aR : R a a') (lR : ListR A A' R l l') : ListR A A' R (a :: l) (a' :: l')
