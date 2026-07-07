@@ -184,6 +184,10 @@ def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
     unless isStructure env sName && isStructure env sName' do return none
     let sCtor  := getStructureCtor env sName
     let sCtor' := getStructureCtor env sName'
+    -- the relation must relate EVERY data field (one field per side-`mk` argument) for the specialisation to
+    -- typecheck; if it relates only a subset (e.g. a group whose relation relates the operations but not the
+    -- axioms), skip the constructor — its projections still register, and a user can hand-register `S.mk`.
+    unless fieldRels.size == sCtor.numFields && fieldRels.size == sCtor'.numFields do return none
     let sMk  := mkConst sCtor.name  (sCtor.levelParams.map mkLevelParam)   -- `S.mk`  (A-side build)
     let sMk' := mkConst sCtor'.name (sCtor'.levelParams.map mkLevelParam)  -- `S'.mk` (B-side build)
     let «ΘA» := pTy.getAppArgs                                -- each side's data type args
@@ -248,9 +252,12 @@ def deriveRelationPrims (indName : Name) : MetaM Unit := do
   if isStructure (← getEnv) indName then
     -- a structure relation's fields are the relatednesses of the data projections: `SR.fieldᵢ` is ALREADY in
     -- abstraction-theorem triple form `(Θ) (s s' self)`, concluding `Rᵢ (S.projᵢ s) (S'.projᵢ s')`, so
-    -- `parseEntry` reads it as the term primitive for `S.projᵢ` with no reordering.
+    -- `parseEntry` reads it as the term primitive for `S.projᵢ` with no reordering. A field that does NOT
+    -- classify as a term primitive (e.g. a trivial `PLift True` relatedness relating no data head) is skipped,
+    -- so the well-formed fields still register.
     for fieldName in getStructureFields (← getEnv) indName do
-      modifyEnv (trocqExt.addEntry · (← parseEntry (indName ++ fieldName)))
+      try modifyEnv (trocqExt.addEntry · (← parseEntry (indName ++ fieldName)))
+      catch _ => pure ()
     if let some primName ← deriveStructureCtorPrim indName then
       modifyEnv (trocqExt.addEntry · (← parseEntry primName))
   else
