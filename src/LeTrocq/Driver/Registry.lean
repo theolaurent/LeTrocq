@@ -157,6 +157,74 @@ def deriveConstructorPrim (ctorName : Name) : MetaM (Option Name) := do
       safety      := .safe }
     return some primName
 
+/-- Build the `S.mk` TERM primitive for a STRUCTURE relation `srName` (data structure `S`). Unlike an
+    inductive constructor, a structure relation's constructor `SR.mk` abstracts over the two related
+    structures `p`/`p'` (its conclusion is `SR … p p'`, NOT `S.mk`-headed), so `deriveConstructorPrim` can't
+    read it. Here we specialise `p := @S.mk Θ v…`, `p' := @S'.mk Θ' v'…` (the two data sides may be different
+    structures — a heterogeneous record equivalence) and repackage into triple form
+    `(Θ) (v₀ v₀' vR₀) …`: the resulting witness concludes `SR … (S.mk v…) (S.mk v'…)` (head `S.mk`), and each
+    `vRᵢ : Rᵢ vᵢ vᵢ'` is defeq to `SR.mk`'s `i`-th field type (`S.projᵢ (S.mk v…) ≡ vᵢ`). Returns `none` on
+    any unexpected shape (the user can still hand-register the constructor). Monomorphic (`Type 0`). -/
+def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
+  let env ← getEnv
+  let srCtor := getStructureCtor env srName
+  let nP := srCtor.numParams
+  if nP < 2 then return none                                  -- need the two related-structure params `p p'`
+  let lvls := srCtor.levelParams
+  let srMk := mkConst srCtor.name (lvls.map mkLevelParam)
+  forallTelescope (← inferType srMk) fun bs _ => do
+    let theme     := bs.extract 0 (nP - 2)                    -- the type-triples `Θ_A Θ_B RΘ …`
+    let p         := bs[nP - 2]!
+    let p'        := bs[nP - 1]!
+    let fieldRels := bs.extract nP bs.size                    -- one relatedness field per data field
+    let pTy  ← whnf (← inferType p)
+    let pTy' ← whnf (← inferType p')
+    let some sName  := pTy.getAppFn.constName?  | return none   -- A-side data structure `S`
+    let some sName' := pTy'.getAppFn.constName? | return none   -- B-side data structure `S'` (may differ)
+    unless isStructure env sName && isStructure env sName' do return none
+    let sCtor  := getStructureCtor env sName
+    let sCtor' := getStructureCtor env sName'
+    let sMk  := mkConst sCtor.name  (sCtor.levelParams.map mkLevelParam)   -- `S.mk`  (A-side build)
+    let sMk' := mkConst sCtor'.name (sCtor'.levelParams.map mkLevelParam)  -- `S'.mk` (B-side build)
+    let «ΘA» := pTy.getAppArgs                                -- each side's data type args
+    let «ΘB» := pTy'.getAppArgs
+    let k := fieldRels.size
+    -- per data field: the two related objects (data projections of `p`/`p'`), their types, and the relation
+    -- `Rᵢ` (the field relatedness type with its last two — the related objects — dropped).
+    let mut vTys : Array (Expr × Expr) := #[]
+    let mut rels : Array Expr := #[]
+    for fr in fieldRels do
+      let args := (← inferType fr).getAppArgs
+      if args.size < 2 then return none
+      vTys := vTys.push (← inferType args[args.size - 2]!, ← inferType args[args.size - 1]!)
+      rels := rels.push (mkAppN (← inferType fr).getAppFn (args.extract 0 (args.size - 2)))
+    -- binders `[v₀ v₀' … v_{k-1} v_{k-1}' , vR₀ … vR_{k-1}]`: values first (so all are in scope for the `vRᵢ`
+    -- types and the `S.mk` applications), relatednesses after; reordered into triples for the lambda.
+    let mut decls : Array (Name × (Array Expr → MetaM Expr)) := #[]
+    for i in [0 : k] do
+      decls := decls.push (s!"v{i}".toName, fun _ => pure vTys[i]!.1)
+      decls := decls.push (s!"v{i}'".toName, fun _ => pure vTys[i]!.2)
+    for i in [0 : k] do
+      decls := decls.push (s!"vR{i}".toName, fun xs => pure (mkApp2 rels[i]! xs[2 * i]! xs[2 * i + 1]!))
+    withLocalDeclsD decls fun xs => do
+      let sVal  := mkAppN sMk  («ΘA» ++ (Array.range k).map (xs[2 * ·]!))
+      let s'Val := mkAppN sMk' («ΘB» ++ (Array.range k).map (xs[2 * · + 1]!))
+      let vRs   := (Array.range k).map (fun i => xs[2 * k + i]!)
+      let body  := mkAppN srMk (theme ++ #[sVal, s'Val] ++ vRs)
+      let mut triples : Array Expr := #[]
+      for i in [0 : k] do
+        triples := (triples.push xs[2 * i]!).push xs[2 * i + 1]! |>.push xs[2 * k + i]!
+      let reordered := theme ++ triples
+      let primName := sCtor.name.str "trocqPrim"
+      addAndCompile <| .defnDecl {
+        name        := primName
+        levelParams := lvls
+        type        := ← mkForallFVars reordered (← inferType body)
+        value       := ← mkLambdaFVars reordered body
+        hints       := .abbrev
+        safety      := .safe }
+      return some primName
+
 /- ===================== (2) STORE: the `@[trocq]` attribute + environment extension =====================
    Tagging `w` classifies it immediately (via `parseEntry`) and stores the `RegKind`, so a malformed witness
    is rejected at the tag site and the surfaces (`transfer%`/`trocq`/`translate%`) read pre-parsed entries. -/
@@ -168,15 +236,28 @@ initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
     addImportedFn := fun arrs => arrs.foldl (· ++ ·) #[]
   }
 
-/-- for a tagged INDUCTIVE type former (a parametricity relation), derive + register a `.term` primitive for
-    each of its constructors (see `deriveConstructorPrim`), so the user need not hand-write one per
-    constructor. A `def`-based type former (e.g. `QuotRel`/`ArrayR`) has no constructors, so this is a no-op
-    there and the user registers the constructor primitive by hand. -/
-def deriveConstructorPrims (indName : Name) : MetaM Unit := do
-  let .inductInfo ind ← getConstInfo indName | return
-  for ctor in ind.ctors do
-    if let some primName ← deriveConstructorPrim ctor then
+/-- for a tagged inductive/structure type former (a parametricity relation), derive + register a `.term`
+    primitive for each of its parts, so the user need not hand-write one:
+      • a STRUCTURE relation → each FIELD PROJECTION `SR.fieldᵢ` (directly a triple-form witness for the data
+        projection `S.projᵢ`) PLUS the constructor `S.mk` (via `deriveStructureCtorPrim`);
+      • a plain INDUCTIVE relation → each CONSTRUCTOR (via `deriveConstructorPrim`).
+    A `def`-based type former (e.g. `QuotRel`/`ArrayR`) is neither, so this is a no-op there and the user
+    registers the term primitives by hand. -/
+def deriveRelationPrims (indName : Name) : MetaM Unit := do
+  let .inductInfo _ ← getConstInfo indName | return
+  if isStructure (← getEnv) indName then
+    -- a structure relation's fields are the relatednesses of the data projections: `SR.fieldᵢ` is ALREADY in
+    -- abstraction-theorem triple form `(Θ) (s s' self)`, concluding `Rᵢ (S.projᵢ s) (S'.projᵢ s')`, so
+    -- `parseEntry` reads it as the term primitive for `S.projᵢ` with no reordering.
+    for fieldName in getStructureFields (← getEnv) indName do
+      modifyEnv (trocqExt.addEntry · (← parseEntry (indName ++ fieldName)))
+    if let some primName ← deriveStructureCtorPrim indName then
       modifyEnv (trocqExt.addEntry · (← parseEntry primName))
+  else
+    let .inductInfo ind ← getConstInfo indName | return
+    for ctor in ind.ctors do
+      if let some primName ← deriveConstructorPrim ctor then
+        modifyEnv (trocqExt.addEntry · (← parseEntry primName))
 
 initialize registerBuiltinAttribute {
   name  := `trocq
@@ -184,9 +265,10 @@ initialize registerBuiltinAttribute {
   add   := fun decl _stx _kind => do
     let entry ← (parseEntry decl).run'
     modifyEnv (trocqExt.addEntry · entry)
-    -- an inductive TYPE FORMER (a parametricity relation) also auto-registers its CONSTRUCTORS as term
-    -- primitives, so the user need not hand-write a proxy per constructor.
-    if let .typeFormer .. := entry then (deriveConstructorPrims decl).run'
+    -- an inductive/structure TYPE FORMER (a parametricity relation) also auto-registers its CONSTRUCTORS
+    -- (inductive) or FIELD PROJECTIONS + constructor (structure) as term primitives, so the user need not
+    -- hand-write a proxy per part.
+    if let .typeFormer .. := entry then (deriveRelationPrims decl).run'
 }
 
 /-- the classified witnesses registered in the given environment. -/
