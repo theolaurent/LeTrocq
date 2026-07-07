@@ -58,4 +58,12 @@ example : ∀ (g : Group Parity) (a : Parity), g.mul g.one a = a := by
   trocq                       -- ⊢ ∀ (g : Group Bool) (a : Bool), g.mul g.one a = a
   exact fun g a => g.one_mul a
 
+/- ===================== (4) the variance is now PARAMETRIC — a sub-(4,4) carrier suffices ===================== -/
+-- `paramGroup`'s carrier demand scales with the output: at output `(3,3)` only a `(3,3)` carrier is needed
+-- (the round-trips floor it there), so a PARTIAL base composes — impossible with the old fixed-`(4,4)` version.
+example : Param map3 map3 (Group Bool) (Group Parity) :=
+  paramGroup map3 map3 Bool Parity (RBP.weaken (by decide) (by decide))
+-- and the demanded carrier class really is `(3,3)`, not `(4,4)`.
+example : groupVariance (map3, map3) = (map3, map3) := rfl
+
 end LeTrocq.Tests
