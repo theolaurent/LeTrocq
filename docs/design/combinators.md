@@ -83,8 +83,11 @@ family — note the `2a↔2b` swap in its family column):
 **`Quot`** — its relation is `Prop`-truncated, so coherence is always free; the map needs `2a` and
 completeness forces `3`: `m ↦` `(0,0)` `(2a,0)` `(2a,0)` `(3,0)` `(3,0)` `(3,0)` for `0…4`.
 
-**`Eq`** — fixed at `(4,4)` regardless of output (the map must be a bijection: `eqCorr` uses both
-`rInMap`s); the related objects are propositions, so completeness is proof irrelevance.
+**`Eq`** — graded, capped at `2b` per direction: transporting the equality one way uses only the
+underlying type's completeness (`rInMap`) in that direction (`eqFwd`/`eqBwd`), never a full equivalence, so
+`m ↦` `(0,0)` `(2b,0)` … for `0`/`≥1` and `eqVariance (m,n)` tops out at `(2b,2b)` (a one-directional demand
+like the `trocq` seed `(0,1)` needs only `(0,2b)`); the related objects are propositions, so the witness's
+own completeness/coherence are free by proof irrelevance.
 
 **Connectives** — a `Prop` part carries no data above class 1, so `propMapHas` caps it at `meet · map1`:
 `And`/`Or` are covariant (`0 ↦ (0,0)`, else `(1,0)`), `Not` is contravariant (that table negated), and

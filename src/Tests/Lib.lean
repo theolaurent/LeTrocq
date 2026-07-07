@@ -57,4 +57,12 @@ example : propVariance (map0, map3)  = (map0, map1) := rfl
 example : notVariance  (map1, map0)  = (map0, map1) := rfl   -- contravariant: mirror
 example : iffVariance  (map1, map0)  = (map1, map1) := rfl   -- both directions ⇒ part is (1,1)
 
+/- EQ VARIANCE: the underlying type is needed only up to COMPLETENESS (`rInMap`, 2b) in each demanded
+   direction — never a full `(4,4)` equivalence. A one-directional transport (the `trocq` goal seed `(0,1)`)
+   needs only `(0,2b)`; the two-directional maximum is `(2b,2b)`. -/
+example : eqVariance (map0, map0) = (map0,  map0)  := rfl
+example : eqVariance (map0, map1) = (map0,  map2b) := rfl   -- `trocq` seed: backward completeness only
+example : eqVariance (map1, map0) = (map2b, map0)  := rfl   -- forward completeness only
+example : eqVariance (map4, map4) = (map2b, map2b) := rfl   -- both directions: the maximum, NOT (4,4)
+
 end LeTrocq.Tests.Lib
