@@ -15,6 +15,7 @@ import Tests.Driver.Counterpart
 import Tests.Driver.Tactic
 import Tests.Driver.DepFamily
 import Tests.Driver.TypeDirected
+import Tests.Driver.Record
 import Tests.Driver.Group
 import Tests.Lib
 

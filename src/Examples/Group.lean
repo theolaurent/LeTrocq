@@ -28,8 +28,9 @@ import LeTrocq
 namespace LeTrocq.Examples
 open LeTrocq MapClass
 
-/- ===================== the group structure and its signature relation ===================== -/
-structure Group (G : Type) where
+/- ===================== the group typeclass and its signature relation ===================== -/
+/-- the mathematical structure of a group, as a `class` (a Lean typeclass: `[Group G]` is "G is a group"). -/
+class Group (G : Type) where
   mul : G → G → G
   one : G
   inv : G → G
@@ -37,9 +38,12 @@ structure Group (G : Type) where
   one_mul : ∀ a, mul one a = a
   inv_mul : ∀ a, mul (inv a) a = one
 
-/-- two groups are related iff their OPERATIONS correspond (a homomorphism of the signature). A STRUCTURE
-    relation: tagging it auto-registers `Group.mul`/`Group.one`/`Group.inv` as term primitives. -/
-@[trocq] structure GroupR (A A' : Type) (RA : A → A' → Type) (g : Group A) (g' : Group A') where
+/-- two group instances are related iff their OPERATIONS correspond (a homomorphism of the signature). The
+    relation is itself a `@[trocq] class` — its projections auto-register `Group.mul`/`Group.one`/`Group.inv`
+    as term primitives, and a concrete correspondence registers as a `@[trocq] instance` (see the tests). Only
+    the DRIVER consumes it (by head-lookup in the `@[trocq]` registry, never `synthInstance`), so making it a
+    class is just for the class/instance parallelism — `paramGroup` below stays a plain `def`. -/
+@[trocq] class GroupR (A A' : Type) (RA : A → A' → Type) (g : Group A) (g' : Group A') where
   mulR : ∀ a a', RA a a' → ∀ b b', RA b b' → RA (g.mul a b) (g'.mul a' b')
   oneR : RA g.one g'.one
   invR : ∀ a a', RA a a' → RA (g.inv a) (g'.inv a')
