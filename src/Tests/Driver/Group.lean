@@ -62,10 +62,12 @@ example : parityGroup.mul Parity.odd Parity.even = Parity.odd := rfl
 example : parityGroup.one = Parity.even := rfl
 example : parityGroup.inv Parity.odd = Parity.odd := rfl
 
-/- ===================== (2) the `@[trocq] instance` correspondence crosses a concrete-group term ============= -/
--- a term over the concrete `boolGroup` translates to the same term over `parityGroup` (uses `⟨boolGroup⟩`).
-example : (translate% (fun (x y : Bool) => boolGroup.mul x y))
-        = (fun (x' y' : Parity) => parityGroup.mul x' y') := rfl
+/- ===================== (2) the GENERIC typeclass operations cross — the point of the exercise ============= -/
+-- `Group.mul x y` is written with NO explicit instance — resolution fills in `[Group Bool] = boolGroup`. Its
+-- counterpart is the SAME generic `Group.mul x' y'`, whose instance resolution fills in `[Group Parity] =
+-- parityGroup` (matching `⟨boolGroup⟩ = parityGroup`). So generic typeclass code translates to generic code.
+example : (translate% (fun (x y : Bool) => Group.mul x y))
+        = (fun (x' y' : Parity) => Group.mul x' y') := rfl
 
 /- ===================== (3) the operation primitives cross under a λ-bound (polymorphic) instance =========== -/
 example : (translate% (fun (g : Group Bool) (a : Bool) => g.mul a (g.inv a)))
