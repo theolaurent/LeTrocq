@@ -31,13 +31,9 @@ theorem ListR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y : 
   | _, _, .nil,        .nil          => rfl
   | _, _, .cons aRel lRel, .cons aRel' lRel' => by rw [hR _ _ aRel aRel', ListR.allEq hR lRel lRel']
 
-/- ===================== the constructors as TERM primitives (for `translate%` / `relate%`) =====================
-   In abstraction-theorem triple form `(A,A',R) (a,a',aRel) (l,l',lRel)`, returning the inductive's constructors;
-   the head `List.nil`/`List.cons` on each side is read off the conclusion, so these are term primitives. -/
-@[trocq] def ListNilR (A A' : Type) (R : A → A' → Type) : ListR A A' R [] [] := .nil
-@[trocq] def ListConsR (A A' : Type) (R : A → A' → Type)
-    (a : A) (a' : A') (aRel : R a a') (l : List A) (l' : List A') (lRel : ListR A A' R l l') :
-    ListR A A' R (a :: l) (a' :: l') := .cons aRel lRel
+/- The constructors `ListR.nil`/`ListR.cons` are the TERM primitives for `List.nil`/`List.cons` (their
+   conclusions relate `[]`/`(a :: l)`). Tagging `ListR` above auto-registers them — the driver derives the
+   triple-form witness for each constructor (`Registry.deriveConstructorPrim`), so no hand-written proxy. -/
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `paramArrow`) =====================
    `List` is a COVARIANT functor, so its variance is the identity: to build `List` at output class `(m,n)` the

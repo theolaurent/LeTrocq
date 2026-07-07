@@ -3,9 +3,9 @@ The LeTrocq STANDARD LIBRARY: `Prod` (×, the cartesian product).
 
 `List` with TWO type parameters instead of one — and non-dependent (unlike `Sigma`, whose second component
 lives over the first). `ProdR` is the parametricity relation (a TYPE FORMER over both parameters: the
-translation crosses `A × B` by feeding each parameter's `(_, _, _)` triple in turn), `ProdMkR` the
-constructor TERM primitive, `paramProd` the GRADED relator (variance parallel to `List`, one `Param` argument
-per parameter).
+translation crosses `A × B` by feeding each parameter's `(_, _, _)` triple in turn); its constructor
+auto-registers as the `Prod.mk` TERM primitive, and `paramProd` is the GRADED relator (variance parallel to
+`List`, one `Param` argument per parameter).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
@@ -22,10 +22,8 @@ theorem ProdR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B
     {p : A × B} {q : A' × B'} (x y : ProdR A A' RA B B' RB p q) : x = y := by
   cases x with | mk aRel bRel => cases y with | mk aRel' bRel' => rw [hA _ _ aRel aRel', hB _ _ bRel bRel']
 
-/-- `Prod.mk` as a TERM primitive: the four triples are the two type parameters then the two components. -/
-@[trocq] def ProdMkR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type)
-    (a : A) (a' : A') (aRel : RA a a') (b : B) (b' : B') (bRel : RB b b') :
-    ProdR A A' RA B B' RB (a, b) (a', b') := .mk aRel bRel
+/- `ProdR.mk` auto-registers as the `Prod.mk` term primitive (tagging `ProdR` derives it via
+   `Registry.deriveConstructorPrim`) — the four triples are the two type parameters then the two components. -/
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
    `Prod` is covariant in BOTH parameters, each with the identity variance of a covariant functor: at output

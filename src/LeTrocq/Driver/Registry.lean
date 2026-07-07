@@ -118,6 +118,45 @@ def parseEntry (w : Name) : MetaM RegKind := do
         return .term hA args[args.size - 1]!.getAppFn w
       else throwError "trocq: cannot classify {w} : {← inferType wit}"
 
+/- ===================== auto-derived constructor primitives ===================== -/
+/-- Derive an abstraction-theorem-triple-form TERM-primitive witness for one constructor `ctorName` of a
+    tagged parametricity-relation inductive, so a user need NOT hand-write a proxy (the old `ListConsR`,
+    `SigmaMkR`, …). A relation constructor's binders are `params ++ [value pairs] ++ [relatedness proofs]`
+    (all A/B value pairs first, then their relatedness, the `i`-th proof relating the `i`-th pair — the
+    natural declaration order, confirmed for every prelude relation); this generates
+    `fun params (v₀ v₀' r₀) (v₁ v₁' r₁) … => @ctor params v₀ v₀' … r₀ r₁ …` — the SAME reordering the hand
+    proxies did — as an aux def `ctorName.trocqPrim` (carrying the constructor's `levelParams`, so it stays
+    universe-ready), adds it to the environment, and returns its name. Returns `none` (no error — the user
+    can still hand-write a proxy) when the constructor's fields are not a whole number of triples. -/
+def deriveConstructorPrim (ctorName : Name) : MetaM (Option Name) := do
+  let cinfo ← getConstInfoCtor ctorName
+  if cinfo.numFields % 3 != 0 then return none
+  let lvls := cinfo.levelParams
+  let ctor := mkConst ctorName (lvls.map mkLevelParam)
+  forallTelescope (← inferType ctor) fun bs concl => do
+    let params := bs.extract 0 cinfo.numParams
+    let fields := bs.extract cinfo.numParams bs.size
+    let k := fields.size / 3
+    -- the fields are `[v₀ v₀' v₁ v₁' … r₀ r₁ …]` (values then relateds); interleave into triples.
+    let vals := fields.extract 0 (2 * k)
+    let rels := fields.extract (2 * k) fields.size
+    let mut triples : Array Expr := #[]
+    for i in [0 : k] do
+      triples := (triples.push vals[2 * i]!).push vals[2 * i + 1]! |>.push rels[i]!
+    let reordered := params ++ triples
+    let primName := ctorName.str "trocqPrim"
+    -- `addAndCompile` (not `addDecl`): the witness is a bare constructor application (no recursor), so it is
+    -- computable, and downstream `def`s that embed it (`translate%`/`relate%` outputs) get compiled — matching
+    -- the old hand-written `def` proxies (which carried executable code).
+    addAndCompile <| .defnDecl {
+      name        := primName
+      levelParams := lvls
+      type        := ← mkForallFVars reordered concl
+      value       := ← mkLambdaFVars reordered (mkAppN ctor bs)
+      hints       := .abbrev
+      safety      := .safe }
+    return some primName
+
 /- ===================== (2) STORE: the `@[trocq]` attribute + environment extension =====================
    Tagging `w` classifies it immediately (via `parseEntry`) and stores the `RegKind`, so a malformed witness
    is rejected at the tag site and the surfaces (`transfer%`/`trocq`/`translate%`) read pre-parsed entries. -/
@@ -129,12 +168,25 @@ initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
     addImportedFn := fun arrs => arrs.foldl (· ++ ·) #[]
   }
 
+/-- for a tagged INDUCTIVE type former (a parametricity relation), derive + register a `.term` primitive for
+    each of its constructors (see `deriveConstructorPrim`), so the user need not hand-write one per
+    constructor. A `def`-based type former (e.g. `QuotRel`/`ArrayR`) has no constructors, so this is a no-op
+    there and the user registers the constructor primitive by hand. -/
+def deriveConstructorPrims (indName : Name) : MetaM Unit := do
+  let .inductInfo ind ← getConstInfo indName | return
+  for ctor in ind.ctors do
+    if let some primName ← deriveConstructorPrim ctor then
+      modifyEnv (trocqExt.addEntry · (← parseEntry primName))
+
 initialize registerBuiltinAttribute {
   name  := `trocq
   descr := "register a LeTrocq relatedness witness (base equivalence / relator / term primitive)"
   add   := fun decl _stx _kind => do
     let entry ← (parseEntry decl).run'
     modifyEnv (trocqExt.addEntry · entry)
+    -- an inductive TYPE FORMER (a parametricity relation) also auto-registers its CONSTRUCTORS as term
+    -- primitives, so the user need not hand-write a proxy per constructor.
+    if let .typeFormer .. := entry then (deriveConstructorPrims decl).run'
 }
 
 /-- the classified witnesses registered in the given environment. -/

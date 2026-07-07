@@ -2,8 +2,8 @@
 The LeTrocq STANDARD LIBRARY: `Sum` (⊕, the non-dependent disjoint union).
 
 Two type parameters (like `Prod`) but two constructors (like `Option`): `SumR` is the parametricity relation
-(`inl ~ inl`, `inr ~ inr`), `SumInlR`/`SumInrR` the constructor TERM primitives, `paramSum` the GRADED
-relator (variance parallel to `List`). The forward map is `Sum.map` of the two component maps.
+(`inl ~ inl`, `inr ~ inr`), whose constructors auto-register as the `Sum.inl`/`Sum.inr` TERM primitives;
+`paramSum` is the GRADED relator (variance parallel to `List`). The forward map is `Sum.map` of the two maps.
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
@@ -21,11 +21,8 @@ theorem SumR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B 
   | _, _, .inl aRel, .inl aRel' => by rw [hA _ _ aRel aRel']
   | _, _, .inr bRel, .inr bRel' => by rw [hB _ _ bRel bRel']
 
-/-- the two constructors as TERM primitives (the OTHER summand's type still crosses, as the unused triple). -/
-@[trocq] def SumInlR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type)
-    (a : A) (a' : A') (aRel : RA a a') : SumR A A' RA B B' RB (.inl a) (.inl a') := .inl aRel
-@[trocq] def SumInrR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type)
-    (b : B) (b' : B') (bRel : RB b b') : SumR A A' RA B B' RB (.inr b) (.inr b') := .inr bRel
+/- `SumR.inl`/`SumR.inr` auto-register as the `Sum.inl`/`Sum.inr` term primitives (tagging `SumR` derives
+   them via `Registry.deriveConstructorPrim`; the OTHER summand's type still crosses, as the unused triple). -/
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
    `Sum` is covariant in both summands, identity variance (a covariant functor): at output class `(m,n)` each

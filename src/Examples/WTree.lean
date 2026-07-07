@@ -7,8 +7,8 @@ well-founded tree — a label `a : A` and `B a`-many subtrees — and like `Sigm
 family `B : A → Type`, handled by `param`'s λ-rule (which turns `B` into the related family `(B', RB)`).
 
 It registers on BOTH surfaces, base-agnostically (the tests instantiate at `Nat ≃ Unary`):
-  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): the inductive relation `WTreeR` (a TYPE FORMER) + the
-    constructor `WTreeMkR` as a TERM primitive;
+  • the TERM surface (`translate%` / `relate%`, i.e. `⟨·⟩` / `[·]`): the inductive relation `WTreeR` (a TYPE FORMER),
+    whose constructor `WTreeR.mk` auto-registers as the `WTree.mk` TERM primitive;
   • the `trocq` / `transfer%` tactic: a `(4,4)` relator `paramWTreeR`, whose family argument `pb` is a whole
     family of `Param`s `∀ a a' (aRel : pa.R a a'), Param … (B a) (B' a')`. The relator proofs are dependent
     (subtrees live over the label), handled by the inductive relation: `cases`/`induction` do the index
@@ -31,12 +31,8 @@ inductive WTree (A : Type) (B : A → Type) : Type
       (fRel : (b : B a) → (b' : B' a') → (bRel : RB a a' aRel b b') → WTreeR A A' RA B B' RB (f b) (f' b')) :
       WTreeR A A' RA B B' RB ⟨a, f⟩ ⟨a', f'⟩
 
-@[trocq] def WTreeMkR (A A' : Type) (RA : A → A' → Type) (B : A → Type) (B' : A' → Type)
-    (RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type)
-    (a : A) (a' : A') (aRel : RA a a')
-    (f : B a → WTree A B) (f' : B' a' → WTree A' B')
-    (fRel : (b : B a) → (b' : B' a') → (bRel : RB a a' aRel b b') → WTreeR A A' RA B B' RB (f b) (f' b')) :
-    WTreeR A A' RA B B' RB ⟨a, f⟩ ⟨a', f'⟩ := .mk aRel fRel
+/- `WTreeR.mk` auto-registers as the `WTree.mk` term primitive (tagging `WTreeR` derives it via
+   `Registry.deriveConstructorPrim`, reordering its `{a a' f f'} aRel fRel` fields into triple form). -/
 
 /-- the relation is a subsingleton when its parts are — by induction on one tree-relatedness (its children
     field is a function into subsingletons, so `funext` + the IH identify it). -/

@@ -4,7 +4,8 @@ The LeTrocq STANDARD LIBRARY: `Sigma` (Σ, the dependent pair).
 Beyond `List`/`Option`: `Sigma` is parameterized by a type FAMILY `β : α → Type`. This needs no new machinery
 — `param`'s λ-rule turns `B : A → Type` into the RELATED FAMILY `RB : ∀ a a' (aRel : RA a a'), B a → B' a' →
 Type`, which the inductive relation takes as a parameter. Registers base-agnostically on BOTH surfaces:
-  • the TERM surface (`⟨·⟩`/`[·]`): the relation `SigmaR` (a TYPE FORMER) + `SigmaMkR` (a TERM primitive);
+  • the TERM surface (`⟨·⟩`/`[·]`): the relation `SigmaR` (a TYPE FORMER), whose constructor `SigmaR.mk`
+    auto-registers as the `Sigma.mk` TERM primitive;
   • the tactic path: the GRADED relator `paramSigma`, whose FAMILY argument `β` is a whole family of `Param`s
     (built like `paramForall`'s codomain). Proofs are dependent — `cases`/`induction` unify the index,
     `Subsingleton` identifies the proof slots.
@@ -21,10 +22,8 @@ open LeTrocq MapClass
     (RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type) : Sigma B → Sigma B' → Type
   | mk {a a' b b'} (aRel : RA a a') (bRel : RB a a' aRel b b') : SigmaR A A' RA B B' RB ⟨a, b⟩ ⟨a', b'⟩
 
-@[trocq] def SigmaMkR (A A' : Type) (RA : A → A' → Type) (B : A → Type) (B' : A' → Type)
-    (RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type)
-    (a : A) (a' : A') (aRel : RA a a') (b : B a) (b' : B' a') (bRel : RB a a' aRel b b') :
-    SigmaR A A' RA B B' RB ⟨a, b⟩ ⟨a', b'⟩ := .mk aRel bRel
+/- `SigmaR.mk` auto-registers as the `Sigma.mk` term primitive (tagging `SigmaR` derives it via
+   `Registry.deriveConstructorPrim`, reordering its `{a a' b b'} aRel bRel` fields into triple form). -/
 
 /-- the relation is a subsingleton when its parts are (the `(4,4)` coherence). `cases`+`subst` handle the
     dependent index, so no `HEq`. -/

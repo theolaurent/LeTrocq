@@ -2,8 +2,8 @@
 The LeTrocq STANDARD LIBRARY: `Option`.
 
 The same recipe as `List` (see `LeTrocq.Lib.List`), smaller — one constructor pair, no recursion. `OptionR` is
-the inductive parametricity relation (a TYPE FORMER), `OptionNoneR`/`OptionSomeR` are the constructor TERM
-primitives, and `paramOption` is the GRADED relator for the solver/tactic path (variance parallel to `List`).
+the inductive parametricity relation (a TYPE FORMER); its constructors auto-register as the `Option.none`/
+`Option.some` TERM primitives, and `paramOption` is the GRADED relator for the tactic path (variance like `List`).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
@@ -18,9 +18,8 @@ theorem OptionR.allEq {A A' : Type} {R : A → A' → Type} (hR : ∀ a a' (x y 
   | _, _, .none,    .none     => rfl
   | _, _, .some aRel, .some aRel' => by rw [hR _ _ aRel aRel']
 
-@[trocq] def OptionNoneR (A A' : Type) (R : A → A' → Type) : OptionR A A' R none none := .none
-@[trocq] def OptionSomeR (A A' : Type) (R : A → A' → Type) (a : A) (a' : A') (aRel : R a a') :
-    OptionR A A' R (some a) (some a') := .some aRel
+/- `OptionR.none`/`OptionR.some` auto-register as the `Option.none`/`Option.some` term primitives (tagging
+   `OptionR` derives them via `Registry.deriveConstructorPrim`) — no hand-written proxy. -/
 
 /- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
    `Option` is a COVARIANT functor, so — exactly like `List` — its variance is the identity: the element is
