@@ -1,88 +1,60 @@
 /-
-Transferring a GROUP as a TYPECLASS (see `Examples/Group.lean`, where `Group`/`GroupR` are `class`es). We
-register a carrier equivalence `Bool ≃ Parity`, the group ℤ/2ℤ as an `instance` on each side, and their
-correspondence as a `@[trocq] instance`. Then:
-  • `transfer%` transports the WHOLE group `Group Bool → Group Parity` (operations AND axioms) — it COMPUTES;
-  • the auto-registered operation primitives (`Group.mul`/`Group.one`/`Group.inv`) cross the term surface;
-  • the `@[trocq] instance` correspondence lets a term over the concrete `boolGroup` cross to `parityGroup`;
-  • `trocq` proves a group law on the `Parity` side by transferring it to `Bool`.
-Nothing here is special-cased for classes — `@[trocq]` reads the type, so `class`/`instance` register exactly
-like `structure`/`def`. The relation/relator (`GroupR`/`paramGroup`) are consumed by the driver's registry,
-never by `synthInstance`.
+Relating two DISTINCT group instances via `GroupR` (see `Examples/Group.lean`): `intGroup` (ℤ) and
+`boolGroup` (ℤ/2ℤ), through the parity homomorphism ℤ ↠ ℤ/2ℤ. There is NO type equivalence `Int ≃ Bool`, so
+this is a standalone correspondence, not a full transport. We exercise:
+  • the parity relation `parityR` itself;
+  • the TERM surface (`translate%`/`relate%`): the `@[trocq]` witness registers `intGroup ↦ boolGroup`;
+  • `trocq` on ELEMENT goals, via the partial parity carrier `RBI : Param map4 map2a Int Bool`.
 -/
 import LeTrocq
 import Examples.Group
 namespace LeTrocq.Tests
 open LeTrocq MapClass LeTrocq.Examples
 
-/- ===================== a concrete carrier equivalence `Bool ≃ Parity` ===================== -/
-inductive Parity | even | odd deriving Repr, DecidableEq
-def Parity.toBool : Parity → Bool | .even => false | .odd => true
-def boolToParity : Bool → Parity | false => .even | true => .odd
+/- ===================== the parity relation ===================== -/
+example : parityR 0 false := ⟨by decide⟩
+example : parityR 3 true := ⟨by decide⟩
+example : parityR 1 true := ⟨by decide⟩
+example : parityR 4 false := ⟨by decide⟩
 
-def RBoolParity : Bool → Parity → Type := fun b p => PLift (p.toBool = b)
-@[trocq] def RBP : Param map4 map4 Bool Parity where
-  R := RBoolParity
-  cov :=
-    { map := boolToParity
-      mapInR := fun b p h => PLift.up (by subst h; cases b <;> rfl)
-      rInMap := fun b p r => by have h := r.down; subst h; cases p <;> rfl
-      rInMapK := fun _ _ _ => rfl }
-  contra :=
-    { map := Parity.toBool
-      mapInR := fun p b h => PLift.up h
-      rInMap := fun p b r => r.down
-      rInMapK := fun _ _ _ => rfl }
+/- ===================== the correspondence witness ===================== -/
+-- the whole `GroupR` witness elaborates (its three fields — mul/one/inv — all discharge).
+example : GroupR Int Bool parityR intGroup boolGroup := intBoolGroupR
 
-/- ===================== the group ℤ/2ℤ, as `instance`s related by a `@[trocq] instance` ===================== -/
-/-- ℤ/2ℤ on `Bool` (`mul = xor`, `one = false`, `inv = id`); laws by `decide`. -/
-instance boolGroup : Group Bool where
-  mul a b := a != b
-  one := false
-  inv a := a
-  mul_assoc := by decide
-  one_mul := by decide
-  inv_mul := by decide
+/- ===================== the TERM surface (`translate%` / `relate%`) ===================== -/
+-- the `@[trocq]` witness registers `intGroup ↦ boolGroup`, so `⟨intGroup⟩ = boolGroup`.
+example : (translate% intGroup) = boolGroup := rfl
+-- `relate%` recovers the correspondence witness.
+example : GroupR Int Bool parityR intGroup boolGroup := relate% intGroup
 
-/-- the relator, built once (`transfer%` finds the `Bool ≃ Parity` base). -/
-noncomputable def gBP : Param map4 map4 (Group Bool) (Group Parity) := transfer% (Group Bool) to (Group Parity)
+/- ===================== `trocq` on ELEMENT goals, via the parity carrier `RBI` =====================
+   A group EQUATION does NOT transfer, by design: ℤ ↠ ℤ/2ℤ is non-injective, so `z + z = 0` (FALSE in ℤ)
+   is not a sound counterpart of `b != b = false` (TRUE in ℤ/2ℤ). The `(4,2a)` carrier lacks the `Bool → Int`
+   completeness `paramEq` needs, so the driver refuses it — that is soundness, not a gap. -/
 
-/-- the `Parity`-side group, as the transport of `boolGroup` — a genuine `Group Parity` instance. -/
-noncomputable instance parityGroup : Group Parity := gBP.cov.map boolGroup
+-- but a PARITY-INVARIANT predicate transfers soundly: "z + z is even" over ℤ ⤳ "b != b is even" over ℤ/2ℤ,
+-- a genuine element-level `trocq` across the homomorphism. `EvenR` is the predicate relator (`Int`-side
+-- first, matching the goal); its carrier argument is the bound element's `parityR` relatedness.
+def EvenI (z : Int) : Prop := z % 2 = 0
+/-- `abbrev` (reducible), so `decide` sees through to `DecidableEq Bool` on the ℤ/2ℤ side. -/
+abbrev EvenB (b : Bool) : Prop := b = false
+@[trocq] def EvenR (mc nc : MapClass) (z : Int) (b : Bool) (h : parityR z b) :
+    Param mc nc (EvenI z) (EvenB b) :=
+  paramPropFromMaps mc nc
+    (fun hz => by
+      have hd := h.down; have hz' : z % 2 = 0 := hz
+      cases b
+      · rfl
+      · exfalso; simp only [cond_true] at hd; omega)
+    (fun hb => by
+      have hb' : b = false := hb; subst hb'
+      have hd := h.down; simpa [EvenI] using hd)
 
-/-- their CORRESPONDENCE, registered as a `@[trocq] instance` — so `⟨boolGroup⟩ = parityGroup`. (Free here,
-    since `parityGroup` IS the transport; a NATIVE `Parity` group would instead need a proof, often `decide`.) -/
-@[trocq] noncomputable instance boolParityGroupR : GroupR Bool Parity RBoolParity boolGroup parityGroup :=
-  gBP.cov.mapInR boolGroup parityGroup rfl
-
-/- ===================== (1) transporting the whole group — and it COMPUTES ===================== -/
--- `parityGroup`'s operations (ℤ/2ℤ moved across `Bool ≃ Parity`) compute.
-example : parityGroup.mul Parity.odd Parity.odd = Parity.even := rfl
-example : parityGroup.mul Parity.odd Parity.even = Parity.odd := rfl
-example : parityGroup.one = Parity.even := rfl
-example : parityGroup.inv Parity.odd = Parity.odd := rfl
-
-/- ===================== (2) the GENERIC typeclass operations cross — the point of the exercise ============= -/
--- `Group.mul x y` is written with NO explicit instance — resolution fills in `[Group Bool] = boolGroup`. Its
--- counterpart is the SAME generic `Group.mul x' y'`, whose instance resolution fills in `[Group Parity] =
--- parityGroup` (matching `⟨boolGroup⟩ = parityGroup`). So generic typeclass code translates to generic code.
-example : (translate% (fun (x y : Bool) => Group.mul x y))
-        = (fun (x' y' : Parity) => Group.mul x' y') := rfl
-
-/- ===================== (3) the operation primitives cross under a λ-bound (polymorphic) instance =========== -/
-example : (translate% (fun (g : Group Bool) (a : Bool) => g.mul a (g.inv a)))
-        = (fun (g : Group Parity) (a : Parity) => g.mul a (g.inv a)) := rfl
-noncomputable def opWit := relate% (fun (g : Group Bool) (a : Bool) => g.mul a a)
-
-/- ===================== (4) prove a group law on `Parity` by transferring it to `Bool` ===================== -/
-example : ∀ (g : Group Parity) (a : Parity), g.mul g.one a = a := by
-  trocq                       -- ⊢ ∀ (g : Group Bool) (a : Bool), g.mul g.one a = a
-  exact fun g a => g.one_mul a
-
-/- ===================== (5) the carrier variance is PARAMETRIC — a sub-(4,4) carrier suffices ============== -/
--- `paramGroup`'s carrier demand scales with the output: at output `(3,3)` only a `(3,3)` carrier is needed.
-example : Param map3 map3 (Group Bool) (Group Parity) :=
-  paramGroup map3 map3 Bool Parity (RBP.weaken (by decide) (by decide))
-example : groupVariance (map3, map3) = (map3, map3) := rfl
+-- the goal uses the GENERIC `Group.mul` (instance `[Group Int]` synthesized to `intGroup`); after `trocq`
+-- it is generic `Group.mul` over `[Group Bool]` — and now `decide` closes it, the whole point of landing in
+-- the finite ℤ/2ℤ.
+example : ∀ z : Int, EvenI (Group.mul z z) := by
+  trocq          -- ⊢ ∀ b : Bool, EvenB (Group.mul b b)
+  decide
 
 end LeTrocq.Tests
