@@ -11,7 +11,7 @@ For a term/type `e` it produces the B-side counterpart `⟨e⟩` — `e` rebuilt
   ⟨Πx:A. B⟩  = Πx':⟨A⟩. ⟨B⟩
 
 The other half is the RELATEDNESS `[e] : 〚T〛 e ⟨e⟩`, the graded `[·]` in `LeTrocq.Driver.Transfer` (the sole
-consumer of `⟨·⟩`). `translate% e` elaborates to `⟨e⟩`; the shared `Ctx`/`buildCtx`/`sym*` below serve both.
+consumer of `⟨·⟩`). `translate e` elaborates to `⟨e⟩`; the shared `Ctx`/`buildCtx`/`sym*` below serve both.
 -/
 import LeTrocq.Combinators
 import LeTrocq.Driver.Registry
@@ -19,18 +19,36 @@ import Lean
 open Lean Lean.Meta
 namespace LeTrocq.Counterpart
 
+/-- lookup direction for `⟨·⟩`: `fwd` prefers a head's registered TARGET (`A ↦ B`), `bwd` its registered
+    SOURCE (`B ↦ A`). Only affects SYNTH-mode leaf selection where a head is registered in BOTH roles; each
+    direction falls back to the other, so a single-role head still resolves. `transfer from` runs `fwd`;
+    `transfer to` runs `bwd` to synthesize the SOURCE of the named target. -/
+inductive Direction | fwd | bwd
+  deriving DecidableEq, Inhabited
+
+/-- a per-head preferred counterpart, split by registration direction; `get dir` prioritizes `dir`'s map
+    and falls back to the other (so a head registered in only one role still resolves). -/
+structure DirPref where
+  fwd : NameMap Name
+  bwd : NameMap Name
+
+def DirPref.get (p : DirPref) : Direction → Name → Option Name
+  | .fwd, c => (p.fwd.find? c).orElse fun _ => p.bwd.find? c
+  | .bwd, c => (p.bwd.find? c).orElse fun _ => p.fwd.find? c
+
 /-- the `⟨·⟩` registration (COUNTERPARTS only): type formers/bases/relators ↦ B-side head; term primitives ↦
     (B-term, relatedness witness). The second component of `terms` (the relatedness) is what `[·]` reads; `⟨·⟩`
     uses only the first. A `Prop`'s counterpart comes from its RELATOR entry in `types` (`And ↦ And`,
     `Pos ↦ Pos'`); its relatedness is the graded `Param` witness `[·]` builds. -/
 structure Ctx where
   types    : NameMap (NameMap Expr)
-  typePref : NameMap Name
+  typePref : DirPref
   terms    : NameMap (NameMap (Expr × Expr))
-  termPref : NameMap Name
-  -- GROUND closed-type equivalences (`List Unit ↦ Nat`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy)]`, matched
-  -- WHOLE by `isDefEq` (the counterpart side only — `⟨·⟩` needs just the target TYPE). Both directions.
-  ground   : NameMap (Array (Expr × Expr))
+  termPref : DirPref
+  -- GROUND closed-type equivalences (`List Unit ↦ Nat`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy, dir)]`,
+  -- matched WHOLE by `isDefEq` (the counterpart side only — `⟨·⟩` needs just the target TYPE). Each entry
+  -- carries its registration `Direction`, so synth prefers the requested direction's entries.
+  ground   : NameMap (Array (Expr × Expr × Direction))
 
 /-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. (The graded
     translation `[·]` in `LeTrocq.Driver.Transfer` carries the relatedness separately; `⟨·⟩` needs only `x'`.) -/
@@ -80,21 +98,27 @@ def splitPi? (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := do
     is destructured down an application spine (the head's counterpart type dictates each argument's target).
     This produces ONLY the counterpart; the relatedness is the graded `[·]` in `LeTrocq.Driver.Transfer`, which
     calls back here for every counterpart it needs (`[t u] = [t] u ⟨u⟩ [u]`). -/
-partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : MetaM Expr := do
+partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) (dir : Direction := .fwd) :
+    MetaM Expr := do
   -- GROUND closed-type equivalence (`⟨List Unit⟩ = Nat`): matched WHOLE (head-indexed, `isDefEq`), so it beats
   -- the structural `.app`/`.const` descent below. Only type-EXPRESSIONS match (`srcTy` is a type); a term of the
-  -- ground type is never `isDefEq` to that type, so no misfire. Keeps the LAST match (last-registered default).
+  -- ground type is never `isDefEq` to that type, so no misfire. Prefers a `dir`-matching entry, else any (each
+  -- keeping the LAST match — the last-registered default).
   if let some h := e.getAppFn.constName? then
     if let some cands := NameMap.find? ctx.ground h then
-      let mut hit : Option Expr := none
-      for (srcTy, tgtTy) in cands do
+      let mut prefHit : Option Expr := none
+      let mut anyHit  : Option Expr := none
+      for (srcTy, tgtTy, d) in cands do
         if ← (try isDefEq e srcTy catch _ => pure false) then
-          match tgt? with
-          | some t => if ← (try isDefEq t tgtTy catch _ => pure false) then hit := some tgtTy
-          | none   => hit := some tgtTy
-      if let some tgtTy := hit then return tgtTy
+          let ok ← match tgt? with
+            | some t => (try isDefEq t tgtTy catch _ => pure false)
+            | none   => pure true
+          if ok then
+            anyHit := some tgtTy
+            if d == dir then prefHit := some tgtTy
+      if let some tgtTy := prefHit.orElse (fun _ => anyHit) then return tgtTy
   if let some n := natNumeral? e then
-    if (← whnf (← inferType e)).isConstOf ``Nat then return ← term ctx env (natExpr n) tgt?
+    if (← whnf (← inferType e)).isConstOf ``Nat then return ← term ctx env (natExpr n) tgt? dir
   match e with
   | .fvar id =>
       match env.find? (·.1 == id) with
@@ -105,7 +129,7 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : Meta
       -- the target head selects the counterpart; in SYNTH mode the preferred (last-registered) target is used.
       let key? := (← whnf (tgt?.getD e)).getAppFn.constName?
       if let some tgtMap := ctx.terms.find? c then
-        let some h := (match tgt? with | some _ => key? | none => ctx.termPref.find? c)
+        let some h := (match tgt? with | some _ => key? | none => ctx.termPref.get dir c)
           | throwError "translate: term {c} has no target"
         match tgtMap.find? h with
         | some (b, _) => return b
@@ -114,7 +138,7 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : Meta
             if (← (tgt?.mapM fun t => do isDefEq (← inferType e) t)).getD false then return e
             else throwError "translate: no counterpart for term {c} at target {h}"
       else if let some tgtMap := ctx.types.find? c then
-        let some h := (match tgt? with | some _ => key? | none => ctx.typePref.find? c)
+        let some h := (match tgt? with | some _ => key? | none => ctx.typePref.get dir c)
           | throwError "translate: type {c} has no target"
         match tgtMap.find? h with
         | some b => return b
@@ -127,33 +151,33 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : Meta
         return e
   | e@(.app ..) => do
       match tgt? with
-      | none => return .app (← term ctx env e.appFn! none) (← term ctx env e.appArg! none)
+      | none => return .app (← term ctx env e.appFn! none dir) (← term ctx env e.appArg! none dir)
       | some _ =>
           -- SPINE: resolve the head against the result target, then take each argument's target from the
           -- head counterpart's type (its domain), threading dependent codomains via the built counterpart.
           let fn := e.getAppFn
-          let mut acc ← term ctx env fn tgt?
+          let mut acc ← term ctx env fn tgt? dir
           let mut ty ← inferType acc
           for a in e.getAppArgs do
             let (dom, cod) ← match (← whnf ty) with
               | .forallE _ d b _ => pure (d, b)
               | other => throwError "translate: head counterpart type {other} is not a function"
-            let a' ← term ctx env a (some dom)
+            let a' ← term ctx env a (some dom) dir
             acc := .app acc a'; ty := cod.instantiate1 a'
           return acc
   | .sort _ => return e
   | .lam n A b _ => do
       let (domTgt?, bodyTgt?) ← splitPi? tgt?
-      let A' ← term ctx env A domTgt?
+      let A' ← term ctx env A domTgt? dir
       withLocalDeclD n A fun x => withLocalDeclD (n.appendAfter "'") A' fun x' =>
         return ← mkLambdaFVars #[x'] (← term ctx ((x.fvarId!, x') :: env) (b.instantiate1 x)
-          (bodyTgt?.map (·.instantiate1 x')))
+          (bodyTgt?.map (·.instantiate1 x')) dir)
   | .forallE n A B _ => do
       let (domTgt?, bodyTgt?) ← splitPi? tgt?
-      let A' ← term ctx env A domTgt?
+      let A' ← term ctx env A domTgt? dir
       withLocalDeclD n A fun x => withLocalDeclD (n.appendAfter "'") A' fun x' =>
         return ← mkForallFVars #[x'] (← term ctx ((x.fvarId!, x') :: env) (B.instantiate1 x)
-          (bodyTgt?.map (·.instantiate1 x')))
+          (bodyTgt?.map (·.instantiate1 x')) dir)
   | e => throwError "translate: unsupported {e}"
 
 /-- telescope a primitive's type into abstraction-theorem triples `[a,a',aRel, b,b',bR, …]`, check the binder
@@ -180,23 +204,25 @@ def symPrimitive (wit : Expr) : MetaM Expr :=
     `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
     So a term over *either* side of a registered equivalence translates by head match. -/
 def buildCtx : MetaM Ctx := do
-  let mut types    : NameMap (NameMap Expr) := mkNameMap _
-  let mut typePref : NameMap Name := mkNameMap _
-  let mut terms    : NameMap (NameMap (Expr × Expr)) := mkNameMap _
-  let mut termPref : NameMap Name := mkNameMap _
-  let mut ground   : NameMap (Array (Expr × Expr)) := mkNameMap _
+  let mut types     : NameMap (NameMap Expr) := mkNameMap _
+  let mut typePrefF : NameMap Name := mkNameMap _
+  let mut typePrefB : NameMap Name := mkNameMap _
+  let mut terms     : NameMap (NameMap (Expr × Expr)) := mkNameMap _
+  let mut termPrefF : NameMap Name := mkNameMap _
+  let mut termPrefB : NameMap Name := mkNameMap _
+  let mut ground    : NameMap (Array (Expr × Expr × Direction)) := mkNameMap _
   -- every BASE / TERM installs in both directions (the shared forward/backward + homogeneous-skip policy),
-  -- PAIR-INDEXED with a preferred (last-registered) target; the backward witness is `symPrimitive`.
+  -- with a per-DIRECTION preferred (last-registered) target; the backward witness is `symPrimitive`.
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB _witName _ =>
-        -- `⟨·⟩` needs only the COUNTERPART type, both directions: `⟨A⟩ = B`, `⟨B⟩ = A`.
-        let r ← insertBidirPair types typePref hA (some hB) tyB (return tyA)
-        types := r.1; typePref := r.2
+        -- `⟨·⟩` needs only the COUNTERPART type, both directions: `⟨A⟩ = B` (fwd), `⟨B⟩ = A` (bwd).
+        let r ← insertBidirPair types typePrefF typePrefB hA (some hB) tyB (return tyA)
+        types := r.1; typePrefF := r.2.1; typePrefB := r.2.2
     | .ground hA hB tyA tyB _witName _ =>
-        -- a GROUND closed-type equivalence: `⟨A⟩ = B`, `⟨B⟩ = A`, matched WHOLE (head-indexed, `isDefEq`).
-        ground := ground.insert hA ((NameMap.find? ground hA |>.getD #[]).push (tyA, tyB))
-        ground := ground.insert hB ((NameMap.find? ground hB |>.getD #[]).push (tyB, tyA))
+        -- a GROUND closed-type equivalence: `⟨A⟩ = B` (fwd), `⟨B⟩ = A` (bwd), matched WHOLE (`isDefEq`).
+        ground := ground.insert hA ((NameMap.find? ground hA |>.getD #[]).push (tyA, tyB, .fwd))
+        ground := ground.insert hB ((NameMap.find? ground hB |>.getD #[]).push (tyB, tyA, .bwd))
     | .term hA bTerm witName =>
         -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). The backward
         -- entry is keyed by the B-side term head (so a homogeneous constructor like `List.cons` is skipped).
@@ -204,29 +230,29 @@ def buildCtx : MetaM Ctx := do
         let srcTerm ← mkConstWithFreshMVarLevels hA
         let tgtTyHead ← resultTypeHead bTerm
         terms := terms.insert hA ((NameMap.find? terms hA |>.getD (mkNameMap _)).insert tgtTyHead (bTerm, wit))
-        termPref := termPref.insert hA tgtTyHead
+        termPrefF := termPrefF.insert hA tgtTyHead
         match bTerm.constName? with
         | some hB =>
             if hB != hA then
               let srcTyHead ← resultTypeHead srcTerm
               terms := terms.insert hB ((NameMap.find? terms hB |>.getD (mkNameMap _)).insert srcTyHead
                 (srcTerm, ← symPrimitive wit))
-              termPref := termPref.insert hB srcTyHead
+              termPrefB := termPrefB.insert hB srcTyHead
         | none => pure ()
     | .typeFormer hA hB _relName =>
         -- a parameterized type former `F`: `⟨·⟩` maps its head `F ↦ F'` (`⟨F a⟩ = F' ⟨a⟩`, via the `.app`
         -- rule). ONE entry, forward only, keyed by the B-side head.
         types := types.insert hA ((NameMap.find? types hA |>.getD (mkNameMap _)).insert hB
           (← mkConstWithFreshMVarLevels hB))
-        typePref := typePref.insert hA hB
+        typePrefF := typePrefF.insert hA hB
     | .relator hA (some hB) _witName =>
         -- a RELATOR ALSO supplies `⟨·⟩` the head counterpart `P ↦ P'` (read off its conclusion): this is how a
         -- connective (`And ↦ And`) or a `Prop` predicate (`Pos ↦ Pos'`) — which have no type former — get a
         -- counterpart. Both directions; homogeneous heads (`List ↦ List`) coincide with the type former's entry.
-        let r ← insertBidirPair types typePref hA (some hB)
+        let r ← insertBidirPair types typePrefF typePrefB hA (some hB)
           (← mkConstWithFreshMVarLevels hB) (mkConstWithFreshMVarLevels hA)
-        types := r.1; typePref := r.2
+        types := r.1; typePrefF := r.2.1; typePrefB := r.2.2
     | .relator .. => pure ()
-  return { types, typePref, terms, termPref, ground }
+  return { types, typePref := ⟨typePrefF, typePrefB⟩, terms, termPref := ⟨termPrefF, termPrefB⟩, ground }
 
 end LeTrocq.Counterpart

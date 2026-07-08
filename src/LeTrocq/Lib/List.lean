@@ -7,7 +7,7 @@ INDUCTIVE (`ListR`, one constructor per `List`'s). It registers base-agnosticall
   • the TERM surface (`⟨·⟩`/`[·]`): `ListR` is the parametricity RELATION, registered as a TYPE FORMER so `⟨·⟩`
     crosses `List a` (counterpart head `List ↦ List`); `List.nil`/`List.cons` are TERM primitives with
     relatedness `ListR.nil`/`ListR.cons`.
-  • the tactic path (`trocq`/`transfer%`): the GRADED relator `paramList`, building `List` at ANY output class
+  • the tactic path (`trocq`/`transfer`): the GRADED relator `paramList`, building `List` at ANY output class
     with the element at the `listVariance`-minimal class (parallel to `paramArrow`); completeness laws are
     inductions, and `rInMapK` is free once the element relation is a subsingleton.
 

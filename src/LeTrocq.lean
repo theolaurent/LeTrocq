@@ -20,8 +20,8 @@ The library is organised into four layers (each builds on the previous):
                           `assemble` walks a type top-down, pushing the demanded class through the variance
                           tables to the minimal class each part needs and building it with its graded
                           combinator (no constraint graph, no fixpoint). Its term half (`assembleTerm`) is the
-                          abstraction theorem (`[t u] = [t] u ⟨u⟩ [u]`). Drives `relate%` / `transfer%` / `trocq`.
-  • `LeTrocq.Driver.Tactic`      — the user surface: all four elaborators (`transfer%`/`trocq`/`translate%`/`relate%`).
+                          abstraction theorem (`[t u] = [t] u ⟨u⟩ [u]`). Drives `relate` / `transfer` / `trocq`.
+  • `LeTrocq.Driver.Tactic`      — the user surface: all four elaborators (`transfer`/`trocq`/`translate`/`relate`).
 
   Lib/ — the parametricity library: `@[trocq]` registrations for prelude types (`List`, `Option`, `Array`,
     `Prod`, `Sum`, `Sigma`, the kernel constant `Quot`, propositional equality `Eq`, and the connectives

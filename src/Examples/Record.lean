@@ -8,11 +8,11 @@ projections. `@[trocq]` on such a structure auto-registers, base-agnostically:
     (a structure field is ALREADY in abstraction-theorem triple form `(A,A',RA) (p,p',self)`, so no reorder);
   • the constructor `Pt.mk` as a term primitive (built by `Registry.deriveStructureCtorPrim`, which specialises
     the relation's `mk` — abstract over `p`/`p'` — to `p := Pt.mk v…`).
-So `translate%`/`relate%` cross `Pt.mk`/`p.x` with NO hand-written proxy.
+So `translate`/`relate` cross `Pt.mk`/`p.x` with NO hand-written proxy.
 
 (A GROUP — a record whose relation is authored as a `@[trocq] class` — lives in `Examples/Group.lean`.)
 
-The graded relator `paramPt` (for `trocq`/`transfer%` on `Pt` as a TYPE) is still hand-written, exactly like
+The graded relator `paramPt` (for `trocq`/`transfer` on `Pt` as a TYPE) is still hand-written, exactly like
 every other type former (`paramList` etc.) — `Pt` is a covariant functor in its single parameter, so its
 variance is the identity (parallel to `paramList`). The tests instantiate at `Nat ≃ Unary`.
 -/

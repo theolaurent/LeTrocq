@@ -347,7 +347,7 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
       let key? := (← whnf (tgt?.getD e)).getAppFn.constName?
       match reg.ctx.terms.find? c with
       | some tgtMap =>
-          let some h := (match tgt? with | some _ => key? | none => reg.ctx.termPref.find? c)
+          let some h := (match tgt? with | some _ => key? | none => reg.ctx.termPref.get .fwd c)
             | throwError "assemble: term {c} has no target"
           let some (_, wit) := tgtMap.find? h
             | throwError "assemble: no relatedness for term {c} at target {h}"
@@ -407,12 +407,14 @@ def defaultFreeLevels (wit : Expr) : MetaM Expr := do
   instantiateMVars wit
 
 /-- `[T]@root` for a TYPE: assemble the witness DIRECTLY at `root` in one demand-driven pass — every node built
-    by the graded combinator at the minimal class the demand pushes down. Drives `transfer%`/`trocq`. -/
-partial def transfer (e : Expr) (root : ParamClass) (target? : Option Expr := none) : MetaM Expr := do
+    by the graded combinator at the minimal class the demand pushes down. Drives `transfer from/to`/`trocq`.
+    (Named `transferType`, not `transfer`, so it never collides with the `transfer` surface keyword.) -/
+partial def transferType (e : Expr) (root : ParamClass) (target? : Option Expr := none) : MetaM Expr := do
   defaultFreeLevels (← assemble (← mkReg) [] e root target?)
 
-/-- `[t]` for a TERM: its relatedness by the abstraction theorem. Drives `relate%`. -/
-partial def relate (e : Expr) : MetaM Expr := do
+/-- `[t]` for a TERM: its relatedness by the abstraction theorem. Drives `relate`. (Named `relateTerm`, not
+    `relate`, so it never collides with the `relate` surface keyword.) -/
+partial def relateTerm (e : Expr) : MetaM Expr := do
   defaultFreeLevels (← assembleTerm (← mkReg) [] e none)
 
 end LeTrocq.Driver.Transfer

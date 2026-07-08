@@ -3,7 +3,7 @@ Relating two DISTINCT group instances via `GroupR` (see `Examples/Group.lean`): 
 `boolGroup` (ℤ/2ℤ), through the parity homomorphism ℤ ↠ ℤ/2ℤ. There is NO type equivalence `Int ≃ Bool`, so
 this is a standalone correspondence, not a full transport. We exercise:
   • the parity relation `parityR` itself;
-  • the TERM surface (`translate%`/`relate%`): the `@[trocq]` witness registers `intGroup ↦ boolGroup`;
+  • the TERM surface (`translate`/`relate`): the `@[trocq]` witness registers `intGroup ↦ boolGroup`;
   • `trocq` on ELEMENT goals, via the partial parity carrier `RBI : Param map4 map2a Int Bool`.
 -/
 import LeTrocq
@@ -21,11 +21,11 @@ example : parityR 4 false := ⟨by decide⟩
 -- the whole `GroupR` witness elaborates (its three fields — mul/one/inv — all discharge).
 example : GroupR Int Bool parityR intGroup boolGroup := intBoolGroupR
 
-/- ===================== the TERM surface (`translate%` / `relate%`) ===================== -/
+/- ===================== the TERM surface (`translate` / `relate`) ===================== -/
 -- the `@[trocq]` witness registers `intGroup ↦ boolGroup`, so `⟨intGroup⟩ = boolGroup`.
-example : (translate% intGroup) = boolGroup := rfl
--- `relate%` recovers the correspondence witness.
-example : GroupR Int Bool parityR intGroup boolGroup := relate% intGroup
+example : (translate intGroup) = boolGroup := rfl
+-- `relate` recovers the correspondence witness.
+example : GroupR Int Bool parityR intGroup boolGroup := relate intGroup
 
 /- ===================== `trocq` on ELEMENT goals, via the parity carrier `RBI` =====================
    A group EQUATION does NOT transfer, by design: ℤ ↠ ℤ/2ℤ is non-injective, so `z + z = 0` (FALSE in ℤ)

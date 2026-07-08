@@ -14,11 +14,11 @@ WHOLE by `isDefEq`, so `List Unit` behaves as an opaque atom equivalent to `Nat`
 A NOTE ON TERM TRANSLATION. `List Unit` and `Nat` have DIFFERENT constructor shapes (`List.cons` carries a
 `Unit`; `Nat.succ` does not), so the arity-preserving `⟨·⟩` cannot cross a raw `List.cons` to `Nat.succ`.
 Two consistent ways to move terms, both shown below:
-  1. TRANSPORT a term through the equivalence MAP — `(transfer% (List Unit)).cov.map` is `List.length`, so it
+  1. TRANSPORT a term through the equivalence MAP — `(transfer from (List Unit)).cov.map` is `List.length`, so it
      sends ANY `List Unit` (including a literal `[(), ()]`) to a `Nat`. This is what the equivalence gives for
      free, no per-term registration.
   2. REBUILD leaf-by-leaf via registered primitives — but only for terms written with `lzero`/`lsucc` (the
-     arity-matching constructors), for which `translate%`/`relate%` produce the native `Nat` term and its
+     arity-matching constructors), for which `translate`/`relate` produce the native `Nat` term and its
      relatedness. A raw `[(), ()]` is NOT built from these, so it goes route 1.
 -/
 import LeTrocq
@@ -63,24 +63,24 @@ def lsucc (l : List Unit) : List Unit := () :: l
 /- ===================== worked usage ===================== -/
 
 -- the ground base overrides the diagonal: `⟨List Unit⟩ = Nat`, and the relation is `RLUN`, not `PLift (a = b)`.
-example : (translate% (List Unit)) = Nat := rfl
-example : (transfer% (List Unit)).R = RLUN := rfl
+example : (translate (List Unit)) = Nat := rfl
+example : (transfer from (List Unit)).R = RLUN := rfl
 
 -- ROUTE 1 — transport a raw list through the map (`= List.length`); works for any `List Unit`.
-example : (transfer% (List Unit)).cov.map [(), ()] = 2 := rfl
-example : (transfer% (List Unit)).contra.map 3 = [(), (), ()] := rfl
+example : (transfer from (List Unit)).cov.map [(), ()] = 2 := rfl
+example : (transfer from (List Unit)).contra.map 3 = [(), (), ()] := rfl
 
 -- ROUTE 2 — LEAF-BY-LEAF term translation via the registered constructors.
-example : (translate% lsucc) = Nat.succ := rfl
-example : (translate% (fun l => lsucc l)) = (fun n => Nat.succ n) := rfl
-example : (translate% (lsucc (lsucc lzero))) = 2 := rfl
+example : (translate lsucc) = Nat.succ := rfl
+example : (translate (fun l => lsucc l)) = (fun n => Nat.succ n) := rfl
+example : (translate (lsucc (lsucc lzero))) = 2 := rfl
 -- ... and its relatedness (the proof the counterpart is correct).
-example : RLUN (lsucc (lsucc lzero)) 2 := relate% (lsucc (lsucc lzero))
+example : RLUN (lsucc (lsucc lzero)) 2 := relate (lsucc (lsucc lzero))
 -- backward too: `⟨Nat.succ⟩ = lsucc`, `⟨Nat⟩ = List Unit`.
-example : (translate% (fun n : Nat => Nat.succ n)) = (fun l => lsucc l) := rfl
+example : (translate (fun n : Nat => Nat.succ n)) = (fun l => lsucc l) := rfl
 
 -- ground type nested under a former: `(List Unit → List Unit)` transfers to `Nat → Nat`, and computes.
-example : (transfer% (List Unit → List Unit)).cov.map lsucc 2 = 3 := rfl
+example : (transfer from (List Unit → List Unit)).cov.map lsucc 2 = 3 := rfl
 
 -- a goal over `List Unit` transfers to `Nat`.
 example : List Unit := by trocq; exact 3

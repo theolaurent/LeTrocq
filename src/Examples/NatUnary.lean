@@ -2,11 +2,11 @@
 The worked example: register the base equivalence `Nat ≃ Unary` and a few operations over it.
 
 This is NOT part of the `LeTrocq` library — it is what a *user* writes: define your types, prove the
-relatedness witnesses, tag them `@[trocq]`, and the driver (`transfer%` / `trocq` / `translate%`) picks
+relatedness witnesses, tag them `@[trocq]`, and the driver (`transfer` / `trocq` / `translate`) picks
 them up from the environment extension. The tests import this module to exercise the machinery.
 
   • `RN`     : the base, `Param (4,4) Nat Unary`               (a full equivalence)
-  • `R0`/`Rsucc` : term primitives `Nat.zero ↦ Unary.z`, `Nat.succ ↦ Unary.s`  (for `translate%`)
+  • `R0`/`Rsucc` : term primitives `Nat.zero ↦ Unary.z`, `Nat.succ ↦ Unary.s`  (for `translate`)
   • `PosR`   : a relator for the predicate `Pos`                (for the generic `app` rule)
 -/
 import LeTrocq

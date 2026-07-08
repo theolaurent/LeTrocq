@@ -27,7 +27,7 @@ import Tests.Lib
 
    What differs is only WHICH standard axioms are tolerated, by layer:
      • OBJECT-LEVEL content — every combinator, witness, relator, registered base, AND every `Param` the
-       driver GENERATES (`transferred`/`flagshipWit` below, the `transfer%`/`trocq` outputs) — may use ONLY
+       driver GENERATES (`transferred`/`flagshipWit` below, the `transfer`/`trocq` outputs) — may use ONLY
        `propext`/`Quot.sound`. NO `Classical.choice`: the math the user transports is choice-free.
      • the DRIVER (the metaprogram modules below) additionally tolerates `Classical.choice`, because it runs
        on Lean's `MetaM`/elaboration API, which uses choice at its root (e.g. `Lean.Meta.inferType`) — exactly

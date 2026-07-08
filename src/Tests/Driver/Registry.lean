@@ -15,7 +15,7 @@ def flagshipTy := ∀ A : Type, A → A
    at the per-node minimal class (`arrowVariance (1,0)` ⇒ domain at (0,1), codomain at (1,0)) — no build-(3,3)-then-weaken. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let wit ← transfer e (map1, map0)
+  let wit ← Driver.Transfer.transferType e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -23,7 +23,7 @@ run_cmd Command.liftTermElabM do
 /- a NESTED arrow `Nat → Nat → Nat` at root (1,0): multi-level assembly, each node at its own class. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (← mkArrow (mkConst ``Nat) (mkConst ``Nat))
-  let wit ← transfer e (map1, map0)
+  let wit ← Driver.Transfer.transferType e (map1, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred2, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -46,7 +46,7 @@ example : True := by
 def flagshipTy2 := ∀ A : Type, A → A
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let wit ← transfer e (map0, map1)
+  let wit ← Driver.Transfer.transferType e (map0, map1)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWit, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -64,7 +64,7 @@ example : True := by
    INNER class (4,4) — the pinned top, independent of the capped outer (`paramTypeAt` carries it). -/
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2).value!
-  let wit ← transfer e (map2b, map0)
+  let wit ← Driver.Transfer.transferType e (map2b, map0)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWit2b, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -78,7 +78,7 @@ example : True := by
 def flagshipTy2Lvl2 := ∀ A : Type 2, A → A
 run_cmd Command.liftTermElabM do
   let e := (← getConstInfo ``flagshipTy2Lvl2).value!
-  let wit ← transfer e (map0, map1)
+  let wit ← Driver.Transfer.transferType e (map0, map1)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWitLvl2, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
@@ -93,7 +93,7 @@ universe u
 def flagshipTyU := ∀ A : Type u, A → A
 run_cmd Command.liftTermElabM do
   let ci ← getConstInfo ``flagshipTyU
-  let wit ← transfer ci.value! (map0, map1)
+  let wit ← Driver.Transfer.transferType ci.value! (map0, map1)
   addDecl (.defnDecl { name := `LeTrocq.Tests.flagshipWitU, levelParams := ci.levelParams,
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
@@ -105,7 +105,7 @@ example : True := by
    the full equivalence (the `(4,4)` coherence `rInMapK` holds by subsingleton). -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let wit ← transfer e (map4, map4)
+  let wit ← Driver.Transfer.transferType e (map4, map4)
   let ty ← instantiateMVars (← inferType wit)
   addDecl (.defnDecl { name := `LeTrocq.Tests.transferred44, levelParams := [], type := ty, value := wit,
                        hints := .opaque, safety := .safe })
@@ -117,11 +117,11 @@ example : True := by
 /- `Nat → Nat` transferred at several intermediate root classes — each generated witness computes. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (mkConst ``Nat) (mkConst ``Nat)
-  let w3 ← transfer e (map3, map3)
+  let w3 ← Driver.Transfer.transferType e (map3, map3)
   addDecl (.defnDecl { name := `LeTrocq.Tests.tr33, levelParams := [],
                        type := ← instantiateMVars (← inferType w3), value := ← instantiateMVars w3,
                        hints := .opaque, safety := .safe })
-  let w2a ← transfer e (map2a, map0)
+  let w2a ← Driver.Transfer.transferType e (map2a, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.tr2a, levelParams := [],
                        type := ← instantiateMVars (← inferType w2a), value := ← instantiateMVars w2a,
                        hints := .opaque, safety := .safe })
@@ -131,7 +131,7 @@ example : LeTrocq.Tests.tr2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 /- a HIGHER-ORDER domain `(Nat → Nat) → Nat` transfers at (1,0): assembly nests through the arrow domain. -/
 run_cmd Command.liftTermElabM do
   let e ← mkArrow (← mkArrow (mkConst ``Nat) (mkConst ``Nat)) (mkConst ``Nat)
-  let wit ← transfer e (map1, map0)
+  let wit ← Driver.Transfer.transferType e (map1, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.trHO, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
@@ -145,7 +145,7 @@ example : True := by
 
    MINIMALITY: `List Nat` at demand (1,0) builds its element at (1,0) — not (4,4) — and still computes. -/
 run_cmd Command.liftTermElabM do
-  let wit ← transfer (mkApp (mkConst ``List) (mkConst ``Nat)) (map1, map0)
+  let wit ← Driver.Transfer.transferType (mkApp (mkConst ``List) (mkConst ``Nat)) (map1, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.listNatLow, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
@@ -163,7 +163,7 @@ def SrcTgtR : Src → Tgt → Type := fun _ _ => PLift True
   contra := {}
 
 run_cmd Command.liftTermElabM do
-  let wit ← transfer (mkApp (mkConst ``List) (mkConst ``Src)) (map1, map0)
+  let wit ← Driver.Transfer.transferType (mkApp (mkConst ``List) (mkConst ``Src)) (map1, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.listSrcWit, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })
@@ -179,7 +179,7 @@ example : LeTrocq.Tests.listSrcWit.cov.map [Src.a, Src.b] = [Tgt.x, Tgt.x] := rf
    forced to (4,4) — unreachable from `paramSrcTgt` — and all four would fail to transfer.) -/
 run_cmd Command.liftTermElabM do
   let mk (nm : Name) (e : Expr) : TermElabM Unit := do
-    let wit ← transfer e (map1, map0)
+    let wit ← Driver.Transfer.transferType e (map1, map0)
     addDecl (.defnDecl { name := nm, levelParams := [],
                          type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                          hints := .opaque, safety := .safe })
@@ -202,7 +202,7 @@ def sigNatNat : Type := Σ _ : Nat, Nat
 def quotNatT  : Type := Quot (fun _ _ : Nat => True)
 run_cmd Command.liftTermElabM do
   let mk (nm : Name) (tyNm : Name) : TermElabM Unit := do
-    let wit ← transfer (← getConstInfo tyNm).value! (map1, map0)
+    let wit ← Driver.Transfer.transferType (← getConstInfo tyNm).value! (map1, map0)
     addDecl (.defnDecl { name := nm, levelParams := [],
                          type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                          hints := .opaque, safety := .safe })
@@ -219,7 +219,7 @@ example : LeTrocq.Tests.quotNatLow.cov.map (Quot.mk _ (Nat.succ Nat.zero))
    demand (1,0), the domain and (contravariant) family each at their `wtreeVariance` class. -/
 def wtreeNatT : Type := WTree Nat (fun _ => Nat)
 run_cmd Command.liftTermElabM do
-  let wit ← transfer (← getConstInfo ``wtreeNatT).value! (map1, map0)
+  let wit ← Driver.Transfer.transferType (← getConstInfo ``wtreeNatT).value! (map1, map0)
   addDecl (.defnDecl { name := `LeTrocq.Tests.wtreeNatLow, levelParams := [],
                        type := ← instantiateMVars (← inferType wit), value := ← instantiateMVars wit,
                        hints := .opaque, safety := .safe })

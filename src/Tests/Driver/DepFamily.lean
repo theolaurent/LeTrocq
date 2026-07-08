@@ -1,5 +1,5 @@
 /-
-Regression test: a DEPENDENT type family over a λ-bound TERM, in the term surface (`relate%`/`translate%`).
+Regression test: a DEPENDENT type family over a λ-bound TERM, in the term surface (`relate`/`translate`).
 
 `Boxed : Bool → Type` is a singleton former indexed by a Bool VALUE. In `Σ b : Bool, Boxed b` the family
 `fun b => Boxed b` has a body `Boxed b` that mentions the λ-bound term `b`. Building the relatedness of such
@@ -51,9 +51,9 @@ noncomputable def paramBoxedR44 (b b' : Bool) (bR : PLift (b = b')) :
   (paramBoxedR44 b b' bR).weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
 /- ===================== the regression: the family body `Boxed b` mentions the λ-bound `b` ===================== -/
-/-- `relate%` builds the relatedness witness of a dependent pair — it must translate `Boxed b` with `b` in
+/-- `relate` builds the relatedness witness of a dependent pair — it must translate `Boxed b` with `b` in
     scope. Elaborating this at all is the test (it threw `unbound variable b` before the fix). -/
-noncomputable def depFamilyWit := relate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
+noncomputable def depFamilyWit := relate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
 
 /-- the same, asserted at its relatedness type. NOTE: under the WHOLE-DIAGONAL short-circuit the entire pair
     is diagonal (`Bool` and `Boxed` both transfer to themselves), so `[·]` collapses it to the generic
@@ -62,17 +62,17 @@ noncomputable def depFamilyWit := relate% (⟨true, Boxed.mk⟩ : Σ b : Bool, B
     `Tests.Driver.Tactic` / `Tests.Driver.Counterpart` (over `Nat ≃ Unary`), which do not short-circuit. -/
 example :
     PLift ((⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b) = ⟨true, Boxed.mk⟩) :=
-  relate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
+  relate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
 
-/-- `translate%` rebuilds the counterpart (the diagonal here) — and it computes. -/
-example : (translate% (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)) = ⟨true, Boxed.mk⟩ := rfl
+/-- `translate` rebuilds the counterpart (the diagonal here) — and it computes. -/
+example : (translate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)) = ⟨true, Boxed.mk⟩ := rfl
 
 /- ===================== a dependent type over a λ-bound TYPE variable ===================== -/
 /-- The demand-driven pass ALSO handles a type mentioning a λ-bound TYPE variable: here `List A` under the
     binder `A`. The old constraint solver errored `gen: unbound fvar` (its embedded `gradeShape` ran with an
     empty binder env); now `A`'s `(4,4)` witness sits in the ONE `senv` (the λ rule records every binder), and
-    `assemble`'s leaf rule reads it — so `relate%`/`translate%` build with no separate seeding. -/
-noncomputable def tvWit := relate% (fun (A : Type) (xs : List A) => xs)
-example : (translate% (fun (A : Type) (xs : List A) => xs)) = (fun (A : Type) (xs : List A) => xs) := rfl
+    `assemble`'s leaf rule reads it — so `relate`/`translate` build with no separate seeding. -/
+noncomputable def tvWit := relate (fun (A : Type) (xs : List A) => xs)
+example : (translate (fun (A : Type) (xs : List A) => xs)) = (fun (A : Type) (xs : List A) => xs) := rfl
 
 end LeTrocq.Tests
