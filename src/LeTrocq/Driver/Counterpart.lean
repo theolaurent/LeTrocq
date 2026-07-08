@@ -49,6 +49,10 @@ structure Ctx where
   -- matched WHOLE by `isDefEq` (the counterpart side only — `⟨·⟩` needs just the target TYPE). Each entry
   -- carries its registration `Direction`, so synth prefers the requested direction's entries.
   ground   : NameMap (Array (Expr × Expr × Direction))
+  -- GROUND TERMS: partial-application patterns (`@List.cons Unit ()`), HEAD-INDEXED `srcHead ↦ #[(pattern,
+  -- tgtPrefix, dir, wit)]`, matched WHOLE by `isDefEq`. `⟨pattern⟩ = tgtPrefix` (`Nat.succ`); the app spine then
+  -- applies it to the translated remaining args. `wit` is the relatedness the term half feeds that spine.
+  groundTerms : NameMap (Array (Expr × Expr × Direction × Expr))
 
 /-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. (The graded
     translation `[·]` in `LeTrocq.Driver.Transfer` carries the relatedness separately; `⟨·⟩` needs only `x'`.) -/
@@ -117,6 +121,14 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) (dir :
             anyHit := some tgtTy
             if d == dir then prefHit := some tgtTy
       if let some tgtTy := prefHit.orElse (fun _ => anyHit) then return tgtTy
+  -- GROUND TERM: `e` (a partial application like `@List.cons Unit ()`, exposed as an appFn subterm by the `.app`
+  -- recursion below) matches a registered pattern WHOLE ⇒ its counterpart is the target prefix (`Nat.succ`); the
+  -- `.app` rule then applies that to the translated remaining args. Arity pre-filter, then `isDefEq`.
+  if let some h := e.getAppFn.constName? then
+    if let some cands := NameMap.find? ctx.groundTerms h then
+      for (patSrc, tgtTerm, _d, _wit) in cands do
+        if e.getAppNumArgs == patSrc.getAppNumArgs && (← (try isDefEq e patSrc catch _ => pure false)) then
+          return tgtTerm
   if let some n := natNumeral? e then
     if (← whnf (← inferType e)).isConstOf ``Nat then return ← term ctx env (natExpr n) tgt? dir
   match e with
@@ -210,7 +222,8 @@ def buildCtx : MetaM Ctx := do
   let mut terms     : NameMap (NameMap (Expr × Expr)) := mkNameMap _
   let mut termPrefF : NameMap Name := mkNameMap _
   let mut termPrefB : NameMap Name := mkNameMap _
-  let mut ground    : NameMap (Array (Expr × Expr × Direction)) := mkNameMap _
+  let mut ground      : NameMap (Array (Expr × Expr × Direction)) := mkNameMap _
+  let mut groundTerms : NameMap (Array (Expr × Expr × Direction × Expr)) := mkNameMap _
   -- every BASE / TERM installs in both directions (the shared forward/backward + homogeneous-skip policy),
   -- with a per-DIRECTION preferred (last-registered) target; the backward witness is `symPrimitive`.
   for e in trocqEntries (← getEnv) do
@@ -223,6 +236,12 @@ def buildCtx : MetaM Ctx := do
         -- a GROUND closed-type equivalence: `⟨A⟩ = B` (fwd), `⟨B⟩ = A` (bwd), matched WHOLE (`isDefEq`).
         ground := ground.insert hA ((NameMap.find? ground hA |>.getD #[]).push (tyA, tyB, .fwd))
         ground := ground.insert hB ((NameMap.find? ground hB |>.getD #[]).push (tyB, tyA, .bwd))
+    | .groundTerm hA patternA tgtB witName =>
+        -- a GROUND TERM: the partial-application pattern `⟨@List.cons Unit ()⟩ = Nat.succ`, matched WHOLE by
+        -- `isDefEq`; the witness (fed the remaining triple by the app spine) is the relatedness. Forward only.
+        let wit ← mkConstWithFreshMVarLevels witName
+        groundTerms := groundTerms.insert hA
+          ((NameMap.find? groundTerms hA |>.getD #[]).push (patternA, tgtB, .fwd, wit))
     | .term hA bTerm witName =>
         -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). The backward
         -- entry is keyed by the B-side term head (so a homogeneous constructor like `List.cons` is skipped).
@@ -253,6 +272,8 @@ def buildCtx : MetaM Ctx := do
           (← mkConstWithFreshMVarLevels hB) (mkConstWithFreshMVarLevels hA)
         types := r.1; typePrefF := r.2.1; typePrefB := r.2.2
     | .relator .. => pure ()
-  return { types, typePref := ⟨typePrefF, typePrefB⟩, terms, termPref := ⟨termPrefF, termPrefB⟩, ground }
+    | .groundFormer .. => pure ()   -- no counterpart map; only its auto-derived ground-term constructors matter
+  return { types, typePref := ⟨typePrefF, typePrefB⟩, terms, termPref := ⟨termPrefF, termPrefB⟩,
+           ground, groundTerms }
 
 end LeTrocq.Counterpart

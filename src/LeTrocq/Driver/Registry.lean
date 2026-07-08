@@ -53,6 +53,24 @@ def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (
     ts := ts.push (xs[3*j]!, xs[3*j+1]!, xs[3*j+2]!)
   return ts
 
+/-- if a term-primitive witness `w` (binders `bs`, conclusion sides `aSide`/`bSide`) is a GROUND TERM — its
+    source is a partial application (`@List.cons Unit ()`) with FIXED leading args before its abstraction-theorem
+    triple values — return `(sourcePattern, targetPrefix)`; else `none` (a plain head primitive). The triple
+    values must be the trailing args of their respective side (the natural constructor-applied-to-related-args
+    shape) on both A and B, so stripping them off leaves the fixed prefix. A source with NO fixed prefix (all
+    args are triple values, e.g. `List.cons` or a bare `Nat.zero`) is `none` — an ordinary head primitive. -/
+def groundTermPattern? (wit : Expr) (bs : Array Expr) (aSide bSide : Expr) : MetaM (Option (Expr × Expr)) := do
+  let triples? ← try pure (some (← chunkTriples "term primitive" wit bs)) catch _ => pure none
+  let some triples := triples? | return none
+  let k := triples.size
+  let aArgs := aSide.getAppArgs
+  let bArgs := bSide.getAppArgs
+  unless aArgs.size > k && bArgs.size ≥ k do return none          -- FIXED leading source args, and B-side has ≥ k
+  unless aArgs.extract (aArgs.size - k) aArgs.size == triples.map (·.1) do return none      -- trailing = A-values
+  unless bArgs.extract (bArgs.size - k) bArgs.size == triples.map (·.2.1) do return none     -- trailing = B-values
+  return some (mkAppN aSide.getAppFn (aArgs.extract 0 (aArgs.size - k)),
+               mkAppN bSide.getAppFn (bArgs.extract 0 (bArgs.size - k)))
+
 /-- read a `MapClass` constructor out of its `Expr`. -/
 def exprToMapClass (e : Expr) : MetaM MapClass := do
   match e.getAppFn.constName? with
@@ -79,7 +97,17 @@ inductive RegKind
   -- mechanism). The driver reads them by specializing the witness to the demand, so no class is stored here.
   | relator    (headA : Name) (headB? : Option Name) (witName : Name)
   | typeFormer (headA headB : Name) (relName : Name)
+  -- a GROUND FORMER: a concrete relation between two CLOSED types (`RLUN : List Unit → Nat → Type`), NOT a
+  -- parameterized relator. It registers NO counterpart type-former (the `.ground` base gives `⟨List Unit⟩ =
+  -- Nat`); it exists only so `@[trocq]` on it AUTO-DERIVES its constructors as ground terms.
+  | groundFormer (relName : Name)
   | term       (headA : Name) (bTerm : Expr) (witName : Name)
+  -- a GROUND TERM generalizes `term` from a bare head to a partial APPLICATION pattern (`@List.cons Unit ()`),
+  -- matched WHOLE by `isDefEq` — exposed as an appFn subterm by the `.app` spine — ↦ its counterpart prefix
+  -- (`Nat.succ`). `headA` indexes; `patternA`/`tgtB` are the source pattern + target prefix; `witName` is the
+  -- relatedness witness the abstraction-theorem `app` rule feeds the remaining triple. The term analogue of
+  -- `.ground` (a whole-`isDefEq`-matched value), for when a constructor's counterpart drops leading arguments.
+  | groundTerm (headA : Name) (patternA tgtB : Expr) (witName : Name)
   deriving Inhabited
 
 /-- classify a tagged constant `w` from its type (see the kinds above). The const is built with its own
@@ -93,9 +121,15 @@ def parseEntry (w : Name) : MetaM RegKind := do
       -- The telescope eats the two related objects too, so they are the last two binders; their head
       -- constants name the A-/B-side type formers (equal for a homogeneous type like `List`/`Option`).
       unless bs.size ≥ 2 do throwError "trocq: type former {w} must relate two objects"
-      let some hA := (← inferType bs[bs.size - 2]!).getAppFn.constName?
+      let objA ← inferType bs[bs.size - 2]!
+      let objB ← inferType bs[bs.size - 1]!
+      -- CLOSED related objects (no telescope params, e.g. `List Unit`/`Nat`) ⇒ a GROUND former: only its
+      -- constructors matter (auto-derived as ground terms), no `hA ↦ hB` counterpart. A parameterized relator
+      -- (`ListR`: objects `List A`/`List A'` mention the params) has fvars there and stays a `.typeFormer`.
+      if !objA.hasFVar && !objB.hasFVar then return .groundFormer w
+      let some hA := objA.getAppFn.constName?
         | throwError "trocq: type former {w} A-object has no head constant"
-      let some hB := (← inferType bs[bs.size - 1]!).getAppFn.constName?
+      let some hB := objB.getAppFn.constName?
         | throwError "trocq: type former {w} B-object has no head constant"
       return .typeFormer hA hB w
     else if concl.getAppFn.isConstOf ``Param then
@@ -125,9 +159,15 @@ def parseEntry (w : Name) : MetaM RegKind := do
       throwError "trocq: relator {w} must be GRADED — take leading `(m n : MapClass)` and conclude `Param m n …`"
     else
       if args.size ≥ 2 then
-        let some hA := args[args.size - 2]!.getAppFn.constName?
+        let aSide := args[args.size - 2]!
+        let bSide := args[args.size - 1]!
+        let some hA := aSide.getAppFn.constName?
           | throwError "trocq: term primitive {w} has no A-side head constant"
-        return .term hA args[args.size - 1]!.getAppFn w
+        -- a GROUND TERM (partial-application pattern, e.g. `@List.cons Unit () ↦ Nat.succ`) vs a plain head
+        -- primitive (`Nat.succ ↦ Unary.s`): the former has FIXED leading source args before its triple values.
+        if let some (patternA, tgtB) ← groundTermPattern? wit bs aSide bSide then
+          return .groundTerm hA patternA tgtB w
+        return .term hA bSide.getAppFn w
       else throwError "trocq: cannot classify {w} : {← inferType wit}"
 
 /- ===================== auto-derived constructor primitives ===================== -/
@@ -287,7 +327,9 @@ initialize registerBuiltinAttribute {
     -- an inductive/structure TYPE FORMER (a parametricity relation) also auto-registers its CONSTRUCTORS
     -- (inductive) or FIELD PROJECTIONS + constructor (structure) as term primitives, so the user need not
     -- hand-write a proxy per part.
-    if let .typeFormer .. := entry then (deriveRelationPrims decl).run'
+    match entry with
+    | .typeFormer .. | .groundFormer .. => (deriveRelationPrims decl).run'
+    | _ => pure ()
 }
 
 /-- the classified witnesses registered in the given environment. -/

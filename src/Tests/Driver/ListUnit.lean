@@ -1,10 +1,10 @@
 /-
-Tests for the GROUND (non-atomic closed) base `List Unit ≃ Nat` (`Examples.ListUnit`).
+Tests for the GROUND base `List Unit ≃ Nat` and its GROUND TERMS (`Examples.ListUnit`).
 
 Covers: the type surface (`transfer`/`trocq` treat `List Unit` as an opaque atom ≃ `Nat`, beating the `List`
-relator and the diagonal), transport-via-map of raw lists, leaf-by-leaf term translation via the registered
-`lzero`/`lsucc` primitives, and the axiom footprint (the ground base + a generated witness stay choice-free).
-The bulk of the computational `example … := rfl` facts live in `Examples.ListUnit` and fire on import.
+relator and the diagonal); leaf-by-leaf translation of PLAIN list constructors via the partial-application
+patterns `@List.cons Unit () ↦ Nat.succ` / `@List.nil Unit ↦ Nat.zero`; and the axiom footprint. The bulk of
+the `example … := rfl` facts live in `Examples.ListUnit` and fire on import.
 -/
 import Examples.ListUnit
 open LeTrocq LeTrocq.Examples MapClass
@@ -17,13 +17,13 @@ example : (transfer from (List Unit) to Nat).cov.map [()] = 1 := rfl
 -- nested inside a relator argument.
 example : (transfer from (List Unit → Bool)).cov.map (fun l => l.length == 0) 0 = true := rfl
 
-/- ===================== leaf-by-leaf term translation ===================== -/
-example : (translate (lsucc (lsucc (lsucc lzero)))) = 3 := rfl
-example : RLUN (lsucc (lsucc (lsucc lzero))) 3 := relate (lsucc (lsucc (lsucc lzero)))
+/- ===================== plain list constructors translate leaf-by-leaf via the ground-term patterns ===================== -/
+example : (translate (List.cons () (List.cons () (List.cons () (@List.nil Unit))))) = 3 := rfl
+example : RLUN (List.cons () (@List.nil Unit)) 1 := relate (List.cons () (@List.nil Unit))
+-- built from `[…]` notation (same underlying `List.cons`/`List.nil`).
+example : (translate ([(), ()] : List Unit)) = 2 := rfl
+example : RLUN [(), (), ()] 3 := relate ([(), (), ()] : List Unit)
 
 /- ===================== axiom footprint ===================== -/
 /-- info: 'LeTrocq.Examples.RLU' depends on axioms: [propext] -/
 #guard_msgs in #print axioms RLU
-
-/-- info: 'LeTrocq.Examples.LSuccR' does not depend on any axioms -/
-#guard_msgs in #print axioms LSuccR

@@ -1,64 +1,68 @@
 /-
-Worked example: a NON-ATOMIC ground type — `List Unit ≃ Nat`.
+Worked example: a NON-ATOMIC ground type — `List Unit ≃ Nat` — with the constructors relatable FOR FREE.
 
-The equivalence `Nat ≃ Unary` (see `NatUnary`) registers a bare CONSTANT on each side. Here the source is a
-COMPOUND closed type, `List Unit`: a list of units IS a unary numeral (its length). `@[trocq]` accepts a
-`Param m n A B` whose sides are any closed types (not just constants) and files it as a GROUND base — matched
-WHOLE by `isDefEq`, so `List Unit` behaves as an opaque atom equivalent to `Nat`, overriding the structural
-`List` relator and the whole-diagonal short-circuit that would otherwise send `List Unit ↦ List Unit`.
+`@[trocq]` accepts a `Param m n A B` whose sides are any closed types (not just constants) and files it as a
+GROUND base — `List Unit` behaves as an opaque atom ≃ `Nat`, matched WHOLE by `isDefEq`.
 
-  • `RLU`     : the ground base, `Param (4,4) (List Unit) Nat`   (length / replicate)
-  • `lzero`/`lsucc` + `LZeroR`/`LSuccR` : the List side's unary "constructors" and their term primitives,
-    so terms transfer LEAF-BY-LEAF (`⟨lsucc l⟩ = Nat.succ ⟨l⟩`) exactly as `Nat.zero`/`Nat.succ` do.
+For TERMS, the parametricity relation `RLUN` is written as an INDUCTIVE (a list of units related to its length),
+one constructor per constructor pair — `nil ↦ Nat.zero`, `cons () ↦ Nat.succ`. Tagging `RLUN` `@[trocq]`
+AUTO-DERIVES those constructors as GROUND TERMS (partial-application patterns `@List.nil Unit` / `@List.cons Unit
+()`, matched WHOLE by `isDefEq` and mapped to `Nat.zero`/`Nat.succ`), exactly as tagging `ListR` derives
+`List.nil`/`List.cons`. So a plain `[(), ()]` rebuilds to `2` and `relate [(), ()] : RLUN [(), ()] 2`, with no
+hand-written per-constructor proxy.
 
-A NOTE ON TERM TRANSLATION. `List Unit` and `Nat` have DIFFERENT constructor shapes (`List.cons` carries a
-`Unit`; `Nat.succ` does not), so the arity-preserving `⟨·⟩` cannot cross a raw `List.cons` to `Nat.succ`.
-Two consistent ways to move terms, both shown below:
-  1. TRANSPORT a term through the equivalence MAP — `(transfer from (List Unit)).cov.map` is `List.length`, so it
-     sends ANY `List Unit` (including a literal `[(), ()]`) to a `Nat`. This is what the equivalence gives for
-     free, no per-term registration.
-  2. REBUILD leaf-by-leaf via registered primitives — but only for terms written with `lzero`/`lsucc` (the
-     arity-matching constructors), for which `translate`/`relate` produce the native `Nat` term and its
-     relatedness. A raw `[(), ()]` is NOT built from these, so it goes route 1.
+  • `RLUN`  : the inductive relation (its constructors auto-register as the ground terms)
+  • `RLU`   : the ground base, `Param (4,4) (List Unit) Nat`, built over `RLUN`
 -/
 import LeTrocq
 namespace LeTrocq.Examples
 open LeTrocq MapClass
 
-/- ===================== the ground equivalence `List Unit ≃ Nat` ===================== -/
-/-- related when the list's length is the number. `PLift` of an equality, hence a subsingleton — the `(4,4)`
-    coherence is free by proof irrelevance, no univalence (just like `RN`). -/
-def RLUN : List Unit → Nat → Type := fun l n => PLift (l.length = n)
+/- ===================== the parametricity relation, as an inductive ===================== -/
+/-- a `List Unit` is related to its length: `[]` to `0`, `() :: l` to `n+1`. Tagging it `@[trocq]` derives
+    `@List.nil Unit ↦ Nat.zero` and `@List.cons Unit () ↦ Nat.succ` as ground terms. -/
+@[trocq] inductive RLUN : List Unit → Nat → Type
+  | nil : RLUN [] Nat.zero
+  | cons {l n} (r : RLUN l n) : RLUN (() :: l) n.succ
+
+/-- `RLUN` is a subsingleton (needed for the `(4,4)` coherence). -/
+theorem RLUN.allEq : {l : List Unit} → {n : Nat} → (x y : RLUN l n) → x = y
+  | _, _, .nil,    .nil     => rfl
+  | _, _, .cons r, .cons r' => by rw [RLUN.allEq r r']
+
+/-- the forward direction: every list is related to its own length. -/
+def RLUN.ofLength : (l : List Unit) → RLUN l l.length
+  | []      => .nil
+  | () :: t => .cons (RLUN.ofLength t)
+
+/-- `n` copies of `()` are related to `n`. -/
+def RLUN.ofReplicate : (n : Nat) → RLUN (List.replicate n ()) n
+  | 0     => .nil
+  | n + 1 => .cons (RLUN.ofReplicate n)
+
+/-- relatedness pins the length. -/
+theorem RLUN.toLength : {l : List Unit} → {n : Nat} → RLUN l n → l.length = n
+  | _, _, .nil    => rfl
+  | _, _, .cons r => by rw [List.length_cons, RLUN.toLength r]
 
 /-- every `List Unit` is `replicate` of its own length (all elements are `()`), the section round-trip. -/
 theorem replicate_length_unit : ∀ l : List Unit, List.replicate l.length () = l
   | []      => rfl
   | () :: t => by rw [List.length_cons, List.replicate_succ, replicate_length_unit t]
 
+/- ===================== the ground base `List Unit ≃ Nat`, built over `RLUN` ===================== -/
 @[trocq] def RLU : Param map4 map4 (List Unit) Nat where
   R := RLUN
   cov :=
     { map := List.length
-      mapInR := fun _ _ h => PLift.up h
-      rInMap := fun _ _ r => r.down
-      rInMapK := fun _ _ _ => rfl }
+      mapInR := fun l _ h => h ▸ RLUN.ofLength l
+      rInMap := fun _ _ r => RLUN.toLength r
+      rInMapK := fun _ _ r => RLUN.allEq _ r }
   contra :=
     { map := fun n => List.replicate n ()
-      mapInR := fun _ _ h => PLift.up (by subst h; exact List.length_replicate)
-      rInMap := fun _ l r => by have h := r.down; rw [← h]; exact replicate_length_unit l
-      rInMapK := fun _ _ r => by cases r; rfl }
-
-/- ===================== the List side's unary "constructors" + their term primitives ===================== -/
-/-- zero = the empty list. -/
-def lzero : List Unit := []
-/-- successor = prepend a unit. Arity-matches `Nat.succ` (one argument), so `⟨·⟩` can cross it. -/
-def lsucc (l : List Unit) : List Unit := () :: l
-
-/-- `lzero ↦ Nat.zero`. -/
-@[trocq] def LZeroR : RLUN lzero Nat.zero := PLift.up rfl
-/-- `lsucc ↦ Nat.succ`: prepending a unit corresponds to taking the successor. -/
-@[trocq] def LSuccR (l : List Unit) (n : Nat) (r : RLUN l n) : RLUN (lsucc l) (Nat.succ n) :=
-  PLift.up (by show (() :: l).length = Nat.succ n; rw [List.length_cons, r.down])
+      mapInR := fun n _ h => h ▸ RLUN.ofReplicate n
+      rInMap := fun _ l r => by rw [← RLUN.toLength r, replicate_length_unit]
+      rInMapK := fun _ _ r => RLUN.allEq _ r }
 
 /- ===================== worked usage ===================== -/
 
@@ -66,21 +70,20 @@ def lsucc (l : List Unit) : List Unit := () :: l
 example : (translate (List Unit)) = Nat := rfl
 example : (transfer from (List Unit)).R = RLUN := rfl
 
--- ROUTE 1 — transport a raw list through the map (`= List.length`); works for any `List Unit`.
+-- TYPE-level transport maps (`= List.length` / `= List.replicate · ()`).
 example : (transfer from (List Unit)).cov.map [(), ()] = 2 := rfl
 example : (transfer from (List Unit)).contra.map 3 = [(), (), ()] := rfl
 
--- ROUTE 2 — LEAF-BY-LEAF term translation via the registered constructors.
-example : (translate lsucc) = Nat.succ := rfl
-example : (translate (fun l => lsucc l)) = (fun n => Nat.succ n) := rfl
-example : (translate (lsucc (lsucc lzero))) = 2 := rfl
--- ... and its relatedness (the proof the counterpart is correct).
-example : RLUN (lsucc (lsucc lzero)) 2 := relate (lsucc (lsucc lzero))
--- backward too: `⟨Nat.succ⟩ = lsucc`, `⟨Nat⟩ = List Unit`.
-example : (translate (fun n : Nat => Nat.succ n)) = (fun l => lsucc l) := rfl
+-- TERM translation of PLAIN list constructors, leaf by leaf (constructors auto-derived from `RLUN`).
+example : (translate (List.cons () (List.cons () (@List.nil Unit)))) = 2 := rfl
+example : (translate ([(), (), ()] : List Unit)) = 3 := rfl
+example : (translate ([] : List Unit)) = 0 := rfl
+-- ... and the relatedness (the proof the counterpart is correct).
+example : RLUN [(), ()] 2 := relate ([(), ()] : List Unit)
+example : RLUN ([] : List Unit) 0 := relate ([] : List Unit)
 
 -- ground type nested under a former: `(List Unit → List Unit)` transfers to `Nat → Nat`, and computes.
-example : (transfer from (List Unit → List Unit)).cov.map lsucc 2 = 3 := rfl
+example : (transfer from (List Unit → List Unit)).cov.map (fun l => () :: l) 2 = 3 := rfl
 
 -- a goal over `List Unit` transfers to `Nat`.
 example : List Unit := by trocq; exact 3

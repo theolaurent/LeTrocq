@@ -319,6 +319,14 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
           let w ← assemble reg senv e (map1, map1) tgt?
           return ← mkAppM ``PLift.up #[← mkAppM ``iffOfParam #[w]]
     else return ← assembleRel reg senv e
+  -- GROUND TERM: `e` matches a registered partial-application pattern (`@List.cons Unit ()`) WHOLE ⇒ its
+  -- relatedness is the stored witness; the `.app` spine below feeds it the remaining `(arg, ⟨arg⟩, [arg])`
+  -- triple. Before the diagonal so a ground term never collapses to `PLift.up rfl`.
+  if let some h := e.getAppFn.constName? then
+    if let some cands := NameMap.find? reg.ctx.groundTerms h then
+      for (patSrc, _tgt, _d, wit) in cands do
+        if e.getAppNumArgs == patSrc.getAppNumArgs && (← diagEq? e patSrc) then
+          return wit
   -- WHOLE-DIAGONAL short-circuit: a term that transfers to ITSELF has relatedness `PLift.up rfl` (`[e] : 〚T〛 e e`
   -- with `〚T〛 = PLift (a=b)`, from the diagonal `assemble` of its type). Gated on BOTH the TYPE transferring
   -- diagonally (a demanded target defeq `ty`, or synth `⟨ty⟩ ≡ ty`) AND the term's counterpart being itself
