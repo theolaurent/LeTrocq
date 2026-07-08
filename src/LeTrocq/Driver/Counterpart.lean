@@ -28,6 +28,9 @@ structure Ctx where
   typePref : NameMap Name
   terms    : NameMap (NameMap (Expr × Expr))
   termPref : NameMap Name
+  -- GROUND closed-type equivalences (`List Unit ↦ Nat`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy)]`, matched
+  -- WHOLE by `isDefEq` (the counterpart side only — `⟨·⟩` needs just the target TYPE). Both directions.
+  ground   : NameMap (Array (Expr × Expr))
 
 /-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. (The graded
     translation `[·]` in `LeTrocq.Driver.Transfer` carries the relatedness separately; `⟨·⟩` needs only `x'`.) -/
@@ -78,6 +81,18 @@ def splitPi? (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := do
     This produces ONLY the counterpart; the relatedness is the graded `[·]` in `LeTrocq.Driver.Transfer`, which
     calls back here for every counterpart it needs (`[t u] = [t] u ⟨u⟩ [u]`). -/
 partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) : MetaM Expr := do
+  -- GROUND closed-type equivalence (`⟨List Unit⟩ = Nat`): matched WHOLE (head-indexed, `isDefEq`), so it beats
+  -- the structural `.app`/`.const` descent below. Only type-EXPRESSIONS match (`srcTy` is a type); a term of the
+  -- ground type is never `isDefEq` to that type, so no misfire. Keeps the LAST match (last-registered default).
+  if let some h := e.getAppFn.constName? then
+    if let some cands := NameMap.find? ctx.ground h then
+      let mut hit : Option Expr := none
+      for (srcTy, tgtTy) in cands do
+        if ← (try isDefEq e srcTy catch _ => pure false) then
+          match tgt? with
+          | some t => if ← (try isDefEq t tgtTy catch _ => pure false) then hit := some tgtTy
+          | none   => hit := some tgtTy
+      if let some tgtTy := hit then return tgtTy
   if let some n := natNumeral? e then
     if (← whnf (← inferType e)).isConstOf ``Nat then return ← term ctx env (natExpr n) tgt?
   match e with
@@ -169,6 +184,7 @@ def buildCtx : MetaM Ctx := do
   let mut typePref : NameMap Name := mkNameMap _
   let mut terms    : NameMap (NameMap (Expr × Expr)) := mkNameMap _
   let mut termPref : NameMap Name := mkNameMap _
+  let mut ground   : NameMap (Array (Expr × Expr)) := mkNameMap _
   -- every BASE / TERM installs in both directions (the shared forward/backward + homogeneous-skip policy),
   -- PAIR-INDEXED with a preferred (last-registered) target; the backward witness is `symPrimitive`.
   for e in trocqEntries (← getEnv) do
@@ -177,6 +193,10 @@ def buildCtx : MetaM Ctx := do
         -- `⟨·⟩` needs only the COUNTERPART type, both directions: `⟨A⟩ = B`, `⟨B⟩ = A`.
         let r ← insertBidirPair types typePref hA (some hB) tyB (return tyA)
         types := r.1; typePref := r.2
+    | .ground hA hB tyA tyB _witName _ =>
+        -- a GROUND closed-type equivalence: `⟨A⟩ = B`, `⟨B⟩ = A`, matched WHOLE (head-indexed, `isDefEq`).
+        ground := ground.insert hA ((NameMap.find? ground hA |>.getD #[]).push (tyA, tyB))
+        ground := ground.insert hB ((NameMap.find? ground hB |>.getD #[]).push (tyB, tyA))
     | .term hA bTerm witName =>
         -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). The backward
         -- entry is keyed by the B-side term head (so a homogeneous constructor like `List.cons` is skipped).
@@ -207,6 +227,6 @@ def buildCtx : MetaM Ctx := do
           (← mkConstWithFreshMVarLevels hB) (mkConstWithFreshMVarLevels hA)
         types := r.1; typePref := r.2
     | .relator .. => pure ()
-  return { types, typePref, terms, termPref }
+  return { types, typePref, terms, termPref, ground }
 
 end LeTrocq.Counterpart

@@ -91,6 +91,7 @@ structure Reg where
   atoms    : NameMap (NameMap (Expr × Expr × ParamClass))
   atomPref : NameMap Name
   consts   : NameMap Expr
+  ground   : NameMap (Array (Expr × Expr × Expr × ParamClass))
   ctx      : LeTrocq.Counterpart.Ctx
 
 /-- does `e` bind over a `Sort` (a `∀`/`λ` whose domain is a universe)? Such a type/term is EXCLUDED from the
@@ -112,6 +113,23 @@ def tryCounterpart (k : MetaM Expr) : MetaM (Option Expr) := do
 def diagEq? (a b : Expr) : MetaM Bool := do
   try isDefEq a b catch _ => return false
 
+/-- GROUND leaf: a registered closed-type equivalence (`List Unit ≃ Nat`), matched WHOLE. Scan the ground
+    entries filed under `T`'s head, keeping the LAST whose source type is `isDefEq T` (and — in check mode —
+    whose target is `isDefEq` the demanded target), then weaken its witness to the demand. `none` when no
+    ground base is registered under the head or matches, so the caller falls through to the ordinary rules. -/
+def tryGround (reg : Reg) (T : Expr) (dem : ParamClass) (tgt? : Option Expr) : MetaM (Option Expr) := do
+  let some h := T.getAppFn.constName? | return none
+  let some cands := NameMap.find? reg.ground h | return none
+  let mut found : Option (Expr × ParamClass) := none
+  for (srcTy, tgtTy, wit, cls) in cands do
+    if ← diagEq? T srcTy then
+      match tgt? with
+      | some t => if ← diagEq? t tgtTy then found := some (wit, cls)
+      | none   => found := some (wit, cls)
+  match found with
+  | some (wit, cls) => return some (← weakenTo dem cls wit)
+  | none            => return none
+
 mutual
 /-- `[·]` on a TYPE — the syntax-directed, DEMAND-driven half: walk `T` top-down and build its `Param` witness
     DIRECTLY at the demanded class `dem`, pushing the demand through `arrowVariance`/`forallVariance` to the minimal
@@ -121,6 +139,10 @@ mutual
     available class and weaken to `dem`. -/
 partial def assemble (reg : Reg) (senv : SEnv) (T : Expr) (dem : ParamClass)
     (tgt? : Option Expr) : MetaM Expr := do
+  -- GROUND base: a registered closed-type equivalence (e.g. `List Unit ≃ Nat`) matched WHOLE. It BEATS both the
+  -- structural relator descent below AND the diagonal short-circuit (which would otherwise collapse `List Unit`
+  -- to itself, since `⟨List Unit⟩ = List Unit`), so it must be tried first.
+  if let some out ← tryGround reg T dem tgt? then return out
   -- WHOLE-DIAGONAL short-circuit: a type that transfers to ITSELF is built as the generic `paramRefl` (relation
   -- `PLift (a=b)`, map `id`), weakened to the demand — no structural descent, no per-type registration. Skipped
   -- for a bare sort / a universe binder (those keep their parametric witness). "Transfers to itself" means: a
@@ -372,7 +394,8 @@ end
 /-- the registries + `⟨·⟩` context, built once from the `@[trocq]` environment extension. -/
 def mkReg : MetaM Reg := do
   let (atoms, atomPref) ← buildAtomPairs
-  return { atoms, atomPref, consts := ← buildConsts, ctx := ← LeTrocq.Counterpart.buildCtx }
+  return { atoms, atomPref, consts := ← buildConsts, ground := ← buildGround,
+           ctx := ← LeTrocq.Counterpart.buildCtx }
 
 /-- default any genuinely-free residual universe mvars (e.g. the universe combinator's relation level, or a
     universe-poly registered witness's level) to 0 — they are unconstrained, so any level is sound. -/

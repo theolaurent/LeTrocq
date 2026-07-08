@@ -67,6 +67,11 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
     universe-polymorphic witnesses register and instantiate correctly. -/
 inductive RegKind
   | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
+  -- a GROUND base is a `base` generalized from two CONSTANTS to two CLOSED types (possibly applied, e.g.
+  -- `List Unit ≃ Nat`). It is a fixed-class equivalence matched WHOLE (by `isDefEq` on `tyA`/`tyB`, not by
+  -- head), so a compound type acts as an opaque ground atom. `headA`/`headB` are kept only to INDEX the
+  -- match (one `isDefEq` scan per occurrence sharing the head), never for selection.
+  | ground     (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
   -- a RELATOR is always GRADED: its first two binders are `(m n : MapClass)` and the conclusion is
   -- `Param m n (F …) (F' …)`, so its per-argument classes VARY with the demanded output class (the variance
   -- mechanism). The driver reads them by specializing the witness to the demand, so no class is stored here.
@@ -109,8 +114,13 @@ def parseEntry (w : Name) : MetaM RegKind := do
       -- parameterized relator MUST be graded now — the fixed-class relator pipeline is gone.
       if bs.isEmpty && A.isConst && B.isConst then
         return .base A.constName! B.constName! A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
-      else
-        throwError "trocq: relator {w} must be GRADED — take leading `(m n : MapClass)` and conclude `Param m n …`"
+      -- a CLOSED GROUND equivalence: `A`/`B` are closed (no free/meta vars) but at least one is APPLIED
+      -- (e.g. `List Unit ≃ Nat`). Both must have a constant head, used only to index the whole-type match.
+      if bs.isEmpty && !A.hasFVar && !A.hasMVar && !B.hasFVar && !B.hasMVar then
+        let some hA := A.getAppFn.constName? | throwError "trocq: ground base {w} A-side has no head constant"
+        let some hB := B.getAppFn.constName? | throwError "trocq: ground base {w} B-side has no head constant"
+        return .ground hA hB A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
+      throwError "trocq: relator {w} must be GRADED — take leading `(m n : MapClass)` and conclude `Param m n …`"
     else
       if args.size ≥ 2 then
         let some hA := args[args.size - 2]!.getAppFn.constName?
@@ -366,6 +376,21 @@ def buildConsts : MetaM (NameMap Expr) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
     if let .relator hA _hB witName := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName)
+  return m
+
+/-- ground-base registry from every `@[trocq]` GROUND equivalence, BOTH directions (the base and its
+    `Param.sym`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy, wit, cls)]`. Unlike `buildAtomPairs` this is NOT
+    a selection map: the leaf rule scans the entries under the head and matches `srcTy` (and, in check mode,
+    `tgtTy`) by `isDefEq`, so a whole compound type (`List Unit`) resolves as an opaque atom. Entries are in
+    registration order; the leaf rule keeps the LAST match, so the synth default is the last-registered. -/
+def buildGround : MetaM (NameMap (Array (Expr × Expr × Expr × ParamClass))) := do
+  let mut m : NameMap (Array (Expr × Expr × Expr × ParamClass)) := mkNameMap _
+  for e in trocqEntries (← getEnv) do
+    if let .ground hA hB tyA tyB witName cls := e then
+      let wit ← mkConstWithFreshMVarLevels witName
+      let witSym ← mkAppM ``Param.sym #[wit]
+      m := m.insert hA ((NameMap.find? m hA |>.getD #[]).push (tyA, tyB, wit, cls))
+      m := m.insert hB ((NameMap.find? m hB |>.getD #[]).push (tyB, tyA, witSym, (cls.2, cls.1)))
   return m
 
 end LeTrocq

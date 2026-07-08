@@ -17,6 +17,7 @@ import Tests.Driver.DepFamily
 import Tests.Driver.TypeDirected
 import Tests.Driver.Record
 import Tests.Driver.Group
+import Tests.Driver.ListUnit
 import Tests.Lib
 
 /- AXIOM-FOOTPRINT GUARD (subsumes a `sorry`/`admit` check). EVERY `LeTrocq.*` declaration is checked — a
