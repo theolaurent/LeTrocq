@@ -1,26 +1,16 @@
 /-
-Worked example: a NON-ATOMIC ground type — `List Unit ≃ Nat` — with the constructors relatable FOR FREE.
-
-`@[trocq]` accepts a `Param m n A B` whose sides are any closed types (not just constants) and files it as a
-GROUND base — `List Unit` behaves as an opaque atom ≃ `Nat`, matched WHOLE by `isDefEq`.
-
-For TERMS, the parametricity relation `RLUN` is written as an INDUCTIVE (a list of units related to its length),
-one constructor per constructor pair — `nil ↦ Nat.zero`, `cons () ↦ Nat.succ`. Tagging `RLUN` `@[trocq]`
-AUTO-DERIVES those constructors as GROUND TERMS (partial-application patterns `@List.nil Unit` / `@List.cons Unit
-()`, matched WHOLE by `isDefEq` and mapped to `Nat.zero`/`Nat.succ`), exactly as tagging `ListR` derives
-`List.nil`/`List.cons`. So a plain `[(), ()]` rebuilds to `2` and `relate [(), ()] : RLUN [(), ()] 2`, with no
-hand-written per-constructor proxy.
-
-  • `RLUN`  : the inductive relation (its constructors auto-register as the ground terms)
-  • `RLU`   : the ground base, `Param (4,4) (List Unit) Nat`, built over `RLUN`
+User-written example: a NON-ATOMIC ground type, `List Unit ≃ Nat`, with the constructors relatable for free.
+`@[trocq]` files a `Param` over closed (non-constant) types as a ground base, matched whole by `isDefEq`.
+The relation `RLUN` (a list of units related to its length) is an inductive, one arm per constructor pair;
+tagging it auto-derives `@List.nil Unit ↦ Nat.zero` and `@List.cons Unit () ↦ Nat.succ` as ground terms, so
+`[(), ()]` rebuilds to `2` with no per-constructor proxy. `RLU` is the ground base `(4,4)`, built over `RLUN`.
 -/
 import LeTrocq
 namespace LeTrocq.Examples
 open LeTrocq MapClass
 
 /- ===================== the parametricity relation, as an inductive ===================== -/
-/-- a `List Unit` is related to its length: `[]` to `0`, `() :: l` to `n+1`. Tagging it `@[trocq]` derives
-    `@List.nil Unit ↦ Nat.zero` and `@List.cons Unit () ↦ Nat.succ` as ground terms. -/
+/-- a `List Unit` related to its length: `[]` to `0`, `() :: l` to `n+1`. -/
 @[trocq] inductive RLUN : List Unit → Nat → Type
   | nil : RLUN [] Nat.zero
   | cons {l n} (r : RLUN l n) : RLUN (() :: l) n.succ
@@ -66,7 +56,7 @@ theorem replicate_length_unit : ∀ l : List Unit, List.replicate l.length () = 
 
 /- ===================== worked usage ===================== -/
 
--- the ground base overrides the diagonal: `⟨List Unit⟩ = Nat`, and the relation is `RLUN`, not `PLift (a = b)`.
+-- the ground base overrides the diagonal: `⟨List Unit⟩ = Nat`, relation `RLUN` not `PLift (a = b)`.
 example : (translate (List Unit)) = Nat := rfl
 example : (transfer from (List Unit)).R = RLUN := rfl
 

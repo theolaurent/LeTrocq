@@ -1,11 +1,6 @@
 /-
-The lattice algebra: the MapClass/ParamClass diamond, its order/join/meet, and the axiom boundary.
-
-The computational spine of the graded system (the port of Trocq's `elpi/class.elpi`). Pure, finite, no
-proofs/metaprogramming — validated with `rfl`/`#eval` in the tests. The per-former GRADING tables
-(`arrowVariance`/`forallVariance`) now live with their combinators in `Combinators/`; `Transfer.assemble`
-pushes a demanded class top-down through them. The proof-heavy combinators (`Combinators/`)
-and the driver (`Driver/`) build on top of this.
+The lattice algebra: the MapClass/ParamClass diamond with its order/join/meet, and the axiom boundary.
+Pure and finite (the port of Trocq's `elpi/class.elpi`); the combinators and driver build on top.
 -/
 namespace LeTrocq
 
@@ -65,10 +60,8 @@ def le (a b : ParamClass) : Bool := MapClass.le a.1 b.1 && MapClass.le a.2 b.2
 def join (a b : ParamClass) : ParamClass := (MapClass.join a.1 b.1, MapClass.join a.2 b.2)
 /-- swap the two transport directions (relation symmetry). -/
 def negate (a : ParamClass) : ParamClass := (a.2, a.1)
-/-- invert an output demand `c` through a per-direction primitive table `f` (output class ↦ minimal part
-    class) to the minimal part class: the cov requirement joined with the negated contra one. The shared spine
-    of every former's `…Variance` (`listVariance`/`eqVariance`/…); the pair-valued formers (`arrow`/`forall`/
-    `sigma`) apply it componentwise inline. -/
+/-- invert an output demand `c` through a per-direction table `f` to the minimal part class: cov requirement
+    joined with the negated contra one. Shared spine of every former's `…Variance`. -/
 def variance (f : MapClass → ParamClass) (c : ParamClass) : ParamClass :=
   join (f c.1) (negate (f c.2))
 def bot : ParamClass := (map0, map0)
@@ -77,7 +70,6 @@ def top : ParamClass := (map4, map4)
 def requiresAxiom (a : ParamClass) : Bool := !MapClass.le a.1 map2a || !MapClass.le a.2 map2a
 end ParamClass
 
-/- The per-former GRADING tables (`arrowVariance`/`forallVariance`: output class → minimal part classes)
-   now live with their combinators in `Combinators/Arrow.lean` and `Combinators/Forall.lean`. -/
+/- The per-former grading tables (`arrowVariance`/`forallVariance`) live with their combinators. -/
 
 end LeTrocq

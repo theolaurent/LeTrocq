@@ -1,10 +1,8 @@
 /-
-Relating two DISTINCT group instances via `GroupR` (see `Examples/Group.lean`): `intGroup` (ℤ) and
-`boolGroup` (ℤ/2ℤ), through the parity homomorphism ℤ ↠ ℤ/2ℤ. There is NO type equivalence `Int ≃ Bool`, so
-this is a standalone correspondence, not a full transport. We exercise:
-  • the parity relation `parityR` itself;
-  • the TERM surface (`translate`/`relate`): the `@[trocq]` witness registers `intGroup ↦ boolGroup`;
-  • `trocq` on ELEMENT goals, via the partial parity carrier `RBI : Param map4 map2a Int Bool`.
+Relating two distinct group instances via `GroupR`: `intGroup` (ℤ) and `boolGroup` (ℤ/2ℤ), through the parity
+homomorphism ℤ ↠ ℤ/2ℤ. No type equivalence `Int ≃ Bool` — a standalone correspondence, not a full transport.
+Exercises `parityR`, the term surface (`translate`/`relate`), and `trocq` on element goals via the parity
+carrier `RBI : Param map4 map2a Int Bool`.
 -/
 import LeTrocq
 import Examples.Group
@@ -18,23 +16,22 @@ example : parityR 1 true := ⟨by decide⟩
 example : parityR 4 false := ⟨by decide⟩
 
 /- ===================== the correspondence witness ===================== -/
--- the whole `GroupR` witness elaborates (its three fields — mul/one/inv — all discharge).
+-- the whole `GroupR` witness elaborates (mul/one/inv fields all discharge).
 example : GroupR Int Bool parityR intGroup boolGroup := intBoolGroupR
 
 /- ===================== the TERM surface (`translate` / `relate`) ===================== -/
--- the `@[trocq]` witness registers `intGroup ↦ boolGroup`, so `⟨intGroup⟩ = boolGroup`.
+-- the `@[trocq]` witness registers `intGroup ↦ boolGroup`.
 example : (translate intGroup) = boolGroup := rfl
 -- `relate` recovers the correspondence witness.
 example : GroupR Int Bool parityR intGroup boolGroup := relate intGroup
 
 /- ===================== `trocq` on ELEMENT goals, via the parity carrier `RBI` =====================
-   A group EQUATION does NOT transfer, by design: ℤ ↠ ℤ/2ℤ is non-injective, so `z + z = 0` (FALSE in ℤ)
-   is not a sound counterpart of `b != b = false` (TRUE in ℤ/2ℤ). The `(4,2a)` carrier lacks the `Bool → Int`
-   completeness `paramEq` needs, so the driver refuses it — that is soundness, not a gap. -/
+   A group EQUATION does NOT transfer, by design: ℤ ↠ ℤ/2ℤ is non-injective, so `z + z = 0` (false in ℤ) is
+   not a sound counterpart of `b != b = false` (true in ℤ/2ℤ). The `(4,2a)` carrier lacks the `Bool → Int`
+   completeness `paramEq` needs, so the driver refuses it — soundness, not a gap. -/
 
--- but a PARITY-INVARIANT predicate transfers soundly: "z + z is even" over ℤ ⤳ "b != b is even" over ℤ/2ℤ,
--- a genuine element-level `trocq` across the homomorphism. `EvenR` is the predicate relator (`Int`-side
--- first, matching the goal); its carrier argument is the bound element's `parityR` relatedness.
+-- but a PARITY-INVARIANT predicate transfers soundly: "z + z is even" over ℤ ⤳ "b != b is even" over ℤ/2ℤ.
+-- `EvenR` is the predicate relator (`Int`-side first); its carrier arg is the bound element's `parityR`.
 def EvenI (z : Int) : Prop := z % 2 = 0
 /-- `abbrev` (reducible), so `decide` sees through to `DecidableEq Bool` on the ℤ/2ℤ side. -/
 abbrev EvenB (b : Bool) : Prop := b = false
@@ -50,23 +47,21 @@ abbrev EvenB (b : Bool) : Prop := b = false
       have hb' : b = false := hb; subst hb'
       have hd := h.down; simpa [EvenI] using hd)
 
--- the goal uses the GENERIC `Group.mul` (instance `[Group Int]` synthesized to `intGroup`); after `trocq`
--- it is generic `Group.mul` over `[Group Bool]` — and now `decide` closes it, the whole point of landing in
--- the finite ℤ/2ℤ.
+-- generic `Group.mul` over `[Group Int]` ⤳ over `[Group Bool]`; `decide` then closes it in the finite ℤ/2ℤ.
 example : ∀ z : Int, EvenI (Group.mul z z) := by
   trocq          -- ⊢ ∀ b : Bool, EvenB (Group.mul b b)
   decide
 
 /- ===================== the REVERSE direction (Bool ⤳ Int) =====================
-   The mirror needs three symmetrizations to all line up: the reverse `EvenR` relator (keyed under `EvenB`, via
-   `symRelator`), the reverse `RBI` carrier `Bool ≃ Int` (via `Param.sym`), and — the piece that was missing —
-   the reverse `intGroup ↔ boolGroup` correspondence. `intBoolGroupR` is a ZERO-triple `GroupR` instance, so
-   `symPrimitive` returns it unchanged (wrong orientation); `symStructure` reverses it FIELD-WISE. -/
+   The mirror needs three symmetrizations to line up: the reverse `EvenR` relator (keyed under `EvenB`, via
+   `symRelator`), the reverse `RBI` carrier (via `Param.sym`), and the reverse `intGroup ↔ boolGroup`
+   correspondence. `intBoolGroupR` is a zero-triple `GroupR`, so `symPrimitive` leaves it unchanged (wrong
+   orientation); `symStructure` reverses it field-wise. -/
 
--- `relate boolGroup` now has the CORRECT reverse orientation: `GroupR Bool Int (flip parityR) boolGroup intGroup`.
+-- `relate boolGroup` now has the correct reverse orientation.
 example : GroupR Bool Int (fun b z => parityR z b) boolGroup intGroup := relate boolGroup
 
--- ... and the whole reverse `trocq` goes through: a `Bool`-side goal transfers to `Int`.
+-- and the reverse `trocq` goes through: a `Bool`-side goal transfers to `Int`.
 example : ∀ b : Bool, EvenB (Group.mul b b) := by
   trocq          -- ⊢ ∀ z : Int, EvenI (Group.mul z z)
   intro z; show (z + z) % 2 = 0; omega

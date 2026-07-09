@@ -1,31 +1,16 @@
 /-
-A registered STRUCTURE (record): a GROUP (the mathematical structure).
-
-The prelude relations (`List`/`Sigma`/…) are INDUCTIVEs, consumed by their CONSTRUCTORS; a record type is
-consumed by its FIELD PROJECTIONS, so its natural relation is a `structure` whose fields relate the
-projections. `@[trocq]` on such a structure auto-registers each projection as a term primitive (a structure
-field is already in abstraction-theorem triple form, so no proxy). A group exercises the full range of
-structure fields:
-  • FUNCTION fields — `mul : G → G → G`, `inv : G → G`;
-  • a CONSTANT field — `one : G`;
-  • PROP (axiom) fields — `mul_assoc`/`one_mul`/`inv_mul`.
-
-The parametricity relation `GroupR` is a `class` relating the three OPERATIONS (a homomorphism of the
-signature). Tagging it `@[trocq]` auto-registers `Group.mul`/`Group.one`/`Group.inv` as term primitives (the
-projection fields are already in triple form) — with NO hand-written proxy.
-
-We then use `GroupR` for its own sake: to relate TWO DISTINCT, non-isomorphic group instances —
-`intGroup` (ℤ) and `boolGroup` (ℤ/2ℤ) — through the parity homomorphism ℤ ↠ ℤ/2ℤ. This is NOT a transport
-across a type equivalence (`Int` and `Bool` are not equivalent types); it is a standalone correspondence
-witness. Tagging it `@[trocq]` registers `intGroup ↦ boolGroup` as a term primitive, and the partial parity
-carrier `RBI : Param map4 map2a Int Bool` lets `trocq` cross `Int`/`Bool` elements (see `Tests/Driver/Group`).
+User-written example: a GROUP, a registered structure whose parametricity relation `GroupR` is authored as
+a `@[trocq] class` relating the three operations (a signature homomorphism). Tagging it auto-registers
+`Group.mul`/`Group.one`/`Group.inv` as term primitives, no proxy. `GroupR` is then used for its own sake, to
+relate two DISTINCT, non-isomorphic instances — `intGroup` (ℤ) and `boolGroup` (ℤ/2ℤ) — via the parity
+homomorphism ℤ ↠ ℤ/2ℤ; the partial carrier `RBI : Param map4 map2a Int Bool` lets `trocq` cross the elements.
 -/
 import LeTrocq
 namespace LeTrocq.Examples
 open LeTrocq MapClass
 
 /- ===================== the group typeclass and its signature relation ===================== -/
-/-- the mathematical structure of a group, as a `class` (a Lean typeclass: `[Group G]` is "G is a group"). -/
+/-- the mathematical structure of a group, as a Lean `class`. -/
 class Group (G : Type) where
   mul : G → G → G
   one : G
@@ -34,11 +19,9 @@ class Group (G : Type) where
   one_mul : ∀ a, mul one a = a
   inv_mul : ∀ a, mul (inv a) a = one
 
-/-- two group instances are related iff their OPERATIONS correspond (a homomorphism of the signature). The
-    relation is itself a `@[trocq] class` — its projections auto-register `Group.mul`/`Group.one`/`Group.inv`
-    as term primitives, and a concrete correspondence registers as a `@[trocq] instance` (see the tests). Only
-    the DRIVER consumes it (by head-lookup in the `@[trocq]` registry, never `synthInstance`), so making it a
-    class is just for the class/instance parallelism — `paramGroup` below stays a plain `def`. -/
+/-- two group instances are related iff their operations correspond (a signature homomorphism). Authored as a
+    `@[trocq] class` for the class/instance parallelism, but the driver consumes it by head-lookup in the
+    registry, never `synthInstance`. Tagging it auto-registers `Group.mul`/`Group.one`/`Group.inv`. -/
 @[trocq] class GroupR (A A' : Type) (RA : A → A' → Type) (g : Group A) (g' : Group A') where
   mulR : ∀ a a', RA a a' → ∀ b b', RA b b' → RA (g.mul a b) (g'.mul a' b')
   oneR : RA g.one g'.one
@@ -63,15 +46,13 @@ instance intGroup : Group Int where
   one_mul := by intro a; omega
   inv_mul := by intro a; omega
 
-/-- relate an `Int` (ℤ) to a `Bool` (ℤ/2ℤ) by PARITY: `z` corresponds to `b` when `z`'s parity is `b`
-    (Lean's Euclidean `%` gives `z % 2 ∈ {0,1}`, so this is well-defined). Oriented `Int`-FIRST, so an
-    `Int`-side `trocq` goal crosses forward (the goal side is the `A` side — no `sym` needed). -/
+/-- relate an `Int` to a `Bool` by parity: `z` corresponds to `b` when `z`'s parity is `b`. Oriented
+    `Int`-first, so an `Int`-side `trocq` goal crosses forward (no `sym` needed). -/
 def parityR (z : Int) (b : Bool) : Type := PLift (z % 2 = bif b then 1 else 0)
 
-/-- `intGroup` and `boolGroup` CORRESPOND under parity — the group homomorphism ℤ ↠ ℤ/2ℤ, as a `GroupR`
-    witness relating two DISTINCT (non-isomorphic) group instances. Tagged `@[trocq]`, so the driver
-    registers `intGroup ↦ boolGroup` as a term primitive. (`simp only … at h1 h2 ⊢` reduces the `cond`/`bne`
-    without weaponizing the mod hypotheses away from `omega`, which `simp_all` would.) -/
+/-- `intGroup` and `boolGroup` correspond under parity (the homomorphism ℤ ↠ ℤ/2ℤ) — a `GroupR` witness
+    between two distinct instances. Tagged `@[trocq]`, so the driver registers `intGroup ↦ boolGroup`.
+    (`simp only` rather than `simp_all`, which would rewrite the mod hypotheses away from `omega`.) -/
 @[trocq] def intBoolGroupR : GroupR Int Bool parityR intGroup boolGroup where
   mulR z z' hz w w' hw := ⟨by
     have h1 := hz.down; have h2 := hw.down
@@ -84,11 +65,9 @@ def parityR (z : Int) (b : Bool) : Type := PLift (z % 2 = bif b then 1 else 0)
     cases z' <;> simp only [boolGroup, intGroup, cond_true, cond_false] at h ⊢ <;> omega⟩
 
 /- ===================== the parity CARRIER as a partial `Param` ===================== -/
-/-- the parity relation packaged as a `Param Int Bool`: only PARTIAL. The `Int → Bool` parity map is a full
-    retraction (map4), but the `Bool → Int` section `bif b then 1 else 0` is SOUND (2a) and not complete
-    (many ints per bool). So the carrier tops out at `(4, 2a)` — exactly the soundness boundary of the
-    non-injective quotient ℤ ↠ ℤ/2ℤ: it lets `trocq` cross `Int`/`Bool` ELEMENTS, but not transport
-    equations that would need the missing `Bool → Int` completeness. -/
+/-- the parity relation as a PARTIAL `Param Int Bool`. The `Int → Bool` map is a full retraction (map4), but
+    the `Bool → Int` section is sound (2a) and not complete (many ints per bool), so the carrier tops out at
+    `(4, 2a)`: it crosses elements, but not equations that would need the missing `Bool → Int` completeness. -/
 @[trocq] def RBI : Param map4 map2a Int Bool where
   R := parityR
   cov :=

@@ -1,16 +1,9 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Quot` (the kernel quotient).
-
-`Quot`/`Quot.mk` are kernel constants, but their parametricity registers like any prelude type — NOT a
-hardcoded driver primitive. Base-agnostically on BOTH surfaces:
-  • the TERM surface (`⟨·⟩`/`[·]`): `QuotRel` is the parametricity RELATION, registered as a TYPE FORMER so
-    `⟨·⟩` crosses `Quot r` (counterpart head `Quot ↦ Quot`); `Quot.mk` is a TERM primitive with relatedness `QuotMkR`.
-  • the tactic path: the GRADED relator `paramQuot`, from a base equivalence + the relations' correspondence.
-
-A quotient is a former over a type `A` AND a relation `r : A → A → Prop` (a TERM argument, relatedness
-`rR : … PLift (r a b ↔ r' a' b')`). The parametricity relation is the standard one — related classes have
-`RA`-related representatives — stated EXISTENTIALLY so it is well-defined on both quotients and `Prop`-
-truncated (a subsingleton, so the `(4,4)` coherence is free).
+`Quot` (the kernel quotient former) — standard-library registration. `Quot`/`Quot.mk` are kernel constants,
+but their parametricity registers like any prelude type, NOT a hardcoded driver primitive. `QuotRel` is the
+parametricity relation (a TYPE FORMER, so `⟨·⟩` crosses `Quot r`); `Quot.mk` is a term primitive with
+relatedness `QuotMkR`; `paramQuot` is the graded relator. A quotient is a former over a type `A` AND a
+relation `r` (a TERM argument, relatedness `rR`).
 
 (`Quot.lift`, the eliminator, is not supported.)
 -/
@@ -18,30 +11,28 @@ import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
 open LeTrocq MapClass
 
-/-- the parametricity relation of `Quot`: related classes have `RA`-related representatives. Existential, so
-    well-defined on both quotients by construction; `Prop`-truncated (`PLift` of an `∃`), hence subsingleton.
-    A TYPE FORMER keyed by `Quot` (its `(A, A', RA)` and `(r, r', rR)` parameters are supplied by the graded relator `paramQuot`). -/
+/-- the parametricity relation of `Quot`: related classes have `RA`-related representatives, stated
+    existentially so it is well-defined on both quotients; `Prop`-truncated (`PLift` of an `∃`), hence
+    subsingleton (the `(4,4)` coherence is free). The `Quot` type former. -/
 @[trocq] def QuotRel (A A' : Type) (RA : A → A' → Type) (r : A → A → Prop) (r' : A' → A' → Prop)
     (_rR : (a : A) → (a' : A') → RA a a' → (b : A) → (b' : A') → RA b b' → PLift (r a b ↔ r' a' b')) :
     Quot r → Quot r' → Type :=
   fun q q' => PLift (∃ a a', Quot.mk r a = q ∧ Quot.mk r' a' = q' ∧ Nonempty (RA a a'))
 
-/-- `Quot.mk r a` relates to `Quot.mk r' a'` whenever the representatives are `RA`-related (witness: itself).
-    A TERM primitive keyed by `Quot.mk`. -/
+/-- `Quot.mk r a` relates to `Quot.mk r' a'` whenever the representatives are `RA`-related. The `Quot.mk`
+    term primitive. -/
 @[trocq] def QuotMkR (A A' : Type) (RA : A → A' → Type) (r : A → A → Prop) (r' : A' → A' → Prop)
     (rR : (a : A) → (a' : A') → RA a a' → (b : A) → (b' : A') → RA b b' → PLift (r a b ↔ r' a' b'))
     (a : A) (a' : A') (aRel : RA a a') :
     QuotRel A A' RA r r' rR (Quot.mk r a) (Quot.mk r' a') :=
   PLift.up ⟨a, a', rfl, rfl, ⟨aRel⟩⟩
 
-/- ===================== the GRADED relator (variance mechanism, dependent — domain only) =====================
-   Only the base `A` is graded: `r`/`r'` are a TERM argument and `rR` its (ungraded) relatedness. `Quot`'s
-   relation is `Prop`-truncated (a `PLift` of an `∃`), so it is ALWAYS a subsingleton — the coherence
-   `rInMapK` is `rfl` for FREE, with no class-4 requirement on `pa`. But the forward map's well-definedness
-   uses `pa.cov.mapInR` (soundness, 2a) at EVERY class ≥ 1, so an output that wants completeness (`rInMap`,
-   2b) forces `pa` to `map3` (both `mapInR` and `rInMap`); `map4` needs no more than `map3` (coherence free). -/
+/- ===================== the graded relator (domain-only variance) =====================
+   Only the base `A` is graded (`r`/`r'` are a term argument, `rR` its ungraded relatedness). The relation is a
+   `Prop`-truncated subsingleton, so `rInMapK` is `rfl` for free (no class-4 on `pa`). But the forward map uses
+   `pa.cov.mapInR` (2a) at every class ≥ 1, so wanting completeness (2b) forces `pa` to `map3`. -/
 
-/-- per-map-class minimal DOMAIN class for `Quot` (the map needs 2a everywhere; completeness forces map3). -/
+/-- per-map-class minimal domain class for `Quot` (map needs 2a everywhere; completeness forces map3). -/
 def mapQuotVariance : MapClass → ParamClass
   | map0  => (map0,  map0)
   | map1  => (map2a, map0)
@@ -53,8 +44,7 @@ def mapQuotVariance : MapClass → ParamClass
 /-- minimal domain class to build `Quot` at output class `c` (cov joined with negated contra). -/
 def quotVariance (c : ParamClass) : ParamClass := ParamClass.variance mapQuotVariance c
 
-/- The shared cov obligations, written ONCE via the raw `pa.cov` fields + the (ungraded) `rR`. `QuotRel` is
-   a `Prop`-truncated subsingleton, so `mapInR` returns `PLift.up …` (a `def`) and coherence is `rfl`. -/
+/- The shared cov obligations, written once via the raw `pa.cov` fields + the ungraded `rR`. -/
 noncomputable def quotFwdMap {A A' : Type} {RA : A → A' → Type} (r : A → A → Prop) (r' : A' → A' → Prop)
     (mapA : A → A') (mapAInR : ∀ a a', mapA a = a' → RA a a')
     (rR : ∀ a a', RA a a' → ∀ b b', RA b b' → PLift (r a b ↔ r' a' b')) : Quot r → Quot r' :=

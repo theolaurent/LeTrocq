@@ -1,32 +1,22 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Sigma` (Σ, the dependent pair).
-
-Beyond `List`/`Option`: `Sigma` is parameterized by a type FAMILY `β : α → Type`. This needs no new machinery
-— `param`'s λ-rule turns `B : A → Type` into the RELATED FAMILY `RB : ∀ a a' (aRel : RA a a'), B a → B' a' →
-Type`, which the inductive relation takes as a parameter. Registers base-agnostically on BOTH surfaces:
-  • the TERM surface (`⟨·⟩`/`[·]`): the relation `SigmaR` (a TYPE FORMER), whose constructor `SigmaR.mk`
-    auto-registers as the `Sigma.mk` TERM primitive;
-  • the tactic path: the GRADED relator `paramSigma`, whose FAMILY argument `β` is a whole family of `Param`s
-    (built like `paramForall`'s codomain). Proofs are dependent — `cases`/`induction` unify the index,
-    `Subsingleton` identifies the proof slots.
-
-(A non-prelude example with the same family machinery — a W-type — lives in `Examples/WTree`.)
+`Sigma` (Σ, the dependent pair) — standard-library registration. Parameterized by a type FAMILY `β : α →
+Type`: `param`'s λ-rule turns it into a RELATED FAMILY `RB`, which the inductive relation `SigmaR` (a TYPE
+FORMER; `SigmaR.mk` auto-registers as the `Sigma.mk` term primitive) takes as a parameter. `paramSigma` is the
+graded relator, its FAMILY argument a whole family of `Param`s (like `paramForall`'s codomain).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
 open LeTrocq MapClass
 
-/-- two dependent pairs are related iff their first components are `RA`-related and, OVER that relatedness,
-    their second components are `RB`-related. The family relation `RB` is what `param` produces for `β`. -/
+/-- two dependent pairs are related iff their firsts are `RA`-related and, over that relatedness, their
+    seconds are `RB`-related (`RB` is what `param` produces for `β`). The `Sigma` type former. -/
 @[trocq] inductive SigmaR (A A' : Type) (RA : A → A' → Type) (B : A → Type) (B' : A' → Type)
     (RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type) : Sigma B → Sigma B' → Type
   | mk {a a' b b'} (aRel : RA a a') (bRel : RB a a' aRel b b') : SigmaR A A' RA B B' RB ⟨a, b⟩ ⟨a', b'⟩
 
-/- `SigmaR.mk` auto-registers as the `Sigma.mk` term primitive (tagging `SigmaR` derives it via
-   `Registry.deriveConstructorPrim`, reordering its `{a a' b b'} aRel bRel` fields into triple form). -/
+/- `SigmaR.mk` auto-registers as the `Sigma.mk` term primitive. -/
 
-/-- the relation is a subsingleton when its parts are (the `(4,4)` coherence). `cases`+`subst` handle the
-    dependent index, so no `HEq`. -/
+/-- the relation is a subsingleton when its parts are — needed for the `(4,4)` coherence. -/
 theorem SigmaR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B' : A' → Type}
     {RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type}
     (hA : ∀ a a', Subsingleton (RA a a')) (hB : ∀ a a' aRel b b', Subsingleton (RB a a' aRel b b'))
@@ -36,13 +26,12 @@ theorem SigmaR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
     subst e
     exact congrArg _ ((hB _ _ _ _ _).allEq bRel bRel')
 
-/- ===================== the GRADED relator (variance mechanism, dependent — parallel to `paramForall`) =====
-   `Sigma` is covariant in its DOMAIN `A` and in its FAMILY `β`, but the domain inherits the forall-style
-   wrinkle: the forward map already indexes `pb` via `pa.cov.mapInR` (soundness, 2a), and the completeness
-   fields identify the relatedness proof via `pa.cov.subsingleton` (map4). So the domain needs 2a for the
-   map/soundness arms and map4 for the completeness arms; the family tracks the output class (identity). -/
+/- ===================== the graded relator (variance parallel to `paramForall`) =====================
+   Covariant in domain `A` and family `β`, but the domain inherits the forall wrinkle: the forward map indexes
+   `pb` via `pa.cov.mapInR` (2a) and the completeness arms need `pa.cov.subsingleton` (map4). The family tracks
+   the output class (identity). -/
 
-/-- per-map-class minimal `(domain, family)` classes for `Sigma` (domain has the forall wrinkle, family covariant). -/
+/-- per-map-class minimal `(domain, family)` classes for `Sigma`. -/
 def mapSigmaVariance : MapClass → ParamClass × ParamClass
   | map0  => ((map0,  map0), (map0,  map0))
   | map1  => ((map2a, map0), (map1,  map0))
@@ -57,8 +46,8 @@ def sigmaVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (bd, bf) := mapSigmaVariance c.2
   (ParamClass.join ad (ParamClass.negate bd), ParamClass.join af (ParamClass.negate bf))
 
-/- The shared cov obligations, written ONCE and reused across the arms via the family's RAW projected maps
-   (`mapB`/`mapBInR`/`mapBRInMap = fun a a' aRel => (pb a a' aRel).cov.…`), so no `Param` is weakened. -/
+/- The shared cov obligations, written once and reused across the arms via the family's raw projected maps
+   (`fun a a' aRel => (pb a a' aRel).cov.…`), so no `Param` is weakened. -/
 noncomputable def sigmaCovMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
     (mapA : A → A') (mapAInR : ∀ a a', mapA a = a' → RA a a')
     (mapB : ∀ a a', RA a a' → B a → B' a') : Sigma B → Sigma B' :=
@@ -118,9 +107,7 @@ noncomputable def sigmaCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
                        rInMapK := fun _ _ _ => SigmaR.allEq (fun a a' => pa.cov.subsingleton a a')
                          (fun a a' aRel b b' => (pb a a' aRel).cov.subsingleton b b') _ _ }
 
-/-- the contravariant half. `rInMapK` takes the relation's subsingleton from `pa.contra`/`pb.contra`. -/
-/- the contra mirror of the cov helpers: A-side uses `pa.contra` (`mapA : A' → A`), the fiber uses
-   `pb.contra` (`mapB : … → B' a' → B a`). -/
+/- the contra mirror of the cov helpers: A-side uses `pa.contra` (`mapA : A' → A`), the fiber `pb.contra`. -/
 noncomputable def sigmaContraMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
     (mapA : A' → A) (mapAInR : ∀ a' a, mapA a' = a → RA a a')
     (mapB : ∀ a a', RA a a' → B' a' → B a) : Sigma B' → Sigma B :=

@@ -1,20 +1,9 @@
 /-
-A registered STRUCTURE (record) — the parametricity relation is itself a `structure`.
-
-The prelude relations (`List`/`Sigma`/…) are INDUCTIVEs, consumed by their CONSTRUCTORS. A record type is
-consumed by its FIELD PROJECTIONS, so its natural relation is a `structure` whose fields relate the
-projections. `@[trocq]` on such a structure auto-registers, base-agnostically:
-  • each FIELD projection `PtR.xR`/`PtR.yR` as the term primitive for the data projection `Pt.x`/`Pt.y`
-    (a structure field is ALREADY in abstraction-theorem triple form `(A,A',RA) (p,p',self)`, so no reorder);
-  • the constructor `Pt.mk` as a term primitive (built by `Registry.deriveStructureCtorPrim`, which specialises
-    the relation's `mk` — abstract over `p`/`p'` — to `p := Pt.mk v…`).
-So `translate`/`relate` cross `Pt.mk`/`p.x` with NO hand-written proxy.
-
-(A GROUP — a record whose relation is authored as a `@[trocq] class` — lives in `Examples/Group.lean`.)
-
-The graded relator `paramPt` (for `trocq`/`transfer` on `Pt` as a TYPE) is still hand-written, exactly like
-every other type former (`paramList` etc.) — `Pt` is a covariant functor in its single parameter, so its
-variance is the identity (parallel to `paramList`). The tests instantiate at `Nat ≃ Unary`.
+User-written example: a record `Pt` whose parametricity relation `PtR` is authored as a `structure` (fields
+relating the projections). Tagging it auto-registers each field `PtR.xR`/`PtR.yR` as the term primitive for
+the projection `Pt.x`/`Pt.y`, and the constructor `Pt.mk`, so `translate`/`relate` cross them with no proxy.
+The graded relator `paramPt` is hand-written like every type former; `Pt` is a covariant functor in its one
+parameter, so its variance is the identity (parallel to `paramList`). (A `class`-authored variant: Group.lean.)
 -/
 import LeTrocq
 namespace LeTrocq.Examples
@@ -26,8 +15,8 @@ structure Pt (T : Type) where
   y : T
 deriving Repr
 
-/-- two points are related iff their fields are `RA`-related. A STRUCTURE relation: tagging it auto-registers
-    `Pt.x`/`Pt.y` (fields) and `Pt.mk` (constructor) as term primitives. -/
+/-- two points are related iff their fields are `RA`-related. Tagging this structure auto-registers
+    `Pt.x`/`Pt.y` and `Pt.mk` as term primitives. -/
 @[trocq] structure PtR (A A' : Type) (RA : A → A' → Type) (p : Pt A) (p' : Pt A') where
   xR : RA p.x p'.x
   yR : RA p.y p'.y

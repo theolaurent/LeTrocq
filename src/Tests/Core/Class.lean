@@ -1,6 +1,4 @@
-/- The class lattice: the MapClass/ParamClass diamond, its order/join/meet, and the axiom boundary. (The
-   per-former grading tables `arrowVariance`/`forallVariance` moved to `Combinators/`; they are tested next to their
-   combinators in `Tests/Combinators/Arrow.lean` and `Tests/Combinators/Forall.lean`.) -/
+/- The class lattice: `MapClass`/`ParamClass` order/join/meet and the axiom boundary. -/
 import LeTrocq.Core.Class
 namespace LeTrocq.Tests
 open LeTrocq MapClass ParamClass

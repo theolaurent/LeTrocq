@@ -24,16 +24,16 @@ example : arr01.contra.map (fun u => u) 5 = 5 := rfl                       -- ba
 example : arr2a.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl              -- forward, at (2a,0)
 example : arr33.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl              -- forward, at (3,3)
 example : arr33.cov.map (fun n => n + 2) Unary.z = Unary.s (Unary.s Unary.z) := rfl
-/- the (4,4) equivalence is now buildable: forward map computes, and its coherence field exists. -/
+/- the (4,4) equivalence: forward map computes and the coherence field exists. -/
 example : arr44.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl
 example : ∀ f f' r, arr44.cov.mapInR f f' (arr44.cov.rInMap f f' r) = r := arr44.cov.rInMapK
-/- the backward (contra) map is native transport too, and the carried relation is exactly `RArrow`: -/
+/- backward map and the carried relation is exactly `RArrow`: -/
 example : arr44.contra.map (fun u => u) 5 = 5 := rfl
 example : arr44.R = RArrow RN.R RN.R := rfl
-/- soundness survives where the class provides it (2a keeps cov.mapInR): -/
+/- soundness survives where the class provides it (2a keeps cov.mapInR). -/
 example : ∀ f f', arr2a.cov.map f = f' → RArrow RN.R RN.R f f' := arr2a.cov.mapInR
 
-/- the (2b,0) section: cov is `Map2bHas` (map + completeness), no soundness; forward map computes. -/
+/- the (2b,0) section: map + completeness, no soundness. -/
 def arr2b : Param map2b map0 (Nat → Nat) (Unary → Unary) :=
   paramArrow map2b map0 (RN.weaken rfl rfl) (RN.weaken rfl rfl)
 example : arr2b.cov.map Nat.succ Unary.z = Unary.s Unary.z := rfl

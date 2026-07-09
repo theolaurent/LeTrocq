@@ -1,18 +1,9 @@
 /-
-A registered DEPENDENT parameterized type that is NOT in Lean's prelude: a W-type `WTree`.
-
-The prelude dependent pair `Sigma` ships with the library (`LeTrocq.Lib.Sigma`); this file is the worked
-EXAMPLE showing the same type-FAMILY relator machinery applies to a user's own inductive. `WTree A B` is a
-well-founded tree — a label `a : A` and `B a`-many subtrees — and like `Sigma` it is parameterized by a type
-family `B : A → Type`, handled by `param`'s λ-rule (which turns `B` into the related family `(B', RB)`).
-
-It registers on BOTH surfaces, base-agnostically (the tests instantiate at `Nat ≃ Unary`):
-  • the TERM surface (`translate` / `relate`, i.e. `⟨·⟩` / `[·]`): the inductive relation `WTreeR` (a TYPE FORMER),
-    whose constructor `WTreeR.mk` auto-registers as the `WTree.mk` TERM primitive;
-  • the `trocq` / `transfer` tactic: a `(4,4)` relator `paramWTreeR`, whose family argument `pb` is a whole
-    family of `Param`s `∀ a a' (aRel : pa.R a a'), Param … (B a) (B' a')`. The relator proofs are dependent
-    (subtrees live over the label), handled by the inductive relation: `cases`/`induction` do the index
-    unification, `Subsingleton` identifies the proof slots.
+User-written example: a DEPENDENT parameterized type not in the prelude, the W-type `WTree A B` (a label
+`a : A` and `B a`-many subtrees). Like the prelude `Sigma` it is parameterized by a type family `B : A → Type`
+(handled by `param`'s λ-rule), showing the same family-relator machinery applies to a user's own inductive.
+Registers on both surfaces: the inductive relation `WTreeR` (`WTreeR.mk` auto-registers as the `WTree.mk`
+term primitive) and the `(4,4)` relator `paramWTree`, whose family argument `pb` is a whole family of `Param`s.
 -/
 import LeTrocq
 namespace LeTrocq.Examples
@@ -22,20 +13,17 @@ open LeTrocq LeTrocq.Lib MapClass
 inductive WTree (A : Type) (B : A → Type) : Type
   | mk (a : A) (f : B a → WTree A B) : WTree A B
 
-/-- two trees are related iff their labels are `RA`-related and, for every related pair of child indices,
-    the corresponding subtrees are related. The child-relatedness `fRel` is the W analogue of `ListR.cons`'s
-    tail relatedness — here a FUNCTION, since a node has a family of subtrees. -/
+/-- two trees are related iff their labels are `RA`-related and, for every related pair of child indices, the
+    subtrees are related. `fRel` is the W analogue of `ListR.cons`'s tail — here a function over subtrees. -/
 @[trocq] inductive WTreeR (A A' : Type) (RA : A → A' → Type) (B : A → Type) (B' : A' → Type)
     (RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type) : WTree A B → WTree A' B' → Type
   | mk {a a' f f'} (aRel : RA a a')
       (fRel : (b : B a) → (b' : B' a') → (bRel : RB a a' aRel b b') → WTreeR A A' RA B B' RB (f b) (f' b')) :
       WTreeR A A' RA B B' RB ⟨a, f⟩ ⟨a', f'⟩
 
-/- `WTreeR.mk` auto-registers as the `WTree.mk` term primitive (tagging `WTreeR` derives it via
-   `Registry.deriveConstructorPrim`, reordering its `{a a' f f'} aRel fRel` fields into triple form). -/
+/- `WTreeR.mk` auto-registers as the `WTree.mk` term primitive (its fields reordered into triple form). -/
 
-/-- the relation is a subsingleton when its parts are — by induction on one tree-relatedness (its children
-    field is a function into subsingletons, so `funext` + the IH identify it). -/
+/-- the relation is a subsingleton when its parts are — by induction, with `funext` + IH on the children. -/
 theorem WTreeR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B' : A' → Type}
     {RB : (a : A) → (a' : A') → RA a a' → B a → B' a' → Type}
     (hA : ∀ a a', Subsingleton (RA a a')) (_hB : ∀ a a' aRel b b', Subsingleton (RB a a' aRel b b')) :
@@ -51,14 +39,11 @@ theorem WTreeR.allEq {A A' : Type} {RA : A → A' → Type} {B : A → Type} {B'
         funext b b' bRel; exact ih b b' bRel (fRel' b b' bRel)
       subst this; rfl
 
-/- ===================== the GRADED relator (variance mechanism, dependent + CONTRAVARIANT family) =========
-   `WTree`'s recursive child sits under `B a →`, so the fiber is CONTRAVARIANT: the forward map pulls child
-   indices back via `pb.contra`. Hence the whole's soundness (`mapInR`) consumes the family's COMPLETENESS
-   (`contra.rInMap`, 2b) and the whole's completeness consumes the family's soundness (2a) — the 2a↔2b swap.
-   The domain has the same forall-wrinkle as `Sigma` (2a for map/soundness, map4 for completeness).
-
-   To keep the recursive map class-agnostic (so the completeness `rw`s fire without a `.weaken` in the way),
-   `wfwdG`/`wbwdG` take the RAW label map + child transport function, not a `Param`. -/
+/- ===================== the GRADED relator (dependent, CONTRAVARIANT family) =====================
+   The recursive child sits under `B a →`, so the fiber is contravariant: the forward map pulls child indices
+   back via `pb.contra`, and the whole's soundness/completeness consume the family's completeness/soundness
+   (the 2a↔2b swap). `wfwdG`/`wbwdG` take the raw label map + child transport, not a `Param`, to stay
+   class-agnostic. -/
 
 /-- forward tree map from the raw label map `mapA` and the raw child PULLBACK `mapB` (contravariant fiber). -/
 noncomputable def wfwdG {A A' : Type} {B : A → Type} {B' : A' → Type}
@@ -70,8 +55,7 @@ noncomputable def wbwdG {A A' : Type} {B : A → Type} {B' : A' → Type}
     (mapA : A' → A) (mapB : (a' : A') → B (mapA a') → B' a') : WTree A' B' → WTree A B :=
   fun t => WTree.rec (motive := fun _ => WTree A B) (fun a' _ ih => ⟨mapA a', fun b => ih (mapB a' b)⟩) t
 
-/-- per-map-class minimal `(domain, family)` classes for `WTree` (domain like `Sigma`; family CONTRAVARIANT,
-    so its contra slot carries the 2a↔2b-swapped requirement). -/
+/-- per-map-class minimal `(domain, family)` classes (domain like `Sigma`; family contravariant). -/
 def mapWTreeVariance : MapClass → ParamClass × ParamClass
   | map0  => ((map0,  map0), (map0, map0))
   | map1  => ((map2a, map0), (map0, map1))
@@ -86,9 +70,8 @@ def wtreeVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (bd, bf) := mapWTreeVariance c.2
   (ParamClass.join ad (ParamClass.negate bd), ParamClass.join af (ParamClass.negate bf))
 
-/- The shared cov obligations, written ONCE via the family's RAW projected child maps
-   (`mapB := fun a a' aRel => (pb a a' aRel).contra.map`, contravariant fiber). `wtreeCovMap` wraps `wfwdG` so
-   the `map` field and both proof helpers refer to the same map; the completeness rewrites need `simp only`
+/- The shared cov obligations, written once over the family's raw projected child maps. `wtreeCovMap` wraps
+   `wfwdG` so `map` and both proof helpers refer to the same map; the completeness rewrites need `simp only`
    (not `rw`) because the child index is an un-beta-reduced redex. -/
 noncomputable def wtreeCovMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
     (mapA : A → A') (mapAInR : ∀ a a', mapA a = a' → RA a a')
@@ -160,8 +143,7 @@ noncomputable def wtreeCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
                        rInMapK := fun _ _ _ => WTreeR.allEq (fun a a' => pa.cov.subsingleton a a')
                          (fun a a' aRel b b' => (pb a a' aRel).contra.subsingleton b' b) _ _ }
 
-/- the contra mirror: A-side uses `pa.contra` (`mapA : A' → A`), the fiber uses `pb.cov` (`mapB : … →
-   B a → B' a'`), map via `wbwdG`. -/
+/- the contra mirror: A-side uses `pa.contra`, the fiber uses `pb.cov`, map via `wbwdG`. -/
 noncomputable def wtreeContraMap {A A' : Type} {B : A → Type} {B' : A' → Type} {RA : A → A' → Type}
     (mapA : A' → A) (mapAInR : ∀ a' a, mapA a' = a → RA a a')
     (mapB : ∀ a a', RA a a' → B a → B' a') : WTree A' B' → WTree A B :=

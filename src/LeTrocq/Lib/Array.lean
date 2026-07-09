@@ -1,16 +1,8 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Array`.
-
-An `Array α` is a structure wrapping `List α` (its `toList`), so its parametricity is `List`'s, read through
-`toList`: `ArrayR a b := ListR _ _ _ a.toList b.toList`. The relation and relator REUSE `LeTrocq.Lib.List`
-rather than re-deriving an inductive — the `Array`/`List` conversions are definitional (`(l.toArray).toList`
-reduces to `l`, and `⟨a.toList⟩` is `a` by structure eta), so each field delegates to `List`'s graded
-halves (`listCov`/`listContra`) on the underlying lists.
-
-  • TYPE FORMER `ArrayR` — so `⟨·⟩` can cross `Array a` (counterpart head `Array ↦ Array`).
-  • TERM primitive `ListToArrayR` keyed by `List.toArray` — an array literal `#[…]` elaborates to
-    `List.toArray […]`, so this is the head the term translation `⟨·⟩` actually meets.
-  • the GRADED relator `paramArray` (for `trocq` / `transfer`), delegating to `List`'s graded halves.
+`Array` — an `Array α` wraps `List α` (its `toList`), so its parametricity is `List`'s read through `toList`:
+everything REUSES `LeTrocq.Lib.List` rather than re-deriving. The conversions are definitional (structure eta,
+`(l.toArray).toList` reduces to `l`), so `ArrayR`, the `List.toArray` term primitive `ListToArrayR`, and the
+graded `paramArray` all delegate to `List`'s `listCov`/`listContra` on the underlying lists.
 -/
 import LeTrocq.Lib.List
 namespace LeTrocq.Lib
@@ -20,17 +12,15 @@ open LeTrocq MapClass
 @[trocq] def ArrayR (A A' : Type) (R : A → A' → Type) (a : Array A) (b : Array A') : Type :=
   ListR A A' R a.toList b.toList
 
-/-- an array literal is `List.toArray l`; its relatedness is the underlying list's. Keyed by `List.toArray`
-    (homogeneous), the witness is literally `lRel` — `(l.toArray).toList` reduces to `l`, so the types match. -/
+/-- an array literal `#[…]` is `List.toArray l`; its relatedness is the underlying list's, witnessed by `lRel`
+    (the types match since `(l.toArray).toList` reduces to `l`). Keyed by `List.toArray`. -/
 @[trocq] def ListToArrayR (A A' : Type) (R : A → A' → Type)
     (l : List A) (l' : List A') (lRel : ListR A A' R l l') :
     ArrayR A A' R l.toArray l'.toArray := lRel
 
-/- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
-   `Array` is `List` through `toList`, so it is a covariant functor with the SAME variance as `List` — it
-   reuses `mapListVariance`/`listVariance`, and each graded half delegates to `List`'s graded `listCov`/
-   `listContra` on the underlying lists (the forward map builds the array from the mapped list, so
-   `(map a).toList` is `rfl`; `rInMap` re-wraps through structure eta with `congrArg Array.mk`). -/
+/- ===================== the graded relator (variance parallel to `paramList`) =====================
+   `Array` is `List` through `toList`, so it reuses `mapListVariance`/`listVariance` and each graded half
+   delegates to `listCov`/`listContra` (`rInMap` re-wraps through structure eta with `congrArg Array.mk`). -/
 
 /-- the covariant half `MapHas m (ArrayR R)`, delegating to `listCov m` on `toList`. -/
 noncomputable def arrayCov {A B : Type} :

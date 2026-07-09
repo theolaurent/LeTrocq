@@ -1,19 +1,10 @@
 /-
-The `@[trocq]` REGISTRY: classify a tagged witness, store it, and look it back up for the driver. Three
-concerns, one module (they were once `Registry`/`Attr`/`Solver`):
-
-  1. CLASSIFY (`parseEntry` → `RegKind`) — read a tagged constant `w`'s (telescoped) type into one of four
-     kinds by the shape of its conclusion:
-       • BASE       `w : Param m n A B`      (A,B closed consts, no binders)  — an equivalence of types.
-       • RELATOR    `w : ∀ …, Param m n (P …) (P' …)`                        — relates an applied head `P`.
-       • TYPEFORMER `w : ∀ params, F args → F' args' → Sort`  (concl a SORT) — the parametricity RELATION of a
-                     parameterized type `F` (e.g. `List`/`Option`); its two head constants give `⟨·⟩` the
-                     counterpart `F ↦ F'`. Its constructors/recursor register separately as TERM primitives.
-       • TERM       `w : ∀ …, R … (c …) (c' …)`  (R a bare relation)        — relates a term head `c ↦ c'`.
-  2. STORE (`@[trocq]` attribute + `trocqExt` extension) — tagging runs `parseEntry` eagerly and stores the
-     `RegKind`, so a malformed witness is rejected at the tag site.
-  3. LOOK UP (`buildAtomPairs`/`buildConsts`/`relatorArgKinds`) — the pure registry reads the driver consumes.
-     NOT a grading solver: grading is inline in `Transfer.assemble`; this is only the registry side.
+The `@[trocq]` REGISTRY: classify a tagged witness (`parseEntry` → `RegKind`), store it (`@[trocq]` attribute +
+`trocqExt` extension, run eagerly so malformed witnesses are rejected at the tag site), and look it back up for
+the driver (`buildAtomPairs`/`buildConsts`/`relatorArgKinds`). A witness is a BASE (`Param m n A B`), a RELATOR
+(`∀ …, Param m n (P …) (P' …)`), a TYPEFORMER (a parameterized type's parametricity relation, concluding a
+`Sort`), or a TERM primitive (relates a term head `c ↦ c'`). NOT a grading solver — grading is inline in
+`Transfer.assemble`; this is only the registry side.
 -/
 import LeTrocq.Core.Param
 import Lean
@@ -21,19 +12,15 @@ open Lean Lean.Meta
 namespace LeTrocq
 
 /-- `isDefEq a b`, but `false` (never an error) if it throws — a speculative match must tolerate a raw input
-    expr the structural path handles syntactically (e.g. `mkConst ``List` with no levels). Shared by both
-    translation halves (`Counterpart.term`'s whole-match rules and `Transfer`'s diagonal short-circuits). -/
+    expr the structural path handles syntactically (e.g. `mkConst ``List` with no levels). -/
 def diagEq? (a b : Expr) : MetaM Bool := do
   try isDefEq a b catch _ => return false
 
-/-- install a registered witness in a NESTED map `srcHead ↦ tgtHead ↦ α` (so several registrations for one
-    source no longer clobber), recording the PREFERRED (last-registered) target head in a single `pref` map
-    (the synth default when no target is demanded). BOTH directions: forward `[hA][hB] := fwd` and
-    `pref[hA] := hB` always; the backward `[hB][hA] := bwd`, `pref[hB] := hA` only when `hB` is present and
-    DISTINCT from `hA` (a homogeneous head like `List.cons ↦ List.cons` needs no backward entry — its forward
-    witness already serves both directions). The backward value is a thunk, run only when inserted. A single
-    merged `pref` (last registration wins) serves both `assemble`'s atom selection and `⟨·⟩`'s counterpart
-    default. -/
+/-- install a witness in a NESTED map `srcHead ↦ tgtHead ↦ α` (so several registrations for one source don't
+    clobber), recording the PREFERRED (last-registered) target head in `pref` (the synth default). BOTH
+    directions: forward `[hA][hB] := fwd` and `pref[hA] := hB` always; the backward `[hB][hA] := bwd` (a thunk,
+    run only when inserted) only when `hB` is DISTINCT from `hA` — a homogeneous head like `List.cons ↦
+    List.cons` needs no backward entry. -/
 def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
     (hA : Name) (hB? : Option Name) (fwd : α) (bwd : MetaM α) :
     MetaM (NameMap (NameMap α) × NameMap Name) := do
@@ -46,10 +33,9 @@ def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
   let m : NameMap (NameMap α) := m.insert hB (innerB.insert hA (← bwd))
   return (m, pref.insert hB hA)
 
-/-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
-    `(a, a', aRel)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
-    (the error names `what`/`wit`) and return the triples in order. The single home of the `3·j` indexing
-    that the solver (`relatorArgKinds`) and the translation (`symPrimitive`) both walk. -/
+/-- the abstraction-theorem TRIPLE convention: a witness's binders come in groups of three `(a, a', aRel)` —
+    A-value, B-value, relatedness. Check `xs.size % 3 == 0` and return the triples in order. The single home of
+    the `3·j` indexing that `relatorArgKinds` and `symPrimitive` both walk. -/
 def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (Expr × Expr × Expr)) := do
   unless xs.size % 3 == 0 do
     throwError "trocq: {what} is not in abstraction-theorem triple form ({xs.size} binders): {wit}"
@@ -58,12 +44,10 @@ def chunkTriples (what : String) (wit : Expr) (xs : Array Expr) : MetaM (Array (
     ts := ts.push (xs[3*j]!, xs[3*j+1]!, xs[3*j+2]!)
   return ts
 
-/-- if a term-primitive witness `w` (binders `bs`, conclusion sides `aSide`/`bSide`) is a GROUND TERM — its
-    source is a partial application (`@List.cons Unit ()`) with FIXED leading args before its abstraction-theorem
-    triple values — return `(sourcePattern, targetPrefix)`; else `none` (a plain head primitive). The triple
-    values must be the trailing args of their respective side (the natural constructor-applied-to-related-args
-    shape) on both A and B, so stripping them off leaves the fixed prefix. A source with NO fixed prefix (all
-    args are triple values, e.g. `List.cons` or a bare `Nat.zero`) is `none` — an ordinary head primitive. -/
+/-- if a term-primitive witness is a GROUND TERM — its source is a partial application (`@List.cons Unit ()`)
+    with FIXED leading args before its triple values — return `(sourcePattern, targetPrefix)`; else `none` (a
+    plain head primitive). The triple values must be the trailing args of each side, so stripping them leaves
+    the fixed prefix; no fixed prefix (e.g. `List.cons`, bare `Nat.zero`) is `none`. -/
 def groundTermPattern? (wit : Expr) (bs : Array Expr) (aSide bSide : Expr) : MetaM (Option (Expr × Expr)) := do
   let triples? ← try pure (some (← chunkTriples "term primitive" wit bs)) catch _ => pure none
   let some triples := triples? | return none
@@ -87,31 +71,26 @@ def exprToMapClass (e : Expr) : MetaM MapClass := do
   | some ``MapClass.map4  => return .map4
   | _ => throwError "trocq: cannot read a map class from {e}"
 
-/-- the classification of a `@[trocq]` witness. The witness itself is kept as its NAME (`witName`), not a
-    baked `mkConst`: consumers re-create it with fresh universe levels (`mkConstWithFreshMVarLevels`), so
-    universe-polymorphic witnesses register and instantiate correctly. -/
+/-- the classification of a `@[trocq]` witness. The witness is kept as its NAME (`witName`), not a baked
+    `mkConst`: consumers re-create it with fresh levels (`mkConstWithFreshMVarLevels`), so universe-polymorphic
+    witnesses instantiate correctly. -/
 inductive RegKind
   | base       (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  -- a GROUND base is a `base` generalized from two CONSTANTS to two CLOSED types (possibly applied, e.g.
-  -- `List Unit ≃ Nat`). It is a fixed-class equivalence matched WHOLE (by `isDefEq` on `tyA`/`tyB`, not by
-  -- head), so a compound type acts as an opaque ground atom. `headA`/`headB` are kept only to INDEX the
-  -- match (one `isDefEq` scan per occurrence sharing the head), never for selection.
+  -- a GROUND base generalizes `base` from two CONSTANTS to two CLOSED types (`List Unit ≃ Nat`), matched WHOLE
+  -- by `isDefEq` on `tyA`/`tyB`; `headA`/`headB` only INDEX the match, never select.
   | ground     (headA headB : Name) (tyA tyB : Expr) (witName : Name) (cls : ParamClass)
-  -- a RELATOR is always GRADED: its first two binders are `(m n : MapClass)` and the conclusion is
-  -- `Param m n (F …) (F' …)`, so its per-argument classes VARY with the demanded output class (the variance
-  -- mechanism). The driver reads them by specializing the witness to the demand, so no class is stored here.
+  -- a RELATOR is always GRADED: leading `(m n : MapClass)`, conclusion `Param m n (F …) (F' …)`, so its
+  -- per-argument classes VARY with the demand — read by specializing, not stored here.
   | relator    (headA : Name) (headB? : Option Name) (witName : Name)
   | typeFormer (headA headB : Name) (relName : Name)
   -- a GROUND FORMER: a concrete relation between two CLOSED types (`RLUN : List Unit → Nat → Type`), NOT a
-  -- parameterized relator. It registers NO counterpart type-former (the `.ground` base gives `⟨List Unit⟩ =
-  -- Nat`); it exists only so `@[trocq]` on it AUTO-DERIVES its constructors as ground terms.
+  -- relator. Registers no counterpart former (the `.ground` base handles the type); exists only so `@[trocq]`
+  -- auto-derives its constructors as ground terms.
   | groundFormer (relName : Name)
   | term       (headA : Name) (bTerm : Expr) (witName : Name)
-  -- a GROUND TERM generalizes `term` from a bare head to a partial APPLICATION pattern (`@List.cons Unit ()`),
-  -- matched WHOLE by `isDefEq` — exposed as an appFn subterm by the `.app` spine — ↦ its counterpart prefix
-  -- (`Nat.succ`). `headA` indexes; `patternA`/`tgtB` are the source pattern + target prefix; `witName` is the
-  -- relatedness witness the abstraction-theorem `app` rule feeds the remaining triple. The term analogue of
-  -- `.ground` (a whole-`isDefEq`-matched value), for when a constructor's counterpart drops leading arguments.
+  -- a GROUND TERM generalizes `term` to a partial-application pattern (`@List.cons Unit ()`), matched WHOLE by
+  -- `isDefEq` ↦ its counterpart prefix (`Nat.succ`); `witName` is the relatedness the `app` rule feeds the
+  -- remaining triple. The term analogue of `.ground`, for when a constructor's counterpart drops leading args.
   | groundTerm (headA : Name) (patternA tgtB : Expr) (witName : Name)
   deriving Inhabited
 
@@ -122,15 +101,13 @@ def parseEntry (w : Name) : MetaM RegKind := do
   forallTelescopeReducing (← inferType wit) fun bs concl => do
     let args := concl.getAppArgs
     if concl.isSort then
-      -- a RELATION FORMER `F-args → F'-args' → Sort`: the parametricity relation of a parameterized type.
-      -- The telescope eats the two related objects too, so they are the last two binders; their head
-      -- constants name the A-/B-side type formers (equal for a homogeneous type like `List`/`Option`).
+      -- a RELATION FORMER `F-args → F'-args' → Sort`: the two related objects are the last two binders; their
+      -- head constants name the A-/B-side type formers (equal for a homogeneous type like `List`).
       unless bs.size ≥ 2 do throwError "trocq: type former {w} must relate two objects"
       let objA ← inferType bs[bs.size - 2]!
       let objB ← inferType bs[bs.size - 1]!
-      -- CLOSED related objects (no telescope params, e.g. `List Unit`/`Nat`) ⇒ a GROUND former: only its
-      -- constructors matter (auto-derived as ground terms), no `hA ↦ hB` counterpart. A parameterized relator
-      -- (`ListR`: objects `List A`/`List A'` mention the params) has fvars there and stays a `.typeFormer`.
+      -- CLOSED related objects (`List Unit`/`Nat`) ⇒ a GROUND former: only its constructors matter, no counterpart.
+      -- A parameterized relator (`ListR`: objects mention the params) has fvars here and stays a `.typeFormer`.
       if !objA.hasFVar && !objB.hasFVar then return .groundFormer w
       let some hA := objA.getAppFn.constName?
         | throwError "trocq: type former {w} A-object has no head constant"
@@ -138,33 +115,27 @@ def parseEntry (w : Name) : MetaM RegKind := do
         | throwError "trocq: type former {w} B-object has no head constant"
       return .typeFormer hA hB w
     else if concl.getAppFn.isConstOf ``Param then
-      -- a GRADED relator opens with `(m n : MapClass)` and concludes `Param m n (F …) (F' …)`: the two class
-      -- arguments are the leading binders themselves (not literals). Detect that so the driver reads its
-      -- per-argument classes by specializing to the demand, rather than off fixed literals.
+      -- a GRADED relator concludes `Param m n (F …) (F' …)` with `m n` the leading binders themselves (not
+      -- literals); detect that so the driver reads its per-argument classes by specializing to the demand.
       let structural :=
         bs.size ≥ 2 && args[0]!.isFVar && args[1]!.isFVar && args[0]! == bs[0]! && args[1]! == bs[1]!
       let graded ← if structural then pure ((← inferType bs[0]!).isConstOf ``MapClass) else pure false
       let A := args[2]!; let B := args[3]!
       if graded then
-        -- a GRADED relator `∀ (m n) …, Param m n (P …) (P' …)`. Its B-side head (`P'`) is read off the
-        -- conclusion too, so the relator ALSO supplies `⟨·⟩` the counterpart `P ↦ P'` (needed for connectives /
-        -- `Prop` predicates, which have no separate type former). Homogeneous heads (`List ↦ List`) coincide.
+        -- the B-side head `P'` is read off the conclusion too, so the relator ALSO supplies `⟨·⟩` the counterpart
+        -- `P ↦ P'` (needed for connectives / `Prop` predicates, which have no separate type former).
         let some hA := A.getAppFn.constName? | throwError "trocq: graded relator {w} has no head constant"
         return .relator hA B.getAppFn.constName? w
-      -- not graded: only a CLOSED base (a fixed-class equivalence of two constant types) is allowed. Every
-      -- parameterized relator MUST be graded now — the fixed-class relator pipeline is gone.
+      -- not graded: only a CLOSED base is allowed — every parameterized relator MUST be graded now.
       if bs.isEmpty && A.isConst && B.isConst then
-        -- FORBID a DIAGONAL base `A ≃ A` (same atomic type both sides): the driver transfers a type to itself
-        -- automatically (the whole-diagonal `paramRefl`), so it is redundant. Same rule as the term diagonal.
+        -- FORBID a DIAGONAL base `A ≃ A`: a type transfers to itself automatically (`paramRefl`), so it's redundant.
         if A.constName! == B.constName! then
           throwError "trocq: refusing diagonal base {w} : {A} ≃ {A} — a type transfers to itself \
             automatically, so a diagonal registration is redundant"
         return .base A.constName! B.constName! A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
-      -- a CLOSED GROUND equivalence: `A`/`B` are closed (no free/meta vars) but at least one is APPLIED
-      -- (e.g. `List Unit ≃ Nat`). Both must have a constant head, used only to index the whole-type match.
+      -- a CLOSED GROUND equivalence: `A`/`B` closed but at least one APPLIED (`List Unit ≃ Nat`). Heads only index.
       if bs.isEmpty && !A.hasFVar && !A.hasMVar && !B.hasFVar && !B.hasMVar then
-        -- FORBID a DIAGONAL ground base `T ≃ T` (closed type ↦ itself, `isDefEq`) — redundant with the
-        -- automatic diagonal, exactly like the atomic base and the closed term above.
+        -- FORBID a DIAGONAL ground base `T ≃ T` (`isDefEq`) — redundant with the automatic diagonal.
         if ← withNewMCtxDepth (isDefEq A B) then
           throwError "trocq: refusing diagonal ground base {w} : {A} ≃ {B} — a closed type transfers to \
             itself automatically, so a diagonal registration is redundant"
@@ -176,33 +147,26 @@ def parseEntry (w : Name) : MetaM RegKind := do
       if args.size ≥ 2 then
         let aSide := args[args.size - 2]!
         let bSide := args[args.size - 1]!
-        -- FORBID a DIAGONAL term primitive: the two related sides are the SAME (`isDefEq`, closed term ↦
-        -- itself, e.g. `Nat.zero ↦ Nat.zero`). Such a term transfers to itself automatically (the whole-
-        -- diagonal short-circuit `[e] := PLift.up rfl`), so a diagonal registration is redundant and would only
-        -- shadow it. A PARAMETRIC homogeneous head is NOT diagonal — `List.cons ↦ List.cons` relates `a :: l`
-        -- to `a' :: l'`, whose distinct binder fvars are not `isDefEq`, so it passes.
+        -- FORBID a DIAGONAL term primitive (`isDefEq` sides, `Nat.zero ↦ Nat.zero`) — transfers to itself
+        -- automatically (`[e] := PLift.up rfl`). A parametric homogeneous head is NOT diagonal: `List.cons ↦
+        -- List.cons` relates `a :: l` to `a' :: l'`, whose distinct binder fvars aren't `isDefEq`, so it passes.
         if ← withNewMCtxDepth (isDefEq aSide bSide) then
           throwError "trocq: refusing diagonal term primitive {w} — it relates {aSide} to itself; a closed \
             term transfers to itself automatically, so a diagonal registration is redundant"
         let some hA := aSide.getAppFn.constName?
           | throwError "trocq: term primitive {w} has no A-side head constant"
-        -- a GROUND TERM (partial-application pattern, e.g. `@List.cons Unit () ↦ Nat.succ`) vs a plain head
-        -- primitive (`Nat.succ ↦ Unary.s`): the former has FIXED leading source args before its triple values.
+        -- a GROUND TERM (`@List.cons Unit () ↦ Nat.succ`, fixed leading args) vs a plain head primitive.
         if let some (patternA, tgtB) ← groundTermPattern? wit bs aSide bSide then
           return .groundTerm hA patternA tgtB w
         return .term hA bSide.getAppFn w
       else throwError "trocq: cannot classify {w} : {← inferType wit}"
 
 /- ===================== auto-derived constructor primitives ===================== -/
-/-- Derive an abstraction-theorem-triple-form TERM-primitive witness for one constructor `ctorName` of a
-    tagged parametricity-relation inductive, so a user need NOT hand-write a proxy (the old `ListConsR`,
-    `SigmaMkR`, …). A relation constructor's binders are `params ++ [value pairs] ++ [relatedness proofs]`
-    (all A/B value pairs first, then their relatedness, the `i`-th proof relating the `i`-th pair — the
-    natural declaration order, confirmed for every prelude relation); this generates
-    `fun params (v₀ v₀' r₀) (v₁ v₁' r₁) … => @ctor params v₀ v₀' … r₀ r₁ …` — the SAME reordering the hand
-    proxies did — as an aux def `ctorName.trocqPrim` (carrying the constructor's `levelParams`, so it stays
-    universe-ready), adds it to the environment, and returns its name. Returns `none` (no error — the user
-    can still hand-write a proxy) when the constructor's fields are not a whole number of triples. -/
+/-- Derive a triple-form TERM-primitive witness for one constructor `ctorName` of a tagged parametricity
+    relation, so a user need not hand-write a proxy. The constructor's binders are `params ++ [value pairs] ++
+    [relatedness proofs]`; this reorders them into triples
+    `fun params (v₀ v₀' r₀) … => @ctor params v₀ v₀' … r₀ …` as an aux def `ctorName.trocqPrim` (carrying the
+    `levelParams`). Returns `none` (no error) when the fields aren't a whole number of triples. -/
 def deriveConstructorPrim (ctorName : Name) : MetaM (Option Name) := do
   let cinfo ← getConstInfoCtor ctorName
   if cinfo.numFields % 3 != 0 then return none
@@ -220,9 +184,8 @@ def deriveConstructorPrim (ctorName : Name) : MetaM (Option Name) := do
       triples := (triples.push vals[2 * i]!).push vals[2 * i + 1]! |>.push rels[i]!
     let reordered := params ++ triples
     let primName := ctorName.str "trocqPrim"
-    -- `addAndCompile` (not `addDecl`): the witness is a bare constructor application (no recursor), so it is
-    -- computable, and downstream `def`s that embed it (`translate`/`relate` outputs) get compiled — matching
-    -- the old hand-written `def` proxies (which carried executable code).
+    -- `addAndCompile` (not `addDecl`): the witness is a bare constructor application, so it's computable and
+    -- downstream `def`s that embed it (`translate`/`relate` outputs) get compiled.
     addAndCompile <| .defnDecl {
       name        := primName
       levelParams := lvls
@@ -232,14 +195,11 @@ def deriveConstructorPrim (ctorName : Name) : MetaM (Option Name) := do
       safety      := .safe }
     return some primName
 
-/-- Build the `S.mk` TERM primitive for a STRUCTURE relation `srName` (data structure `S`). Unlike an
-    inductive constructor, a structure relation's constructor `SR.mk` abstracts over the two related
-    structures `p`/`p'` (its conclusion is `SR … p p'`, NOT `S.mk`-headed), so `deriveConstructorPrim` can't
-    read it. Here we specialise `p := @S.mk Θ v…`, `p' := @S'.mk Θ' v'…` (the two data sides may be different
-    structures — a heterogeneous record equivalence) and repackage into triple form
-    `(Θ) (v₀ v₀' vR₀) …`: the resulting witness concludes `SR … (S.mk v…) (S.mk v'…)` (head `S.mk`), and each
-    `vRᵢ : Rᵢ vᵢ vᵢ'` is defeq to `SR.mk`'s `i`-th field type (`S.projᵢ (S.mk v…) ≡ vᵢ`). Returns `none` on
-    any unexpected shape (the user can still hand-register the constructor). Monomorphic (`Type 0`). -/
+/-- Build the `S.mk` TERM primitive for a STRUCTURE relation `srName`. Its constructor `SR.mk` concludes
+    `SR … p p'` (NOT `S.mk`-headed), so `deriveConstructorPrim` can't read it; here we specialise
+    `p := @S.mk Θ v…`, `p' := @S'.mk Θ' v'…` (the two sides may be different structures — a heterogeneous record
+    equivalence) and repackage into triple form `(Θ) (v₀ v₀' vR₀) …`. Returns `none` on any unexpected shape.
+    Monomorphic (`Type 0`). -/
 def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
   let env ← getEnv
   let srCtor := getStructureCtor env srName
@@ -259,9 +219,8 @@ def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
     unless isStructure env sName && isStructure env sName' do return none
     let sCtor  := getStructureCtor env sName
     let sCtor' := getStructureCtor env sName'
-    -- the relation must relate EVERY data field (one field per side-`mk` argument) for the specialisation to
-    -- typecheck; if it relates only a subset (e.g. a group whose relation relates the operations but not the
-    -- axioms), skip the constructor — its projections still register, and a user can hand-register `S.mk`.
+    -- the relation must relate EVERY data field for the specialisation to typecheck; a partial relation (e.g. a
+    -- group relating operations but not axioms) skips the constructor — its projections still register.
     unless fieldRels.size == sCtor.numFields && fieldRels.size == sCtor'.numFields do return none
     let sMk  := mkConst sCtor.name  (sCtor.levelParams.map mkLevelParam)   -- `S.mk`  (A-side build)
     let sMk' := mkConst sCtor'.name (sCtor'.levelParams.map mkLevelParam)  -- `S'.mk` (B-side build)
@@ -277,8 +236,8 @@ def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
       if args.size < 2 then return none
       vTys := vTys.push (← inferType args[args.size - 2]!, ← inferType args[args.size - 1]!)
       rels := rels.push (mkAppN (← inferType fr).getAppFn (args.extract 0 (args.size - 2)))
-    -- binders `[v₀ v₀' … v_{k-1} v_{k-1}' , vR₀ … vR_{k-1}]`: values first (so all are in scope for the `vRᵢ`
-    -- types and the `S.mk` applications), relatednesses after; reordered into triples for the lambda.
+    -- binders `[v₀ v₀' … , vR₀ …]`: values first (so all are in scope for the `vRᵢ` types and the `S.mk`
+    -- applications), relatednesses after; reordered into triples for the lambda.
     let mut decls : Array (Name × (Array Expr → MetaM Expr)) := #[]
     for i in [0 : k] do
       decls := decls.push (s!"v{i}".toName, fun _ => pure vTys[i]!.1)
@@ -305,8 +264,7 @@ def deriveStructureCtorPrim (srName : Name) : MetaM (Option Name) := do
       return some primName
 
 /- ===================== (2) STORE: the `@[trocq]` attribute + environment extension =====================
-   Tagging `w` classifies it immediately (via `parseEntry`) and stores the `RegKind`, so a malformed witness
-   is rejected at the tag site and the surfaces (`transfer`/`trocq`/`translate`) read pre-parsed entries. -/
+   Tagging `w` classifies it immediately and stores the `RegKind`, rejecting a malformed witness at the tag site. -/
 
 /-- the classified `@[trocq]` witnesses (bases / relators / term primitives). -/
 initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
@@ -315,21 +273,17 @@ initialize trocqExt : SimplePersistentEnvExtension RegKind (Array RegKind) ←
     addImportedFn := fun arrs => arrs.foldl (· ++ ·) #[]
   }
 
-/-- for a tagged inductive/structure type former (a parametricity relation), derive + register a `.term`
-    primitive for each of its parts, so the user need not hand-write one:
-      • a STRUCTURE relation → each FIELD PROJECTION `SR.fieldᵢ` (directly a triple-form witness for the data
-        projection `S.projᵢ`) PLUS the constructor `S.mk` (via `deriveStructureCtorPrim`);
+/-- for a tagged inductive/structure type former, derive + register a `.term` primitive for each of its parts,
+    so the user need not hand-write one:
+      • a STRUCTURE relation → each FIELD PROJECTION `SR.fieldᵢ` PLUS `S.mk` (via `deriveStructureCtorPrim`);
       • a plain INDUCTIVE relation → each CONSTRUCTOR (via `deriveConstructorPrim`).
-    A `def`-based type former (e.g. `QuotRel`/`ArrayR`) is neither, so this is a no-op there and the user
-    registers the term primitives by hand. -/
+    A `def`-based type former (`QuotRel`/`ArrayR`) is neither, so this is a no-op and the user registers by hand. -/
 def deriveRelationPrims (indName : Name) : MetaM Unit := do
   let .inductInfo _ ← getConstInfo indName | return
   if isStructure (← getEnv) indName then
-    -- a structure relation's fields are the relatednesses of the data projections: `SR.fieldᵢ` is ALREADY in
-    -- abstraction-theorem triple form `(Θ) (s s' self)`, concluding `Rᵢ (S.projᵢ s) (S'.projᵢ s')`, so
-    -- `parseEntry` reads it as the term primitive for `S.projᵢ` with no reordering. A field that does NOT
-    -- classify as a term primitive (e.g. a trivial `PLift True` relatedness relating no data head) is skipped,
-    -- so the well-formed fields still register.
+    -- a structure relation's field `SR.fieldᵢ` is ALREADY in triple form `(Θ) (s s' self)`, concluding
+    -- `Rᵢ (S.projᵢ s) (S'.projᵢ s')`, so `parseEntry` reads it as the primitive for `S.projᵢ` with no reordering.
+    -- A field that doesn't classify (e.g. a trivial `PLift True` relatedness) is skipped.
     for fieldName in getStructureFields (← getEnv) indName do
       try modifyEnv (trocqExt.addEntry · (← parseEntry (indName ++ fieldName)))
       catch _ => pure ()
@@ -347,9 +301,7 @@ initialize registerBuiltinAttribute {
   add   := fun decl _stx _kind => do
     let entry ← (parseEntry decl).run'
     modifyEnv (trocqExt.addEntry · entry)
-    -- an inductive/structure TYPE FORMER (a parametricity relation) also auto-registers its CONSTRUCTORS
-    -- (inductive) or FIELD PROJECTIONS + constructor (structure) as term primitives, so the user need not
-    -- hand-write a proxy per part.
+    -- a TYPE FORMER also auto-registers its constructors / field projections as term primitives.
     match entry with
     | .typeFormer .. | .groundFormer .. => (deriveRelationPrims decl).run'
     | _ => pure ()
@@ -360,31 +312,25 @@ def trocqEntries (env : Environment) : Array RegKind := trocqExt.getState env
 
 /- ===================== (3) LOOK UP: registry reads + relator argument-routing =====================
    The pure lookups the graded translation reads (grading itself is inline in `Transfer.assemble`):
-     • `buildAtomPairs`  — type-atom registry from every BASE (both directions via `Param.sym`), pair-indexed
-       `srcHead ↦ tgtHead ↦ …` with a preferred (last-registered) target.
-     • `buildConsts`     — relator registry from every RELATOR (keyed by the applied head).
-     • `relatorArgKinds` — a relator's per-argument routing (`type`/`family`/`term`), read off its type, so the
-       `app` rule in `Transfer.assemble` knows how to consume each argument. -/
+   `buildAtomPairs` (type atoms from BASEs), `buildConsts` (relators), `relatorArgKinds` (a relator's
+   per-argument routing). -/
 open MapClass
 
 /- ===================== per-argument kind of a relator ===================== -/
-/-- per-argument kind of a relator, read from its (telescoped) type grouped into abstraction-theorem
-    triples `(a, a', aRel)` by the SHAPE of the triple's relatedness `aRel`:
-      • `.type (m,n)`          — `aRel : Param m n A A'`                  (a TYPE argument);
-      • `.family (m,n) domIdx` — `aRel : ∀ a a' (aRel : RA a a'), Param m n (B a)(B' a')` (a dependent type
-                                 FAMILY, e.g. `Sigma`/`WTree`'s `β`). `domIdx` is the index of the TYPE
-                                 argument that is the family's domain `A` — read off `B`'s own binder type,
-                                 so the family need NOT sit right after its domain;
-      • `.term`                — `aRel` a bare relation                  (a TERM argument). -/
+/-- per-argument kind of a relator, read from its type grouped into triples `(a, a', aRel)` by the SHAPE of `aRel`:
+      • `.type (m,n)`          — `aRel : Param m n A A'`;
+      • `.family (m,n) domIdx` — `aRel : ∀ …, Param m n (B a)(B' a')` (a dependent type FAMILY, e.g. `Sigma`'s
+                                 `β`); `domIdx` indexes the TYPE arg that is the family's domain `A`, read off
+                                 `B`'s binder type so the family need NOT sit right after its domain;
+      • `.term`                — `aRel` a bare relation. -/
 inductive ArgKind
   | type   (cls : ParamClass)
   | family (cls : ParamClass) (domIdx : Nat)
   | term
   deriving Inhabited
 
-/-- read a relator's per-argument routing off its type (see `ArgKind`). Consumed by `Transfer.assemble`'s
-    abstraction-theorem `app` rule: it walks the relator's actual arguments and, per this routing, builds each
-    one's `Param` (a TYPE arg / a FAMILY arg) or sends it to the term half (a TERM arg). -/
+/-- read a relator's per-argument routing off its type (see `ArgKind`), so `Transfer.assemble`'s `app` rule
+    knows to build each argument's `Param` (TYPE / FAMILY) or send it to the term half (TERM). -/
 def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
   forallTelescopeReducing (← inferType wit) fun bs _ => do
     let triples ← chunkTriples "relator" wit bs
@@ -395,8 +341,8 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
       let relTy ← inferType aRel
       if relTy.getAppFn.isConstOf ``Param then
         let a := relTy.getAppArgs
-        -- `whnf` the class arguments: for a GRADED relator specialized to a demand they are `variance dem`
-        -- projections (e.g. `(listVariance (map1,map0)).1`), which reduce to literal `MapClass`es here.
+        -- `whnf` the class args: for a graded relator specialized to a demand they are `variance dem`
+        -- projections (`(listVariance (map1,map0)).1`), reducing to literal `MapClass`es here.
         kinds := kinds.push (.type (← exprToMapClass (← whnf a[0]!), ← exprToMapClass (← whnf a[1]!)))
         lastTypeIdx := j
       else
@@ -408,9 +354,8 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
           else return none
         match fam? with
         | some cls =>
-            -- the family binder `B : A → _` names its domain `A`; find the TYPE-arg triple whose A-binder
-            -- IS that `A` (so the right witness is used even if the family is not adjacent to it).
-            -- Fall back to the most recent type argument if `A` is not a bare earlier binder.
+            -- the family binder `B : A → _` names its domain `A`; find the TYPE-arg triple whose A-binder IS
+            -- that `A`, falling back to the most recent type arg if `A` isn't a bare earlier binder.
             let domA := (← whnf (← inferType aBinder)).bindingDomain!
             let mut domIdx := lastTypeIdx
             for k in [0 : j] do
@@ -420,10 +365,8 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
     return kinds
 
 /- ===================== registries from the `@[trocq]` extension ===================== -/
-/-- type-atom registry from every `@[trocq]` BASE, BOTH directions (the base and its `Param.sym`),
-    PAIR-INDEXED `srcHead ↦ tgtHead ↦ (tgtTy, wit, cls)` (so multiple equivalences for one source no
-    longer clobber) plus the PREFERRED (last-registered) target per source head — the synth default. A
-    diagonal base `A ≃ A` lands at `[A][A]`; its `sym` is skipped as a homogeneous head. -/
+/-- type-atom registry from every BASE, BOTH directions (base + `Param.sym`), PAIR-INDEXED
+    `srcHead ↦ tgtHead ↦ (tgtTy, wit, cls)` plus the PREFERRED (last-registered) target per source head. -/
 def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × NameMap Name) := do
   let mut m : NameMap (NameMap (Expr × Expr × ParamClass)) := mkNameMap _
   let mut pref : NameMap Name := mkNameMap _
@@ -435,33 +378,27 @@ def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × Na
       m := r.1; pref := r.2
   return (m, pref)
 
-/-- the REVERSE of a graded relator `w : ∀ (m n) …triples…, Param m n (P …) (P' …)`, keyed by its B-side head
-    `P'`: `fun m n <each triple's value-pair swapped> => Param.sym (w n m <triples>)`. Swaps the leading
-    `(m n)` (so `Param.sym` lands back at `Param m n`, now `(P' …) (P …)`) and each `(a, a')` value pair; the
-    relatedness slot `aRel` stays put — for a carrier/TERM arg `aRel : RA a a'` is defeq to the reverse's
-    `RA.sym a' a`, so the same proof serves, only the positions move (the relator analogue of `symPrimitive`).
-    This is valid for HETEROGENEOUS predicate relators, whose args are all term/carrier args; a `Param`-valued
-    TYPE arg would need its relatedness `Param.sym`'d and its class negated — no such relator exists (every
+/-- the REVERSE of a graded relator `w : ∀ (m n) …triples…, Param m n (P …) (P' …)`:
+    `fun m n <each value-pair swapped> => Param.sym (w n m <triples>)`. Swaps `(m n)` (so `Param.sym` lands
+    back at `Param m n`) and each `(a, a')`; the relatedness `aRel` stays put — defeq to the reverse's swapped
+    slot (the relator analogue of `symPrimitive`). Valid for HETEROGENEOUS predicate relators (all-term args);
+    a `Param`-valued TYPE arg would need its relatedness `Param.sym`'d, but no such relator exists (every
     parameterized former is homogeneous `F ↦ F`, needing no reverse). -/
 def symRelator (wit : Expr) : MetaM Expr := do
   forallTelescope (← inferType wit) fun bs _ => do
     unless bs.size ≥ 2 do throwError "trocq: relator {wit} lacks the leading `(m n)` binders"
     let m := bs[0]!; let n := bs[1]!
     let triples ← chunkTriples "relator" wit (bs.extract 2 bs.size)
-    let mut lamBinders : Array Expr := #[m, n]              -- reverse relator's binders: m, n, then (a', a, aRel)
+    let mut lamBinders : Array Expr := #[m, n]              -- reverse binders: m, n, then (a', a, aRel)
     let mut appArgs    : Array Expr := #[n, m]              -- call `w` with (n, m) then (a, a', aRel)
     for (a, a', aRel) in triples do
       lamBinders := lamBinders.push a' |>.push a |>.push aRel
       appArgs    := appArgs.push a |>.push a' |>.push aRel
     mkLambdaFVars lamBinders (← mkAppM ``Param.sym #[mkAppN wit appArgs])
 
-/-- constant registry from every `@[trocq]` RELATOR. FORWARD: keyed by the A-side head, as written. REVERSE:
-    a HETEROGENEOUS relator (`P ≠ P'`) ALSO registers under its B-side head `P'`, its reverse witness built
-    HERE (at registry-build, like every other symmetrization) by `symRelator` (so a goal headed by `P'`
-    transfers back), UNLESS a forward relator already claims that head.
-    A homogeneous relator (`F ↦ F`, `And ↦ And`) needs no reverse — the one head serves both directions.
-    Includes the prelude `Quot` relator (`LeTrocq.Lib.paramQuot`) — not a built-in. Every relator is GRADED:
-    its witness opens with `(m n : MapClass)` and the driver specializes it to the demand before applying. -/
+/-- constant registry from every RELATOR. FORWARD: keyed by the A-side head. REVERSE: a HETEROGENEOUS relator
+    (`P ≠ P'`) ALSO registers under `P'` via `symRelator` (unless a forward relator already claims that head);
+    a homogeneous relator (`And ↦ And`) needs no reverse. Every relator is GRADED (specialized to the demand). -/
 def buildConsts : MetaM (NameMap Expr) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
@@ -472,11 +409,9 @@ def buildConsts : MetaM (NameMap Expr) := do
         m := m.insert hB (← symRelator (← mkConstWithFreshMVarLevels witName))
   return m
 
-/-- ground-base registry from every `@[trocq]` GROUND equivalence, BOTH directions (the base and its
-    `Param.sym`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy, wit, cls)]`. Unlike `buildAtomPairs` this is NOT
-    a selection map: the leaf rule scans the entries under the head and matches `srcTy` (and, in check mode,
-    `tgtTy`) by `isDefEq`, so a whole compound type (`List Unit`) resolves as an opaque atom. Entries are in
-    registration order; the leaf rule keeps the LAST match, so the synth default is the last-registered. -/
+/-- ground-base registry from every GROUND equivalence, BOTH directions, HEAD-INDEXED
+    `srcHead ↦ #[(srcTy, tgtTy, wit, cls)]`. NOT a selection map: the leaf rule scans the head's entries and
+    matches `srcTy` (and, in check mode, `tgtTy`) by `isDefEq`, keeping the LAST match. -/
 def buildGround : MetaM (NameMap (Array (Expr × Expr × Expr × ParamClass))) := do
   let mut m : NameMap (Array (Expr × Expr × Expr × ParamClass)) := mkNameMap _
   for e in trocqEntries (← getEnv) do

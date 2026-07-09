@@ -4,7 +4,7 @@ import LeTrocq.Combinators.Universe
 namespace LeTrocq.Tests
 open LeTrocq MapClass
 
-/- the universe combinator at the ceiling: forward map = `id`, and `mapInR` produces a real `Param`: -/
+/- the universe combinator at the ceiling: forward map = `id`, `mapInR` produces a real `Param`. -/
 example : (paramTypeAt map2a map2a map1 map1 rfl rfl).cov.map = id := rfl
 example : ((paramTypeAt map2a map2a map1 map1 rfl rfl).cov.mapInR Nat Nat rfl).cov.map = id := rfl
 
@@ -15,8 +15,7 @@ example : ∀ a b r, (paramRefl Nat).cov.mapInR a b ((paramRefl Nat).cov.rInMap 
 example : (paramIdAt map4 map4 Nat).cov.map = id := rfl
 example : (paramIdAt map1 map1 Nat).cov.map = id := rfl
 
-/- `Map_Type`: the universe combinator can carry ANY inner relation class, independent of the (≤2a)
-   outer class — here inner (3,3), and inner (4,4) at a lower outer class. -/
+/- the combinator carries any inner relation class, independent of the (≤2a) outer class. -/
 example : (paramTypeAt map2a map2a map3 map3 rfl rfl).cov.map = id := rfl
 example : ((paramTypeAt map2a map2a map3 map3 rfl rfl).cov.mapInR Nat Nat rfl).cov.map = id := rfl
 example : (paramTypeAt map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
@@ -27,8 +26,8 @@ example : (paramTypeAt map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 /-- info: 'LeTrocq.paramRefl' does not depend on any axioms -/
 #guard_msgs in #print axioms paramRefl
 
-/- the PROP universe combinator reaches the FULL (4,4) — completeness via `propext`, coherence free by
-   proof irrelevance — where the `Type` universe stalls at 2a. -/
+/- the `Prop` universe combinator reaches the full (4,4) — completeness via `propext`, coherence free
+   by proof irrelevance — where the `Type` universe stalls at 2a. -/
 example : paramProp.cov.map = id := rfl
 example : ∀ P P' r, paramProp.cov.mapInR P P' (paramProp.cov.rInMap P P' r) = r := paramProp.cov.rInMapK
 example : (paramPropAt map2a map0).cov.map = id := rfl

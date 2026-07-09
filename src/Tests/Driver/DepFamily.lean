@@ -1,12 +1,10 @@
 /-
-Regression test: a DEPENDENT type family over a λ-bound TERM, in the term surface (`relate`/`translate`).
+Regression: a dependent type family over a λ-bound TERM, in the term surface (`relate`/`translate`).
 
-`Boxed : Bool → Type` is a singleton former indexed by a Bool VALUE. In `Σ b : Bool, Boxed b` the family
-`fun b => Boxed b` has a body `Boxed b` that mentions the λ-bound term `b`. Building the relatedness of such
-a pair forces `[·]` (`Transfer.assembleTerm`) to translate `Boxed b` under the binder `b` — i.e. its embedded
-type pass (`assembleType`) must have `b`'s relatedness in scope. This works because the ONE `senv` is threaded
-through BOTH halves: the λ rule records `b`'s relatedness, and `assembleType`/`assemble` read it. `Boxed`'s
-index is a TERM argument — `relatorArgKinds` routes it to the term half, which consumes `b` from `senv`.
+`Boxed : Bool → Type` is a singleton former indexed by a Bool value. In `Σ b : Bool, Boxed b` the family body
+`Boxed b` mentions the λ-bound `b`, so building the pair's relatedness forces `[·]` to translate `Boxed b`
+under the binder `b` — its embedded type pass needs `b`'s relatedness in scope. That works because the one
+`senv` is threaded through both halves: the λ rule records `b`'s relatedness, and the type/term passes read it.
 -/
 import LeTrocq
 namespace LeTrocq.Tests
@@ -16,9 +14,8 @@ open LeTrocq MapClass LeTrocq.Lib
 inductive Boxed (b : Bool) : Type
   | mk
 
-/-- the parametricity relation of `Boxed`: a singleton (`mk ~ mk`). A TYPE FORMER over the index triple
-    `(b, b', bR : PLift (b = b'))` — `Bool` is unregistered, so its diagonal relatedness is `PLift (b = b')`;
-    the two `Boxed` objects are read off as the related objects. -/
+/-- the parametricity relation of `Boxed`: a singleton (`mk ~ mk`). A type former over the index triple
+    `(b, b', bR : PLift (b = b'))` — `Bool` unregistered, so its diagonal relatedness is `PLift (b = b')`. -/
 @[trocq] inductive BoxedR (b b' : Bool) (bR : PLift (b = b')) : Boxed b → Boxed b' → Type
   | mk : BoxedR b b' bR Boxed.mk Boxed.mk
 
@@ -29,9 +26,8 @@ theorem BoxedR.allEq {b b' : Bool} {bR : PLift (b = b')} :
     ∀ {o : Boxed b} {o' : Boxed b'} (x y : BoxedR b b' bR o o'), x = y
   | _, _, .mk, .mk => rfl
 
-/-- the `Boxed b ≃ Boxed b'` relator, trivial since `Boxed` is a singleton (every element is `mk`, so both
-    maps are constant and the relation is a subsingleton). `Boxed` has no gradeable type PART (its index is a
-    term argument), so the graded relator builds the `(4,4)` witness and weakens to the demand. -/
+/-- the `Boxed b ≃ Boxed b'` relator, trivial since `Boxed` is a singleton (constant maps, subsingleton
+    relation). `Boxed` has no gradeable type part, so the graded relator builds `(4,4)` and weakens. -/
 noncomputable def paramBoxedR44 (b b' : Bool) (bR : PLift (b = b')) :
     Param map4 map4 (Boxed b) (Boxed b') where
   R := BoxedR b b' bR
@@ -51,15 +47,14 @@ noncomputable def paramBoxedR44 (b b' : Bool) (bR : PLift (b = b')) :
   (paramBoxedR44 b b' bR).weaken (MapClass.le_map4 m) (MapClass.le_map4 n)
 
 /- ===================== the regression: the family body `Boxed b` mentions the λ-bound `b` ===================== -/
-/-- `relate` builds the relatedness witness of a dependent pair — it must translate `Boxed b` with `b` in
-    scope. Elaborating this at all is the test (it threw `unbound variable b` before the fix). -/
+/-- `relate` builds the pair's relatedness witness, translating `Boxed b` with `b` in scope. Elaborating this
+    at all is the test (it threw `unbound variable b` before the fix). -/
 noncomputable def depFamilyWit := relate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
 
-/-- the same, asserted at its relatedness type. NOTE: under the WHOLE-DIAGONAL short-circuit the entire pair
-    is diagonal (`Bool` and `Boxed` both transfer to themselves), so `[·]` collapses it to the generic
-    `PLift (p = p)` rather than descending into a `SigmaR`/`BoxedR` witness. The structural family path (with
-    `b`'s relatedness threaded under the binder) is instead exercised by the NON-diagonal `Σ`/`WTree` cases in
-    `Tests.Driver.Tactic` / `Tests.Driver.Counterpart` (over `Nat ≃ Unary`), which do not short-circuit. -/
+/-- the same, asserted at its relatedness type. NOTE: under the whole-diagonal short-circuit the entire pair
+    is diagonal, so `[·]` collapses it to the generic `PLift (p = p)` rather than descending into a
+    `SigmaR`/`BoxedR` witness. The structural family path is instead exercised by the non-diagonal `Σ`/`WTree`
+    cases in `Tests.Driver.Tactic` / `Tests.Driver.Counterpart`. -/
 example :
     PLift ((⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b) = ⟨true, Boxed.mk⟩) :=
   relate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)
@@ -68,10 +63,9 @@ example :
 example : (translate (⟨true, Boxed.mk⟩ : Σ b : Bool, Boxed b)) = ⟨true, Boxed.mk⟩ := rfl
 
 /- ===================== a dependent type over a λ-bound TYPE variable ===================== -/
-/-- The demand-driven pass ALSO handles a type mentioning a λ-bound TYPE variable: here `List A` under the
-    binder `A`. The old constraint solver errored `gen: unbound fvar` (its embedded `gradeShape` ran with an
-    empty binder env); now `A`'s `(4,4)` witness sits in the ONE `senv` (the λ rule records every binder), and
-    `assemble`'s leaf rule reads it — so `relate`/`translate` build with no separate seeding. -/
+/-- the demand-driven pass also handles a type mentioning a λ-bound TYPE variable: here `List A` under the
+    binder `A`. `A`'s `(4,4)` witness sits in the one `senv` (the λ rule records every binder), and the leaf
+    rule reads it — so `relate`/`translate` build with no separate seeding. -/
 noncomputable def tvWit := relate (fun (A : Type) (xs : List A) => xs)
 example : (translate (fun (A : Type) (xs : List A) => xs)) = (fun (A : Type) (xs : List A) => xs) := rfl
 

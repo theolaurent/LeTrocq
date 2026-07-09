@@ -1,9 +1,7 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Sum` (⊕, the non-dependent disjoint union).
-
-Two type parameters (like `Prod`) but two constructors (like `Option`): `SumR` is the parametricity relation
-(`inl ~ inl`, `inr ~ inr`), whose constructors auto-register as the `Sum.inl`/`Sum.inr` TERM primitives;
-`paramSum` is the GRADED relator (variance parallel to `List`). The forward map is `Sum.map` of the two maps.
+`Sum` (⊕, disjoint union) — two type parameters (like `Prod`) but two constructors (like `Option`). `SumR` is
+the parametricity relation (`inl ~ inl`, `inr ~ inr`); its constructors auto-register as the `Sum.inl`/`Sum.inr`
+term primitives; `paramSum` is the graded relator (variance parallel to `List`; forward map is `Sum.map`).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
@@ -15,21 +13,20 @@ open LeTrocq MapClass
   | inl {a a'} (aRel : RA a a') : SumR A A' RA B B' RB (.inl a) (.inl a')
   | inr {b b'} (bRel : RB b b') : SumR A A' RA B B' RB (.inr b) (.inr b')
 
+/-- the relation is a subsingleton whenever both summand relations are — needed for the `(4,4)` coherence. -/
 theorem SumR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B → B' → Type}
     (hA : ∀ a a' (x y : RA a a'), x = y) (hB : ∀ b b' (x y : RB b b'), x = y) :
     {s : A ⊕ B} → {t : A' ⊕ B'} → (x y : SumR A A' RA B B' RB s t) → x = y
   | _, _, .inl aRel, .inl aRel' => by rw [hA _ _ aRel aRel']
   | _, _, .inr bRel, .inr bRel' => by rw [hB _ _ bRel bRel']
 
-/- `SumR.inl`/`SumR.inr` auto-register as the `Sum.inl`/`Sum.inr` term primitives (tagging `SumR` derives
-   them via `Registry.deriveConstructorPrim`; the OTHER summand's type still crosses, as the unused triple). -/
+/- `SumR.inl`/`SumR.inr` auto-register as the `Sum.inl`/`Sum.inr` term primitives (tagging `SumR`). -/
 
-/- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
-   `Sum` is covariant in both summands, identity variance (a covariant functor): at output class `(m,n)` each
-   summand is needed at exactly `(m,n)`. Same shape as `paramProd`, with the two injections in place of the
-   pair projections. -/
+/- ===================== the graded relator (variance parallel to `paramList`) =====================
+   `Sum` is a covariant functor in both summands (identity variance): each summand is needed at exactly the
+   output class. -/
 
-/-- per-map-class minimal class of EACH summand of `Sum` (pure covariance; the same table for both). -/
+/-- minimal class per direction of each summand of `Sum` (pure covariance; same table for both). -/
 def mapSumVariance : MapClass → ParamClass
   | map0  => (map0,  map0)
   | map1  => (map1,  map0)
@@ -38,11 +35,10 @@ def mapSumVariance : MapClass → ParamClass
   | map3  => (map3,  map0)
   | map4  => (map4,  map0)
 
-/-- minimal per-summand class to build `Sum` at output class `c` (identity — both summands covariant). -/
+/-- per-summand class to build `Sum` at output class `c` (identity, via the shared `ParamClass.variance`). -/
 def sumVariance (c : ParamClass) : ParamClass := ParamClass.variance mapSumVariance c
 
-/-- lifted soundness/completeness for `SumR` over both summands, shared across the `sumCov`/`sumContra`
-    arms (contra swaps each summand's map direction). No recursion, so computable. -/
+/-- soundness `SumR` from `Sum.map f g`, shared by the `2a`/`3`/`4` arms. -/
 def sumMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
     (fInR : ∀ a a', f a = a' → RA a a') (gInR : ∀ b b', g b = b' → RB b b') :
     ∀ s t, Sum.map f g s = t → SumR A A' RA B B' RB s t :=
@@ -50,6 +46,7 @@ def sumMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Typ
     | inl a => exact .inl (fInR a _ rfl)
     | inr b => exact .inr (gInR b _ rfl)
 
+/-- completeness `Sum.map f g` from `SumR`, shared by the `2b`/`3`/`4` arms. -/
 theorem sumRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
     (fRInMap : ∀ a a', RA a a' → f a = a') (gRInMap : ∀ b b', RB b b' → g b = b') :
     ∀ s t, SumR A A' RA B B' RB s t → Sum.map f g s = t :=
@@ -57,6 +54,7 @@ theorem sumRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' →
     | inl aRel => exact congrArg Sum.inl (fRInMap _ _ aRel)
     | inr bRel => exact congrArg Sum.inr (gRInMap _ _ bRel)
 
+/-- contra soundness, the mirror of `sumMapInR`. -/
 def sumContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fInR : ∀ a' a, f a' = a → RA a a') (gInR : ∀ b' b, g b' = b → RB b b') :
     ∀ t s, Sum.map f g t = s → SumR A A' RA B B' RB s t :=
@@ -64,6 +62,7 @@ def sumContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' �
     | inl a => exact .inl (fInR a _ rfl)
     | inr b => exact .inr (gInR b _ rfl)
 
+/-- contra completeness, the mirror of `sumRInMap`. -/
 theorem sumContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fRInMap : ∀ a' a, RA a a' → f a' = a) (gRInMap : ∀ b' b, RB b b' → g b' = b) :
     ∀ t s, SumR A A' RA B B' RB s t → Sum.map f g t = s :=
@@ -71,7 +70,7 @@ theorem sumContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → 
     | inl aRel => exact congrArg Sum.inl (fRInMap _ _ aRel)
     | inr bRel => exact congrArg Sum.inr (gRInMap _ _ bRel)
 
-/-- the covariant half from the two summands at `mapSumVariance m`. -/
+/-- the covariant half from the two summands at `mapSumVariance m`; the `map4` coherence is free (subsingleton). -/
 def sumCov {A A' B B' : Type} :
     (m : MapClass) →
     (pa : Param (mapSumVariance m).1 (mapSumVariance m).2 A A') →

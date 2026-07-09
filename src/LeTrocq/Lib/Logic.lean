@@ -1,17 +1,10 @@
 /-
-The LeTrocq STANDARD LIBRARY: the logical connectives (`Not`, `And`, `Or`, `Iff`).
-
-Each registers as a GRADED relator `⋆ P Q ≃ ⋆ P' Q'` built DIRECTLY at the demanded class `(m,n)` (no
-weaken-from-top). A proposition carries no data above class 1 (completeness/coherence are free by proof
-irrelevance — `propMapHas`), so a `Prop` PART is only ever demanded up to `meet · map1`: the variance sends
-`(0,0) ↦ (0,0)`, `(4,4) ↦ (1,1)`, `(2a,0) ↦ (1,0)`, … `And`/`Or` are covariant in both parts; `Not` is
-CONTRAVARIANT (`¬P → ¬P'` runs the part backward), so its variance is negated; `Iff` uses BOTH directions of
-each part in each direction of the whole, so its part is needed at `(1,1)` as soon as either output class is ≥ 1.
-
-The relation carried is the trivial `fun _ _ => PLift True` — the `Prop` relatedness `[·]` needs is recovered
-by `iffOfParam` off the `cov`/`contra` maps, which is all a proposition transports. The driver knows NO
-connective intrinsically: a proposition is a `Sort 0` type, so `assemble` crosses `⋆` by the ordinary relator
-lookup, `⟨·⟩` reads its counterpart off the conclusion, and the parts recurse at the variance class.
+The logical connectives (`Not`, `And`, `Or`, `Iff`) — standard-library registration. Each is a graded relator
+`⋆ P Q ≃ ⋆ P' Q'` built at the demanded class `(m,n)`. A proposition carries no data above class 1
+(completeness/coherence free by proof irrelevance, `propMapHas`), so a `Prop` PART is only ever demanded up to
+`meet · map1`. `And`/`Or` are covariant in both parts; `Not` is CONTRAVARIANT (variance negated); `Iff` uses
+both directions of each part, so its part is `(1,1)` whenever either output class is ≥ 1. The carried relation
+is the trivial `fun _ _ => PLift True`.
 -/
 import LeTrocq.Driver.Registry
 import LeTrocq.Combinators.Universe
@@ -19,7 +12,7 @@ namespace LeTrocq.Lib
 open LeTrocq MapClass
 
 /- ===================== variance tables (a `Prop` part is capped at `meet · map1`) ===================== -/
-/-- covariant `Prop`-connective part variance (`And`/`Or`): a part is needed up to class 1, free above. -/
+/-- covariant part variance (`And`/`Or`): a part is needed up to class 1, free above. -/
 def mapPropVariance : MapClass → ParamClass
   | map0 => (map0, map0)
   | _    => (map1, map0)

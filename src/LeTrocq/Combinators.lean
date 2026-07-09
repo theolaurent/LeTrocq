@@ -1,14 +1,8 @@
 /-
-The map/comap-carrying COMBINATORS — one construction per file under `LeTrocq/Combinators/`:
-
-  • `LeTrocq.Combinators.Arrow`    — `RArrow`, the graded `paramArrow`.
-  • `LeTrocq.Combinators.Forall`   — `RForall`, the graded dependent-Π `paramForall`.
-  • `LeTrocq.Combinators.Universe` — `paramRefl`/`paramTypeAt`/`paramProp` (the universe combinators, `Type` capped at (2a,2a)).
-
-This module re-exports them all. Each builds a `Param` out of `Param`s for its parts, at a class governed by
-the per-former variance table that lives with it (`arrowVariance`/`forallVariance`; the universe has a fixed
-cap). (Parameterized prelude types like `List`/`Quot` are not here — they are ordinary `@[trocq]`
-registrations under `LeTrocq/Lib/`.)
+The graded combinators, re-exported: `Arrow` (`paramArrow`), `Forall` (dependent-Π `paramForall`), and
+`Universe` (`paramRefl`/`paramTypeAt`/`paramProp`, `Type` capped at `(2a,2a)`). Each builds a `Param` from
+`Param`s for its parts, at the class its own variance table dictates. Parameterized prelude types like
+`List`/`Quot` are ordinary `@[trocq]` registrations under `Lib/`, not here.
 -/
 import LeTrocq.Combinators.Arrow
 import LeTrocq.Combinators.Forall

@@ -1,19 +1,13 @@
 /-
-The dependent Π combinator `paramForall` — at EVERY output class.
+The dependent Π combinator `paramForall`, at every output class. Dependent generalization of `paramArrow`:
+the codomain is a family `B : A → Sort w` with codomain relation indexed by domain relatedness, so
+`RForall f f' := ∀ a a' (aRel : RA a a'), RB a a' aRel (f a) (f' a')`. Over `Sort`, so `B` may land in `Prop`
+and this transfers `∀ x, P x` (`Prop` subsingletons make the `(4,4)` coherence free); universes are inferred.
 
-The dependent generalization of `paramArrow`: the codomain is a FAMILY `B : A → Sort w`, and the
-relation between codomains is itself indexed by the domain relatedness,
-  `RB : ∀ a a', RA a a' → B a → B' a' → Type`,
-so the Π-relation is `RForall f f' := ∀ a a' (aRel : RA a a'), RB a a' aRel (f a) (f' a')`.
-
-Over `Sort` (not just `Type`): the codomain family `B : A → Sort w` may land in `Prop` (`w = 0`), so this
-combinator transfers `∀ x, P x` for a `Prop`-valued `P` — `Prop` propositions are subsingletons, so the
-`(4,4)` coherence is free. Universes are left to inference (they shift with `Sort`).
-
-THE WRINKLE (why Π ≠ arrow): to land in `RB a a' aRel` the forward map must *produce* a relatedness
-proof `aRel` for the backward map — the domain's backward map must be RELATED. `mapForallVariance` encodes this:
-at output cov `2a`+ the domain is needed at `map4`; then `rInMap` gives `bwd a' = a` (so `subst`
-transports the codomain fiber) and `Map4Has.subsingleton` identifies the two relatedness proofs.
+THE WRINKLE (why Π ≠ arrow): to land in `RB a a' aRel` the forward map must produce a relatedness proof for
+the backward map, so the domain's backward map must be related. `mapForallVariance` encodes this: at output
+cov `2a`+ the domain is needed at `map4`, where `rInMap` gives `bwd a' = a` (to `subst` the codomain fiber)
+and `Map4Has.subsingleton` identifies the two relatedness proofs.
 -/
 import LeTrocq.Core.Param
 universe u w v vb
@@ -27,9 +21,9 @@ def RForall {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w}
     (∀ a, B a) → (∀ a', B' a') → Type (max u v vb) :=
   fun f f' => ∀ a a' (aRel : RA a a'), RB a a' aRel (f a) (f' a')
 
-/- ===================== the Π GRADING table (output class → minimal part classes) ===================== -/
+/- ===================== the Π grading table (output class → minimal part classes) ===================== -/
 /-- per-map-class minimal (domain, codomain) classes for a dependent Π (verbatim from Trocq's `class.elpi`);
-    the Π domain needs the FULL equivalence at cov ≥ 2a (the `(0,4)` entries) — the wrinkle above. -/
+    the domain needs the full equivalence at cov ≥ 2a (the `(0,4)` entries) — the wrinkle above. -/
 def mapForallVariance : MapClass → (ParamClass × ParamClass)
   | map0  => ((map0,map0), (map0,map0))
   | map1  => ((map0,map2a),(map1,map0))
@@ -38,18 +32,16 @@ def mapForallVariance : MapClass → (ParamClass × ParamClass)
   | map3  => ((map0,map4), (map3,map0))
   | map4  => ((map0,map4), (map4,map0))
 
-/-- minimal (domain-class, codomain-class) needed to build the Π at output class `c`: the cov requirement joined
-    with the negated contra one. `Transfer.assemble` inverts a demand through this to grade the parts;
-    `paramForall`'s type consumes it. -/
+/-- minimal (domain-class, codomain-class) to build the Π at output class `c`: cov requirement joined with
+    negated contra. `Transfer.assemble` inverts a demand through this to grade the parts. -/
 def forallVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (am, bm) := mapForallVariance c.1
   let (an, bn) := mapForallVariance c.2
   (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
 
 /- ===================== the covariant half ===================== -/
-/- The shared covariant obligations, written ONCE and reused across the arms via the family's RAW projected
-   maps (`mapB`/`mapBInR`/`mapBRInMap` = `fun a a' aRel => (pb a a' aRel).cov.…`), so no `Param` is weakened (which
-   would bury the map). `mapA`/`mapAInR`/… are A-side `pa.contra` fields. -/
+/- Shared covariant obligations, written once and reused across the arms via the family's raw projected maps
+   (`fun a a' aRel => (pb a a' aRel).cov.…`), so no `Param` is weakened (which would bury the map). -/
 def forallCovMap {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} {RA : A → A' → Type v}
     (mapA : A' → A) (mapAInR : ∀ a' a, mapA a' = a → RA a a')
     (mapB : ∀ a a', RA a a' → B a → B' a') : (∀ a, B a) → ∀ a', B' a' :=
@@ -118,8 +110,7 @@ def forallCov {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
                          RForall.allEq (fun a a' aRel x y => (pb a a' aRel).cov.subsingleton x y) _ _ }
 
 /- ===================== the contravariant half ===================== -/
-/- the contra mirror of the cov helpers: A-side uses `pa.cov` (`mapA : A → A'`), the fiber uses `pb.contra`
-   (`mapB : … → B' a' → B a`). Same raw-projection technique. -/
+/- Mirror of the cov helpers: A-side uses `pa.cov`, the fiber uses `pb.contra`. Same raw-projection technique. -/
 def forallContraMap {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} {RA : A → A' → Type v}
     (mapA : A → A') (mapAInR : ∀ a a', mapA a = a' → RA a a')
     (mapB : ∀ a a', RA a a' → B' a' → B a) : (∀ a', B' a') → ∀ a, B a :=

@@ -1,23 +1,16 @@
 /-
-The graded hierarchy + WEAKENING (the ⇓ forget maps).
-
-`Lattice` gave the class algebra; this is the *witness* side: the six `MapKHas` records, the indexed
-`MapHas`/`Param`, and the **forgetful coercions** `MapHas src R → MapHas tgt R` whenever `tgt ≤ src`.
-A user registers a base at a STRONG class (typically the equivalence `(4,4)`); the demand-driven
-`Transfer.assemble` pass picks the MINIMAL class each occurrence needs (inline, no solver); the weakening
-map bridges the two by dropping fields. Proof-light: every forget is just record projection.
-
-The whole diamond `0 < 1 < {2a,2b} < 3 < 4` is generated from six covering edges
-  4 ⟶ 3 ⟶ 2a ⟶ 1 ⟶ 0   and   3 ⟶ 2b ⟶ 1
-so `weaken` is their composition along the (unique-up-to-confluence) path.
+The graded witness side: the six `MapKHas` records, the indexed `MapHas`/`Param`, and weakening — the
+forgetful coercions `MapHas src R → MapHas tgt R` whenever `tgt ≤ src`. A user registers a base at a
+strong class (typically `(4,4)`); the driver demands the minimal class each occurrence needs, and `weaken`
+bridges the two by dropping fields. Every forget is record projection along the six covering edges
+`4 ⟶ 3 ⟶ 2a ⟶ 1 ⟶ 0` and `3 ⟶ 2b ⟶ 1`.
 -/
 import LeTrocq.Core.Class
 universe u v
 namespace LeTrocq
 
 /- ===================== the six graded records (over `Sort u`, so `Prop` fits too) ===================== -/
--- All six are annotated at the UNIFORM universe `Sort (max u (v+1))`, so `MapHas` is bare (no `ULift`).
--- `A B : Sort u` ⇒ a `Prop` (Sort 0) or a `Type` both work as the related objects (`R` lands in `Type v`).
+-- All six sit at the uniform universe `Sort (max u (v+1))`, so `MapHas` is bare (no `ULift`).
 structure Map0Has {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
 structure Map1Has {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
   map : A → B
@@ -51,10 +44,9 @@ structure Param (m n : MapClass) (A B : Sort u) where
   cov    : MapHas m R
   contra : MapHas n (fun b a => R a b)
 
-/-- KEY (Lean-specific): a class-4 relation is necessarily a SUBSINGLETON. Two related elements both map
-    (via `rInMap`) to proofs of `map a = b`, which are equal by Lean's proof irrelevance, so `rInMapK`
-    forces them equal. This is exactly "no univalence ⇒ class 4 = class 3 on h-props" — and it makes the
-    `(4,4)` coherence FREE on any relation reachable from class-4 data. -/
+/-- A class-4 relation is necessarily a subsingleton: `rInMap` sends related elements to proofs of
+    `map a = b`, equal by proof irrelevance, so `rInMapK` forces them equal. Makes the `(4,4)` coherence
+    free on any relation reachable from class-4 data. -/
 theorem Map4Has.subsingleton {A B : Sort u} {R : A → B → Type v} (m : Map4Has R) (a : A) (b : B) :
     Subsingleton (R a b) :=
   ⟨fun r₁ r₂ => by rw [← m.rInMapK a b r₁, ← m.rInMapK a b r₂]⟩
@@ -76,8 +68,7 @@ def forget2a1 (h : Map2aHas R) : Map1Has R  := { map := h.map }
 def forget2b1 (h : Map2bHas R) : Map1Has R  := { map := h.map }
 def forget10  (_ : Map1Has R)  : Map0Has R  := {}
 
-/-- WEAKENING: forget down from `src` to any `tgt ≤ src`. Total via the order proof;
-    the `tgt ≰ src` combinations are impossible and discharged by `nomatch`. -/
+/-- Forget down from `src` to any `tgt ≤ src`; the `tgt ≰ src` cases are impossible (`nomatch`). -/
 def weaken : (src tgt : MapClass) → MapClass.le tgt src = true → MapHas src R → MapHas tgt R
   -- src = map4  (m : Map4Has R)
   | .map4, .map4, _, m => m

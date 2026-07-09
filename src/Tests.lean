@@ -1,9 +1,7 @@
 /-
-Test suite entry point (the `lake test` driver).
-
-Building this executable compiles all `Tests.*` modules; every `example … := rfl`, `#guard_msgs`
-axiom-footprint check, and metaprogram `run_cmd` assertion in them fires at elaboration, so a
-regression fails the build and hence `lake test`. `main` only runs if everything elaborated.
+Test suite entry point (the `lake test` driver). Building it compiles all `Tests.*` modules; every
+`example … := rfl`, `#guard_msgs`, and `run_cmd` assertion fires at elaboration, so a regression fails
+the build. `main` only runs if everything elaborated.
 -/
 import Tests.Core.Class
 import Tests.Core.Param
@@ -20,20 +18,16 @@ import Tests.Driver.Group
 import Tests.Driver.ListUnit
 import Tests.Lib
 
-/- AXIOM-FOOTPRINT GUARD (subsumes a `sorry`/`admit` check). EVERY `LeTrocq.*` declaration is checked — a
-   stray `sorry`/`admit` adds `sorryAx` and any genuinely new axiom adds itself, so either fails this
-   build-time check (so `lake test`/CI enforce it) in BOTH layers. (`example … := rfl` checks separately
-   guard the computational facts.)
-
-   What differs is only WHICH standard axioms are tolerated, by layer:
-     • OBJECT-LEVEL content — every combinator, witness, relator, registered base, AND every `Param` the
-       driver GENERATES (`transferred`/`flagshipWit` below, the `transfer`/`trocq` outputs) — may use ONLY
-       `propext`/`Quot.sound`. NO `Classical.choice`: the math the user transports is choice-free.
-     • the DRIVER (the metaprogram modules below) additionally tolerates `Classical.choice`, because it runs
-       on Lean's `MetaM`/elaboration API, which uses choice at its root (e.g. `Lean.Meta.inferType`) — exactly
-       as `simp`/`omega` do. That choice is compile-time tooling and never enters a generated proof.
-   This is a deliberate per-layer policy, NOT a weakening: object-level code is held to the STRICTER set, and
-   the driver is still guarded against `sorry`/new axioms — only `Classical.choice` is let through there. -/
+/- AXIOM-FOOTPRINT GUARD (subsumes a `sorry`/`admit` check). Every `LeTrocq.*` declaration is checked; a
+   stray `sorry` or any new axiom fails this build-time check. Which standard axioms are tolerated differs
+   by layer:
+     • OBJECT-LEVEL content (combinators, witnesses, relators, registered bases, AND the `Param`s the driver
+       generates) may use ONLY `propext`/`Quot.sound` — the transported math is choice-free.
+     • the DRIVER (the metaprogram modules) additionally tolerates `Classical.choice`, since it runs on
+       `MetaM`, which uses choice at its root (as `simp`/`omega` do); that choice is compile-time tooling and
+       never enters a generated proof.
+   Deliberate per-layer policy: object-level held to the stricter set, driver still guarded against `sorry`/
+   new axioms. -/
 run_cmd Lean.Elab.Command.liftCoreM do
   let env ← Lean.getEnv
   let mods := env.header.moduleNames

@@ -1,13 +1,7 @@
 /-
-The worked example: register the base equivalence `Nat ≃ Unary` and a few operations over it.
-
-This is NOT part of the `LeTrocq` library — it is what a *user* writes: define your types, prove the
-relatedness witnesses, tag them `@[trocq]`, and the driver (`transfer` / `trocq` / `translate`) picks
-them up from the environment extension. The tests import this module to exercise the machinery.
-
-  • `RN`     : the base, `Param (4,4) Nat Unary`               (a full equivalence)
-  • `R0`/`Rsucc` : term primitives `Nat.zero ↦ Unary.z`, `Nat.succ ↦ Unary.s`  (for `translate`)
-  • `PosR`   : a relator for the predicate `Pos`                (for the generic `app` rule)
+User-written example: register the base equivalence `Nat ≃ Unary` and a few operations over it (define
+types, prove the witnesses, tag `@[trocq]`; the driver picks them up). Registers `RN` (base `(4,4)`),
+`R0`/`Rsucc` (term primitives for the constructors), `NatRecR` (the recursor), `PosR` (a predicate relator).
 -/
 import LeTrocq
 namespace LeTrocq.Examples
@@ -36,7 +30,7 @@ def RNU : Nat → Unary → Type := fun n u => PLift (u.toNat = n)
   contra := { map := Unary.toNat, mapInR := fun u n h => PLift.up h,
               rInMap := fun u n r => r.down, rInMapK := fun _ _ _ => rfl }
 
-/-- the base read backward, `Unary ≃ Nat` (the `trocq` tactic also gets this for free via `Param.sym`). -/
+/-- the base read backward, `Unary ≃ Nat` (`trocq` also gets this for free via `Param.sym`). -/
 def RNsym : Param map4 map4 Unary Nat := RN.sym
 
 /- ===================== term primitives (for the term translation `⟨·⟩` / `[·]`) ===================== -/
@@ -45,12 +39,10 @@ def RNsym : Param map4 map4 Unary Nat := RN.sym
   PLift.up (by show u.toNat + 1 = Nat.succ n; rw [h.down])
 
 /- ===================== the recursor primitive: `Nat.rec ↦ Unary.rec` =====================
-   The parametricity of the eliminator: given related motives/base/step and `RNU n m`, the two recursors
-   produce related results. Registering this lets the term translation CROSS `Nat.rec`, so any function
-   defined by recursion on `Nat` transports to native `Unary` recursion (the motive `M : Nat → Type` is
-   itself transported — `param` routes it through the type-level translation). Monomorphic at `Type` (the
-   function-transport case); a universe-polymorphic recursor witness is future work. The proof is the
-   standard induction: the relation `RNU n m` fixes `n = m.toNat`, after which the recursors compute. -/
+   Parametricity of the eliminator: related motives/base/step and `RNU n m` give related recursor results,
+   so the term translation crosses `Nat.rec` and recursive `Nat` functions transport to native `Unary`
+   recursion. Monomorphic at `Type` (the function-transport case); a universe-polymorphic witness is future
+   work. Proof is the standard induction: `RNU n m` fixes `n = m.toNat`, then the recursors compute. -/
 @[trocq] noncomputable def NatRecR
     {M : Nat → Type} {M' : Unary → Type}
     (MR : (n : Nat) → (m : Unary) → RNU n m → M n → M' m → Type)

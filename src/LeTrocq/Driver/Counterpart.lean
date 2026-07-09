@@ -1,17 +1,13 @@
 /-
-The TERM TRANSLATION `⟨·⟩` (the counterpart translation).
+The TERM TRANSLATION `⟨·⟩` (the counterpart translation): for a term/type `e`, the B-side counterpart `⟨e⟩` —
+`e` rebuilt leaf-by-leaf over `B`, bottoming at registered PRIMITIVES; an unregistered head is an ERROR.
 
-For a term/type `e` it produces the B-side counterpart `⟨e⟩` — `e` rebuilt leaf-by-leaf over `B` (NOT
-`iso ∘ e ∘ iso⁻¹`), bottoming at registered PRIMITIVES; an unregistered head is an ERROR (never unfolds).
-
-  ⟨c⟩        = registered counterpart (term primitive / type former / Prop predicate; else error)
+  ⟨c⟩        = registered counterpart (term primitive / type former / Prop predicate)
   ⟨x⟩        = x'                                       (bound variable's counterpart)
-  ⟨f a⟩      = ⟨f⟩ ⟨a⟩
-  ⟨fun x=>b⟩ = fun x'=>⟨b⟩
-  ⟨Πx:A. B⟩  = Πx':⟨A⟩. ⟨B⟩
+  ⟨f a⟩      = ⟨f⟩ ⟨a⟩       ⟨fun x=>b⟩ = fun x'=>⟨b⟩       ⟨Πx:A. B⟩ = Πx':⟨A⟩. ⟨B⟩
 
 The other half is the RELATEDNESS `[e] : 〚T〛 e ⟨e⟩`, the graded `[·]` in `LeTrocq.Driver.Transfer` (the sole
-consumer of `⟨·⟩`). `translate e` elaborates to `⟨e⟩`; the shared `Ctx`/`buildCtx`/`sym*` below serve both.
+consumer of `⟨·⟩`). The shared `Ctx`/`buildCtx`/`sym*` below serve both.
 -/
 import LeTrocq.Combinators
 import LeTrocq.Driver.Registry
@@ -20,30 +16,27 @@ open Lean Lean.Meta
 namespace LeTrocq.Counterpart
 
 /-- the `⟨·⟩` registration (COUNTERPARTS only): type formers/bases/relators ↦ B-side head; term primitives ↦
-    (B-term, relatedness witness). The second component of `terms` (the relatedness) is what `[·]` reads; `⟨·⟩`
-    uses only the first. A `Prop`'s counterpart comes from its RELATOR entry in `types` (`And ↦ And`,
-    `Pos ↦ Pos'`); its relatedness is the graded `Param` witness `[·]` builds. `typePref`/`termPref` are the
-    per-head PREFERRED (last-registered) counterpart used in synth mode (no demanded target). -/
+    (B-term, relatedness witness) — `⟨·⟩` uses only the first component, `[·]` reads the relatedness. A `Prop`'s
+    counterpart comes from its RELATOR entry in `types`. `typePref`/`termPref` are the per-head PREFERRED
+    (last-registered) counterpart used in synth mode. -/
 structure Ctx where
   types    : NameMap (NameMap Expr)
   typePref : NameMap Name
   terms    : NameMap (NameMap (Expr × Expr))
   termPref : NameMap Name
-  -- GROUND closed-type equivalences (`List Unit ↦ Nat`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy)]`,
-  -- matched WHOLE by `isDefEq` (the counterpart side only — `⟨·⟩` needs just the target TYPE). Both directions
-  -- are stored as separate entries; the leaf rule keeps the LAST match (the last-registered default).
+  -- GROUND closed-type equivalences (`List Unit ↦ Nat`), HEAD-INDEXED `srcHead ↦ #[(srcTy, tgtTy)]`, matched
+  -- WHOLE by `isDefEq`. Both directions stored separately; the leaf rule keeps the LAST match.
   ground   : NameMap (Array (Expr × Expr))
-  -- GROUND TERMS: partial-application patterns (`@List.cons Unit ()`), HEAD-INDEXED `srcHead ↦ #[(pattern,
-  -- tgtPrefix, wit)]`, matched WHOLE by `isDefEq`. `⟨pattern⟩ = tgtPrefix` (`Nat.succ`); the app spine then
-  -- applies it to the translated remaining args. `wit` is the relatedness the term half feeds that spine.
+  -- GROUND TERMS: partial-application patterns (`@List.cons Unit ()`), HEAD-INDEXED, matched WHOLE by `isDefEq`.
+  -- `⟨pattern⟩ = tgtPrefix` (`Nat.succ`); the app spine applies it to the translated remaining args. `wit` is
+  -- the relatedness the term half feeds that spine.
   groundTerms : NameMap (Array (Expr × Expr × Expr))
 
-/-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. (The graded
-    translation `[·]` in `LeTrocq.Driver.Transfer` carries the relatedness separately; `⟨·⟩` needs only `x'`.) -/
+/-- counterpart environment for `⟨·⟩`: `fvar ↦ x'`, the bound variable's B-side counterpart. -/
 abbrev TEnv := List (FVarId × Expr)
 
-/-- recognize a numeral — a raw `.lit (.natVal n)` or an `@OfNat.ofNat _ (lit n) _` — as `n`. The caller
-    must additionally check the expression's type is `Nat` (the type argument here may be unreduced). -/
+/-- recognize a numeral — a raw `.lit (.natVal n)` or `@OfNat.ofNat _ (lit n) _` — as `n`. The caller must
+    additionally check the type is `Nat` (the type argument here may be unreduced). -/
 def natNumeral? (e : Expr) : Option Nat :=
   if let some n := e.rawNatLit? then some n
   else if e.getAppFn.isConstOf ``OfNat.ofNat then
@@ -56,14 +49,12 @@ def natExpr : Nat → Expr
   | 0 => mkConst ``Nat.zero
   | n + 1 => mkApp (mkConst ``Nat.succ) (natExpr n)
 
-/-- a sentinel target-key for term primitives whose result type is NOT constant-headed — a recursor, say,
-    polymorphic in its motive (`Unary.rec : … → M' m`). Such a primitive is not target-selectable, only
-    reachable via the preferred (synth) default, so all its registrations share this one key. -/
+/-- sentinel target-key for term primitives whose result type is NOT constant-headed (a recursor polymorphic
+    in its motive). Not target-selectable, only reachable via the synth default, so all share this one key. -/
 def polyResultKey : Name := `_LeTrocq.polyResult
 
-/-- head of a term primitive's RESULT type, telescoping through its arguments — the target-TYPE key a
-    term primitive is filed under (`Unary.s : Unary → Unary` ↦ `Unary`, `Nat.zero : Nat` ↦ `Nat`,
-    `List.cons : {α} → α → List α → List α` ↦ `List`); a non-constant conclusion ↦ `polyResultKey`. -/
+/-- head of a term primitive's RESULT type — the target-TYPE key it's filed under (`Unary.s` ↦ `Unary`,
+    `List.cons` ↦ `List`); a non-constant conclusion ↦ `polyResultKey`. -/
 def resultTypeHead (e : Expr) : MetaM Name := do
   forallTelescopeReducing (← inferType e) fun _ concl => do
     return concl.getAppFn.constName?.getD polyResultKey
@@ -77,20 +68,16 @@ def splitPi? (tgt? : Option Expr) : MetaM (Option Expr × Option Expr) := do
     | _ => return (none, none)
   | none => return (none, none)
 
-/-- `⟨·⟩` — THE TERM TRANSLATION: rebuild `e`'s B-side counterpart leaf by leaf. A
-    registered head maps to its counterpart (a term primitive `Nat.succ ↦ Unary.s`, a type former
-    `List ↦ List`, or a `Prop` predicate `p ↦ p'`); a bound variable to its counterpart `x'`; a Π/λ/app/sort
-    structurally; a `Nat` numeral through its `succ`/`zero` normal form. An unregistered head is an ERROR —
-    the translation never unfolds. An optional `tgt?` (the demanded counterpart TYPE) selects registered
-    heads TYPE-DIRECTEDLY (e.g. `Nat.zero ↦ Unary.z` at target `Unary`, `↦ Nat.zero` at target `Nat`) and
-    is destructured down an application spine (the head's counterpart type dictates each argument's target).
-    This produces ONLY the counterpart; the relatedness is the graded `[·]` in `LeTrocq.Driver.Transfer`, which
-    calls back here for every counterpart it needs (`[t u] = [t] u ⟨u⟩ [u]`). -/
+/-- `⟨·⟩` — THE TERM TRANSLATION: rebuild `e`'s B-side counterpart leaf by leaf. A registered head maps to its
+    counterpart (`Nat.succ ↦ Unary.s`, `List ↦ List`, a `Prop` predicate `p ↦ p'`); a bound variable to `x'`;
+    Π/λ/app/sort structurally; a `Nat` numeral through its `succ`/`zero` normal form. An unregistered head is
+    an ERROR — never unfolds. An optional `tgt?` (the demanded counterpart TYPE) selects registered heads
+    TYPE-DIRECTEDLY (`Nat.zero ↦ Unary.z` at `Unary`, `↦ Nat.zero` at `Nat`), destructured down an application
+    spine. Produces ONLY the counterpart; `[·]` calls back here for every counterpart it needs. -/
 partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
     MetaM Expr := do
   -- GROUND closed-type equivalence (`⟨List Unit⟩ = Nat`): matched WHOLE (head-indexed, `isDefEq`), so it beats
-  -- the structural `.app`/`.const` descent below. Only type-EXPRESSIONS match (`srcTy` is a type); a term of the
-  -- ground type is never `isDefEq` to that type, so no misfire. Keeps the LAST match — the last-registered default.
+  -- the structural descent below. Only type-EXPRESSIONS match (a term is never `isDefEq` to its type). Last match wins.
   if let some h := e.getAppFn.constName? then
     if let some cands := NameMap.find? ctx.ground h then
       let mut hit : Option Expr := none
@@ -101,9 +88,8 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
             | none   => pure true
           if ok then hit := some tgtTy
       if let some tgtTy := hit then return tgtTy
-  -- GROUND TERM: `e` (a partial application like `@List.cons Unit ()`, exposed as an appFn subterm by the `.app`
-  -- recursion below) matches a registered pattern WHOLE ⇒ its counterpart is the target prefix (`Nat.succ`); the
-  -- `.app` rule then applies that to the translated remaining args. Arity pre-filter, then `isDefEq`.
+  -- GROUND TERM: `e` (a partial application, exposed as an appFn subterm by the `.app` recursion) matches a
+  -- registered pattern WHOLE ⇒ counterpart is the target prefix (`Nat.succ`). Arity pre-filter, then `isDefEq`.
   if let some h := e.getAppFn.constName? then
     if let some cands := NameMap.find? ctx.groundTerms h then
       for (patSrc, tgtTerm, _wit) in cands do
@@ -117,8 +103,7 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
       | some (_, x') => return x'
       | none => throwError "translate: unbound variable {e}"
   | .const c _ =>
-      -- one registry lookup: term primitives, then type formers/bases, then `Prop` predicates. In CHECK mode
-      -- the target head selects the counterpart; in SYNTH mode the preferred (last-registered) target is used.
+      -- registry lookup: term primitives, then types. CHECK mode selects by the target head; SYNTH mode uses the pref.
       let key? := (← whnf (tgt?.getD e)).getAppFn.constName?
       if let some tgtMap := ctx.terms.find? c then
         let some h := (match tgt? with | some _ => key? | none => ctx.termPref.find? c)
@@ -126,7 +111,7 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
         match tgtMap.find? h with
         | some (b, _) => return b
         | none =>
-            -- DIAGONAL target: the demanded counterpart TYPE is the source's own type ⇒ `c` is its own counterpart.
+            -- DIAGONAL target: the demanded type is the source's own type ⇒ `c` is its own counterpart.
             if (← (tgt?.mapM fun t => do isDefEq (← inferType e) t)).getD false then return e
             else throwError "translate: no counterpart for term {c} at target {h}"
       else if let some tgtMap := ctx.types.find? c then
@@ -138,15 +123,15 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
             if (← (tgt?.mapM fun t => do isDefEq e t)).getD false then return e
             else throwError "translate: no counterpart for type {c} at target {h}"
       else
-        -- UNREGISTERED constant ⇒ its own counterpart (the diagonal). Soundness is upstream: the whole-diagonal
-        -- short-circuit in `Transfer` only relies on this after verifying the surrounding type/term is diagonal.
+        -- UNREGISTERED constant ⇒ its own counterpart (the diagonal). Soundness is upstream: `Transfer`'s
+        -- whole-diagonal short-circuit relies on this only after verifying the surrounding type/term is diagonal.
         return e
   | e@(.app ..) => do
       match tgt? with
       | none => return .app (← term ctx env e.appFn! none) (← term ctx env e.appArg! none)
       | some _ =>
-          -- SPINE: resolve the head against the result target, then take each argument's target from the
-          -- head counterpart's type (its domain), threading dependent codomains via the built counterpart.
+          -- SPINE: resolve the head against the result target, then take each arg's target from the head
+          -- counterpart's domain, threading dependent codomains via the built counterpart.
           let fn := e.getAppFn
           let mut acc ← term ctx env fn tgt?
           let mut ty ← inferType acc
@@ -172,9 +157,8 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
           (bodyTgt?.map (·.instantiate1 x')))
   | e => throwError "translate: unsupported {e}"
 
-/-- telescope a primitive's type into abstraction-theorem triples `[a,a',aRel, b,b',bR, …]`, check the binder
-    count is a multiple of 3, and run `k` with the binders `xs` and their VALUE-SWAPPED reordering
-    `[a',a,aRel, b',b,bR, …]` (the relatedness slot stays put). The shared frame of the backward builders. -/
+/-- telescope a primitive's type into triples, and run `k` with the binders `xs` and their VALUE-SWAPPED
+    reordering `[a',a,aRel, …]` (the relatedness slot stays put). The shared frame of the backward builders. -/
 def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Expr → MetaM Expr) :
     MetaM Expr := do
   forallTelescope (← inferType wit) fun xs _ => do
@@ -183,22 +167,17 @@ def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Ex
       swapped := swapped.push a' |>.push a |>.push aRel     -- swap the value pair, keep the relatedness
     k xs swapped
 
-/-- swap the (A-value, B-value) in each abstraction-theorem triple of a term primitive, giving the
-    BACKWARD-direction combinator. A primitive is `cWit : ∀ a a' (aRel : R a a') …, R (c …) (c' …)`
-    (binders in triples); this returns `fun a' a aRel … => cWit a a' aRel …`. Its relatedness binder keeps the
-    type `R a a'`, which is *defeq* to the symmetric relation `R.sym a' a` the backward direction supplies —
-    so the same proof term serves both directions, only the value arguments swap position. -/
+/-- swap the (A-value, B-value) in each triple of a term primitive, giving the BACKWARD-direction combinator:
+    `cWit : ∀ a a' (aRel : R a a') …, R (c …) (c' …)` ↦ `fun a' a aRel … => cWit a a' aRel …`. The relatedness
+    keeps type `R a a'`, defeq to the reverse's `R.sym a' a`, so the same proof serves — only the values swap. -/
 def symPrimitive (wit : Expr) : MetaM Expr :=
   withSwappedTriples "term primitive" wit fun xs swapped => mkLambdaFVars swapped (mkAppN wit xs)
 
-/-- the REVERSE of a STRUCTURE-relation INSTANCE witness `wit : SR Θ p p'` — `SR` a structure whose fields
-    relate the projections of the two related structures `p`/`p'` (a `GroupR`-style correspondence). Rebuild
-    `SR.mk <Θ reversed> p' p <each field symmetrized>` at the reverse type `SR Θ' p' p`: the theme `Θ` is
-    type-triples `(T, T', RT)`, each reversed to `(T', T, flip RT)`, `p`/`p'` swapped, and each projection
-    `SR.fieldᵢ wit` (in abstraction-theorem triple form) reversed by `symPrimitive` (defeq to the reverse field
-    type). This is what a bespoke correspondence between two SPECIFIC instances (`intGroup ↔ boolGroup`) needs
-    to cross BACKWARD — `symPrimitive` on the whole zero-triple witness would return it unchanged (wrong
-    orientation). `none` unless `wit` is a CLOSED structure-relation instance whose theme is whole type-triples. -/
+/-- the REVERSE of a STRUCTURE-relation INSTANCE witness `wit : SR Θ p p'` (a `GroupR`-style correspondence
+    between two SPECIFIC instances, `intGroup ↔ boolGroup`). Rebuild `SR.mk <Θ reversed> p' p <fields
+    symmetrized>` at `SR Θ' p' p`: each theme type-triple `(T, T', RT)` ↦ `(T', T, flip RT)`, `p`/`p'` swap,
+    each projection reversed by `symPrimitive`. Needed because `symPrimitive` on the whole zero-triple witness
+    returns it unchanged (wrong orientation). `none` unless `wit` is a closed instance with whole type-triples. -/
 def symStructure (wit : Expr) : MetaM (Option Expr) := do
   forallTelescope (← inferType wit) fun bs concl => do
     unless bs.isEmpty do return none                          -- only a closed instance (no leading binders)
@@ -220,9 +199,9 @@ def symStructure (wit : Expr) : MetaM (Option Expr) := do
       let flipRT ← withLocalDeclD `x' T' fun x' => withLocalDeclD `x T fun x =>
         mkLambdaFVars #[x', x] (mkApp2 RT x x')
       revTheme := revTheme.push T' |>.push T |>.push flipRT
-    -- reverse each field via `symPrimitive` (the projection `SR.fieldᵢ wit` is in triple form). Use the raw
-    -- kernel projection `.proj` (index-based) rather than the projection function — `SR` may be a `class`,
-    -- whose field projections take the instance as `[instImplicit]`, which `mkAppM` would mis-slot.
+    -- reverse each field via `symPrimitive`. Use the raw kernel projection `.proj` (index-based), not the
+    -- projection function — `SR` may be a `class`, whose fields take the instance as `[instImplicit]`, which
+    -- `mkAppM` would mis-slot.
     let mut fields : Array Expr := #[]
     for i in [0 : (getStructureFields env srName).size] do
       fields := fields.push (← symPrimitive (.proj srName i wit))
@@ -230,9 +209,8 @@ def symStructure (wit : Expr) : MetaM (Option Expr) := do
     return some (mkAppN srMk (revTheme ++ #[p', p] ++ fields))
 
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
-    type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
-    `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
-    So a term over *either* side of a registered equivalence translates by head match. -/
+    type relation forward and backward; every TERM primitive gives its `c ↦ c'` map forward and the swapped
+    `c' ↦ c` map (via `symPrimitive`) backward. So a term over either side translates by head match. -/
 def buildCtx : MetaM Ctx := do
   let mut types    : NameMap (NameMap Expr) := mkNameMap _
   let mut typePref : NameMap Name := mkNameMap _
@@ -240,27 +218,25 @@ def buildCtx : MetaM Ctx := do
   let mut termPref : NameMap Name := mkNameMap _
   let mut ground      : NameMap (Array (Expr × Expr)) := mkNameMap _
   let mut groundTerms : NameMap (Array (Expr × Expr × Expr)) := mkNameMap _
-  -- every BASE / TERM installs in both directions (the shared forward/backward + homogeneous-skip policy),
-  -- with a single preferred (last-registered) counterpart per head; the backward witness is `symPrimitive`.
+  -- every BASE / TERM installs in both directions, with a single preferred (last-registered) counterpart per head.
   for e in trocqEntries (← getEnv) do
     match e with
     | .base hA hB tyA tyB _witName _ =>
-        -- `⟨·⟩` needs only the COUNTERPART type, both directions: `⟨A⟩ = B` and `⟨B⟩ = A`.
+        -- `⟨·⟩` needs only the COUNTERPART type: `⟨A⟩ = B`, `⟨B⟩ = A`.
         let r ← insertBidirPair types typePref hA (some hB) tyB (return tyA)
         types := r.1; typePref := r.2
     | .ground hA hB tyA tyB _witName _ =>
-        -- a GROUND closed-type equivalence: `⟨A⟩ = B`, `⟨B⟩ = A`, matched WHOLE (`isDefEq`).
+        -- a GROUND closed-type equivalence, matched WHOLE (`isDefEq`).
         ground := ground.insert hA ((NameMap.find? ground hA |>.getD #[]).push (tyA, tyB))
         ground := ground.insert hB ((NameMap.find? ground hB |>.getD #[]).push (tyB, tyA))
     | .groundTerm hA patternA tgtB witName =>
-        -- a GROUND TERM: the partial-application pattern `⟨@List.cons Unit ()⟩ = Nat.succ`, matched WHOLE by
-        -- `isDefEq`; the witness (fed the remaining triple by the app spine) is the relatedness.
+        -- a GROUND TERM `⟨@List.cons Unit ()⟩ = Nat.succ`, matched WHOLE; `wit` is the relatedness.
         let wit ← mkConstWithFreshMVarLevels witName
         groundTerms := groundTerms.insert hA
           ((NameMap.find? groundTerms hA |>.getD #[]).push (patternA, tgtB, wit))
     | .term hA bTerm witName =>
-        -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). The backward
-        -- entry is keyed by the B-side term head (so a homogeneous constructor like `List.cons` is skipped).
+        -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). Backward keyed by
+        -- the B-side head (so a homogeneous constructor like `List.cons` is skipped).
         let wit ← mkConstWithFreshMVarLevels witName
         let srcTerm ← mkConstWithFreshMVarLevels hA
         let tgtTyHead ← resultTypeHead bTerm
@@ -270,9 +246,8 @@ def buildCtx : MetaM Ctx := do
         | some hB =>
             if hB != hA then
               let srcTyHead ← resultTypeHead srcTerm
-              -- backward relatedness: a STRUCTURE-relation instance (`intGroup ↔ boolGroup`) reverses FIELD-WISE
-              -- via `symStructure`; a plain primitive by `symPrimitive` (a zero-triple structure instance would
-              -- otherwise come back unchanged, wrong-oriented).
+              -- backward relatedness: a structure-relation instance reverses FIELD-WISE via `symStructure`
+              -- (a zero-triple instance would otherwise come back wrong-oriented); a plain primitive by `symPrimitive`.
               let bwdRel ← match ← symStructure wit with
                 | some s => pure s
                 | none   => symPrimitive wit
@@ -281,15 +256,13 @@ def buildCtx : MetaM Ctx := do
               termPref := termPref.insert hB srcTyHead
         | none => pure ()
     | .typeFormer hA hB _relName =>
-        -- a parameterized type former `F`: `⟨·⟩` maps its head `F ↦ F'` (`⟨F a⟩ = F' ⟨a⟩`, via the `.app`
-        -- rule). ONE entry, forward only, keyed by the B-side head.
+        -- a parameterized type former: `⟨F a⟩ = F' ⟨a⟩` via the `.app` rule. ONE entry, forward only.
         types := types.insert hA ((NameMap.find? types hA |>.getD (mkNameMap _)).insert hB
           (← mkConstWithFreshMVarLevels hB))
         typePref := typePref.insert hA hB
     | .relator hA (some hB) _witName =>
-        -- a RELATOR ALSO supplies `⟨·⟩` the head counterpart `P ↦ P'` (read off its conclusion): this is how a
-        -- connective (`And ↦ And`) or a `Prop` predicate (`Pos ↦ Pos'`) — which have no type former — get a
-        -- counterpart. Both directions; homogeneous heads (`List ↦ List`) coincide with the type former's entry.
+        -- a RELATOR ALSO supplies the head counterpart `P ↦ P'` — how a connective (`And ↦ And`) or `Prop`
+        -- predicate (`Pos ↦ Pos'`), which have no type former, get one. Both directions; homogeneous heads coincide.
         let r ← insertBidirPair types typePref hA (some hB)
           (← mkConstWithFreshMVarLevels hB) (mkConstWithFreshMVarLevels hA)
         types := r.1; typePref := r.2

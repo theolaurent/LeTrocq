@@ -1,36 +1,30 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Prod` (×, the cartesian product).
-
-`List` with TWO type parameters instead of one — and non-dependent (unlike `Sigma`, whose second component
-lives over the first). `ProdR` is the parametricity relation (a TYPE FORMER over both parameters: the
-translation crosses `A × B` by feeding each parameter's `(_, _, _)` triple in turn); its constructor
-auto-registers as the `Prod.mk` TERM primitive, and `paramProd` is the GRADED relator (variance parallel to
-`List`, one `Param` argument per parameter).
+`Prod` (×, cartesian product) — like `List` but with two type parameters. `ProdR` is the parametricity
+relation (a TYPE FORMER over both parameters); its constructor auto-registers as the `Prod.mk` term primitive;
+`paramProd` is the graded relator, one `Param` argument per parameter (variance parallel to `List`).
 -/
 import LeTrocq.Driver.Registry
 namespace LeTrocq.Lib
 open LeTrocq MapClass
 
-/-- two pairs are related iff their components are componentwise related. The parameter order
-    `(A, A', RA, B, B', RB)` is what the translation supplies (one `mkApp3` triple per type parameter). -/
+/-- two pairs are related iff their components are componentwise related. -/
 @[trocq] inductive ProdR (A A' : Type) (RA : A → A' → Type) (B B' : Type) (RB : B → B' → Type) :
     A × B → A' × B' → Type
   | mk {a a' b b'} (aRel : RA a a') (bRel : RB b b') : ProdR A A' RA B B' RB (a, b) (a', b')
 
+/-- the relation is a subsingleton whenever both component relations are — needed for the `(4,4)` coherence. -/
 theorem ProdR.allEq {A A' : Type} {RA : A → A' → Type} {B B' : Type} {RB : B → B' → Type}
     (hA : ∀ a a' (x y : RA a a'), x = y) (hB : ∀ b b' (x y : RB b b'), x = y)
     {p : A × B} {q : A' × B'} (x y : ProdR A A' RA B B' RB p q) : x = y := by
   cases x with | mk aRel bRel => cases y with | mk aRel' bRel' => rw [hA _ _ aRel aRel', hB _ _ bRel bRel']
 
-/- `ProdR.mk` auto-registers as the `Prod.mk` term primitive (tagging `ProdR` derives it via
-   `Registry.deriveConstructorPrim`) — the four triples are the two type parameters then the two components. -/
+/- `ProdR.mk` auto-registers as the `Prod.mk` term primitive (tagging `ProdR`). -/
 
-/- ===================== the GRADED relator (variance mechanism, parallel to `List`) =====================
-   `Prod` is covariant in BOTH parameters, each with the identity variance of a covariant functor: at output
-   class `(m,n)` each component is needed at exactly `(m,n)`. `mapProdVariance` is the shared per-parameter
-   table (both parameters use it), and `paramProd` builds the pair at any output class. -/
+/- ===================== the graded relator (variance parallel to `paramList`) =====================
+   `Prod` is a covariant functor in both parameters (identity variance): each component is needed at exactly
+   the output class. -/
 
-/-- per-map-class minimal class of EACH parameter of `Prod` (pure covariance; the same table for both). -/
+/-- minimal class per direction of each parameter of `Prod` (pure covariance; same table for both). -/
 def mapProdVariance : MapClass → ParamClass
   | map0  => (map0,  map0)
   | map1  => (map1,  map0)
@@ -39,34 +33,36 @@ def mapProdVariance : MapClass → ParamClass
   | map3  => (map3,  map0)
   | map4  => (map4,  map0)
 
-/-- minimal per-parameter class to build `Prod` at output class `c` (identity — both parameters covariant). -/
+/-- per-parameter class to build `Prod` at output class `c` (identity, via the shared `ParamClass.variance`). -/
 def prodVariance (c : ParamClass) : ParamClass := ParamClass.variance mapProdVariance c
 
-/-- lifted soundness/completeness for `ProdR` over both components, shared across the `prodCov`/`prodContra`
-    arms (the contra arms swap each component's map direction). No recursion, so computable. -/
+/-- soundness `ProdR` from the two component maps, shared by the `2a`/`3`/`4` arms. -/
 def prodMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
     (fInR : ∀ a a', f a = a' → RA a a') (gInR : ∀ b b', g b = b' → RB b b') :
     ∀ p q, (f p.1, g p.2) = q → ProdR A A' RA B B' RB p q :=
   fun p _ h => by subst h; exact .mk (fInR p.1 _ rfl) (gInR p.2 _ rfl)
 
+/-- completeness of the two component maps from `ProdR`, shared by the `2b`/`3`/`4` arms. -/
 theorem prodRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A → A') (g : B → B')
     (fRInMap : ∀ a a', RA a a' → f a = a') (gRInMap : ∀ b b', RB b b' → g b = b') :
     ∀ p q, ProdR A A' RA B B' RB p q → (f p.1, g p.2) = q :=
   fun _ _ r => by cases r with | @mk a a' b b' aRel bRel =>
     show (f a, g b) = (a', b'); rw [fRInMap a a' aRel, gRInMap b b' bRel]
 
+/-- contra soundness, the mirror of `prodMapInR`. -/
 def prodContraMapInR {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fInR : ∀ a' a, f a' = a → RA a a') (gInR : ∀ b' b, g b' = b → RB b b') :
     ∀ q p, (f q.1, g q.2) = p → ProdR A A' RA B B' RB p q :=
   fun q _ h => by subst h; exact .mk (fInR q.1 _ rfl) (gInR q.2 _ rfl)
 
+/-- contra completeness, the mirror of `prodRInMap`. -/
 theorem prodContraRInMap {A A' B B' : Type} {RA : A → A' → Type} {RB : B → B' → Type} (f : A' → A) (g : B' → B)
     (fRInMap : ∀ a' a, RA a a' → f a' = a) (gRInMap : ∀ b' b, RB b b' → g b' = b) :
     ∀ q p, ProdR A A' RA B B' RB p q → (f q.1, g q.2) = p :=
   fun _ _ r => by cases r with | @mk a a' b b' aRel bRel =>
     show (f a', g b') = (a, b); rw [fRInMap a' a aRel, gRInMap b' b bRel]
 
-/-- the covariant half from the two components at `mapProdVariance m`. -/
+/-- the covariant half from the two components at `mapProdVariance m`; the `map4` coherence is free (subsingleton). -/
 def prodCov {A A' B B' : Type} :
     (m : MapClass) →
     (pa : Param (mapProdVariance m).1 (mapProdVariance m).2 A A') →

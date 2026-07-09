@@ -1,14 +1,9 @@
 /-
-The LeTrocq STANDARD LIBRARY: `Eq` (propositional equality).
-
-`a = b` relates to `a' = b'` when the two sides are related pointwise and the underlying type carries enough
-of the correspondence to transport the equality. Because `a = b` / `a' = b'` are PROPOSITIONS, the carried
-relation is trivial (`PLift True`) and the witness carries no data above class 1 — so, like every other
-relator, `Eq` is GRADED: to transport the equality in one direction it needs only the underlying type's
-COMPLETENESS (`rInMap`, class 2b) in that direction, never a full equivalence. The maximum demand is `(2b,2b)`
-(both directions); a one-directional transport — e.g. the `trocq` goal seed `(0,1)` — needs only `(0,2b)`.
-(Contrast `List`/`Prod`, whose element needs only the bare relation: `Eq` transports an equation, so it needs
-the maps' completeness, but still stops short of a bijection.)
+`Eq` (propositional equality) — standard-library registration. `a = b` relates to `a' = b'` when the sides are
+related pointwise and the underlying type carries enough correspondence to transport the equality. The objects
+being PROPOSITIONS, the carried relation is trivial (`PLift True`); to transport in one direction the relator
+needs only the type's COMPLETENESS (`rInMap`, 2b) in that direction — so it caps at `(2b,2b)` (never a full
+equivalence). A one-directional transport (e.g. the `trocq` goal seed `(0,1)`) needs only `(0,2b)`.
 
 (Monomorphic at `Type`; a `Sort`-polymorphic `Eq` witness is future work.)
 -/
@@ -17,9 +12,8 @@ import LeTrocq.Combinators.Universe
 namespace LeTrocq.Lib
 open LeTrocq MapClass
 
-/-- forward transport `a = b → a' = b'`, from the underlying type's COVARIANT completeness (`rInMap`, class
-    2b): each endpoint's relatedness pins `map · = ·`, so the source equality carries over. Half of the old
-    `eqCorr`, split out so the covariant arm can consume it without the contravariant direction. -/
+/-- forward transport `a = b → a' = b'`, from the type's covariant completeness (`rInMap`, 2b): each
+    endpoint's relatedness pins `map · = ·`, so the source equality carries over. -/
 theorem eqFwd {A A' : Type} {R : A → A' → Type} (cov : Map2bHas R)
     {a b : A} {a' b' : A'} (aRel : R a a') (bRel : R b b') : a = b → a' = b' :=
   fun h => by rw [← cov.rInMap a a' aRel, ← cov.rInMap b b' bRel, h]
@@ -29,21 +23,18 @@ theorem eqBwd {A A' : Type} {R : A → A' → Type} (contra : Map2bHas (fun (b :
     {a b : A} {a' b' : A'} (aRel : R a a') (bRel : R b b') : a' = b' → a = b :=
   fun h => by rw [← contra.rInMap a' a aRel, ← contra.rInMap b' b bRel, h]
 
-/- ===================== the GRADING table (a `Prop` output caps each direction at 2b) ===================== -/
-/-- per-map-class minimal underlying-type class for `Eq`: the transport map needs only completeness (`rInMap`,
-    2b) in its own direction, and — the objects being propositions — nothing above the map. Parallel to
-    `mapListVariance`, but capped at 2b (`Eq` never needs its type argument at 3/4). -/
+/- ===================== the grading table (a `Prop` output caps each direction at 2b) ===================== -/
+/-- per-map-class minimal underlying-type class for `Eq`: the transport map needs completeness (`rInMap`, 2b)
+    in its own direction and — the objects being propositions — nothing above the map. -/
 def mapEqVariance : MapClass → ParamClass
   | map0 => (map0,  map0)
   | _    => (map2b, map0)
 
-/-- minimal underlying-type class to build `Eq` at output class `c`: the cov requirement joined with the
-    negated contra one. Tops out at `(2b,2b)`; a one-directional demand (e.g. `(0,1)`) needs only `(0,2b)`. -/
+/-- minimal underlying-type class to build `Eq` at output class `c` (cov joined with negated contra). -/
 def eqVariance (c : ParamClass) : ParamClass := ParamClass.variance mapEqVariance c
 
-/-- the covariant half from the underlying type at `mapEqVariance m`: empty below class 1, the forward
-    transport `eqFwd` at class ≥ 1 (every higher `Prop` field is free via `propMapHas`). The carried relation
-    is the trivial `PLift True` — a proposition transports no data. -/
+/-- the covariant half from the type at `mapEqVariance m`: empty below class 1, the forward transport `eqFwd`
+    at class ≥ 1 (higher `Prop` fields free via `propMapHas`). Carried relation is the trivial `PLift True`. -/
 def eqCov {A A' : Type} {a b : A} {a' b' : A'} :
     (m : MapClass) →
     (pa : Param (mapEqVariance m).1 (mapEqVariance m).2 A A') →
@@ -67,10 +58,8 @@ def eqContra {A A' : Type} {a b : A} {a' b' : A'} :
   | map3,  pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map3
   | map4,  pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map4
 
-/-- `a = b ≃ a' = b'` at ANY output class `(m,n)`, from the underlying type at the `eqVariance`-minimal class
-    and the two endpoints related. A RELATOR keyed by `Eq`: the first triple is the TYPE argument, the next
-    two are the term (endpoint) arguments. The single type witness is weakened to what each half consumes;
-    every obligation is `join ≥ component`, discharged by `cases m <;> cases n <;> rfl`. -/
+/-- `a = b ≃ a' = b'` at any output class `(m,n)`, from the type at the `eqVariance`-minimal class and the two
+    endpoints related. A relator keyed by `Eq`: first triple the type argument, next two the endpoint terms. -/
 @[trocq] def paramEq (m n : MapClass) (A A' : Type)
     (pa : Param (eqVariance (m, n)).1 (eqVariance (m, n)).2 A A')
     (a : A) (a' : A') (aRel : pa.R a a') (b : A) (b' : A') (bRel : pa.R b b') :

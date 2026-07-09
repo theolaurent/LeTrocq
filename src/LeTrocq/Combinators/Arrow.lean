@@ -1,13 +1,8 @@
 /-
-The ARROW construction: building `Param … (A→B) (A'→B')` from witnesses for the parts.
-
-  • `RArrow`              — the respectful relation (= Mathlib `Relator.LiftFun`).
-  • `mapArrowVariance`/`arrowVariance` — the GRADING table: output class → the minimal part classes to build it.
-  • `arrowCov`/`arrowContra` + `paramArrow` — the GRADED family: arrow at every output class incl. (4,4)
-    (the (4,4) coherence free by `Map4Has.subsingleton`), with parts at the `arrowVariance`-minimal classes.
-
-(The arrow stays over `Type u`; relating `Prop` *bodies* goes through `Forall`/the universe combinators,
-whose `Param` arguments are `Sort`-general.)
+The ARROW construction: `Param … (A→B) (A'→B')` from witnesses for the parts. `RArrow` is the respectful
+relation (= Mathlib `Relator.LiftFun`); `mapArrowVariance`/`arrowVariance` is the grading table (output class →
+minimal part classes); `paramArrow` builds the arrow at every output class incl. (4,4) (that coherence is free
+by `Map4Has.subsingleton`). Stays over `Type u`; `Prop` bodies go through `Forall`/the universe combinators.
 -/
 import LeTrocq.Core.Param
 universe u v
@@ -20,9 +15,9 @@ def RArrow {A B A' B' : Type u} (RA : A → A' → Type v) (RB : B → B' → Ty
     (A → B) → (A' → B') → Type (max u v) :=
   fun f f' => ∀ a a', RA a a' → RB (f a) (f' a')
 
-/- ===================== the arrow GRADING table (output class → minimal part classes) ===================== -/
+/- ===================== the arrow grading table (output class → minimal part classes) ===================== -/
 /-- per-map-class minimal (domain, codomain) classes for a non-dependent arrow (verbatim from Trocq's
-    `class.elpi`); the domain is `(cov, contra)`, likewise the codomain. -/
+    `class.elpi`). -/
 def mapArrowVariance : MapClass → (ParamClass × ParamClass)
   | map0  => ((map0,map0), (map0,map0))
   | map1  => ((map0,map1), (map1,map0))
@@ -31,19 +26,16 @@ def mapArrowVariance : MapClass → (ParamClass × ParamClass)
   | map3  => ((map0,map3), (map3,map0))
   | map4  => ((map0,map4), (map4,map0))
 
-/-- minimal (domain-class, codomain-class) needed to build the arrow at output class `c`: the cov requirement
-    joined with the negated contra one (the two transport directions combined). `Transfer.assemble` inverts a
-    demand through this to grade the parts; `paramArrow`'s type consumes it. -/
+/-- minimal (domain-class, codomain-class) to build the arrow at output class `c`: cov requirement joined with
+    negated contra. `Transfer.assemble` inverts a demand through this to grade the parts. -/
 def arrowVariance (c : ParamClass) : ParamClass × ParamClass :=
   let (am, bm) := mapArrowVariance c.1
   let (an, bn) := mapArrowVariance c.2
   (ParamClass.join am (ParamClass.negate an), ParamClass.join bm (ParamClass.negate bn))
 
 /- ===================== the graded arrow family (every output class, incl. (4,4)) ===================== -/
-/- The lifted arrow soundness/completeness obligations, each written ONCE and shared across the 2a/3/4 (resp.
-   2b/3/4) arms. cov and contra are mirrors — cov reconstructs the codomain via `pb.cov`, contra via
-   `pb.contra` — so they need separate helpers. The `mapInR` ones return `RArrow` data (a `def`); the
-   `rInMap` ones return a function equality (a `theorem`). -/
+/- Lifted arrow soundness/completeness obligations, each written once and shared across the 2a/3/4 (resp.
+   2b/3/4) arms. cov and contra are mirrors (cov via `pb.cov`, contra via `pb.contra`). -/
 def arrowCovMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (mapA : A' → A) (mapARInMap : ∀ a' a, RA a a' → mapA a' = a)
     (mapB : B → B') (mapBInR : ∀ b b', mapB b = b' → RB b b') :
@@ -83,9 +75,8 @@ theorem RArrow.allEq {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B →
     (hB : ∀ b b', Subsingleton (RB b b')) {f : A → B} {f' : A' → B'} (x y : RArrow RA RB f f') : x = y :=
   funext fun a => funext fun a' => funext fun _ => @Subsingleton.elim _ (hB (f a) (f' a')) _ _
 
-/-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov (one arm per class). At
-    `map4` the coherence `rInMapK` is FREE: class-4 parts have subsingleton relations
-    (`Map4Has.subsingleton`), so the arrow relation is a subsingleton and any two proofs are equal. -/
+/-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov. At `map4` the coherence is free:
+    class-4 parts have subsingleton relations, so the arrow relation is too. -/
 def arrowCov {A B A' B' : Type u} :
     (m : MapClass) →
     (pa : Param (mapArrowVariance m).1.1 (mapArrowVariance m).1.2 A A') →
@@ -127,9 +118,8 @@ def arrowContra {A B A' B' : Type u} :
                        rInMapK := fun _ _ _ =>
                          RArrow.allEq (fun b b' => pb.contra.subsingleton b' b) _ _ }
 
-/-- arrow at ANY output class `(m,n)`, incl. `(4,4)`, from parts at the `arrowVariance`-minimal classes.
-    The single joined-class part is weakened down to what each half (cov/contra) consumes; every
-    weakening obligation is `join ≥ component`, discharged by `cases m <;> cases n <;> rfl`. -/
+/-- arrow at any output class `(m,n)`, incl. `(4,4)`, from parts at the `arrowVariance`-minimal classes.
+    Each joined-class part is weakened to what its half consumes (`cases m <;> cases n <;> rfl`). -/
 def paramArrow {A B A' B' : Type u} (m n : MapClass)
     (pa : Param (arrowVariance (m, n)).1.1 (arrowVariance (m, n)).1.2 A A')
     (pb : Param (arrowVariance (m, n)).2.1 (arrowVariance (m, n)).2.2 B B') :
