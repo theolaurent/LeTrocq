@@ -57,4 +57,18 @@ example : ∀ z : Int, EvenI (Group.mul z z) := by
   trocq          -- ⊢ ∀ b : Bool, EvenB (Group.mul b b)
   decide
 
+/- ===================== the REVERSE direction (Bool ⤳ Int) =====================
+   The mirror needs three symmetrizations to all line up: the reverse `EvenR` relator (keyed under `EvenB`, via
+   `symRelator`), the reverse `RBI` carrier `Bool ≃ Int` (via `Param.sym`), and — the piece that was missing —
+   the reverse `intGroup ↔ boolGroup` correspondence. `intBoolGroupR` is a ZERO-triple `GroupR` instance, so
+   `symPrimitive` returns it unchanged (wrong orientation); `symStructure` reverses it FIELD-WISE. -/
+
+-- `relate boolGroup` now has the CORRECT reverse orientation: `GroupR Bool Int (flip parityR) boolGroup intGroup`.
+example : GroupR Bool Int (fun b z => parityR z b) boolGroup intGroup := relate boolGroup
+
+-- ... and the whole reverse `trocq` goes through: a `Bool`-side goal transfers to `Int`.
+example : ∀ b : Bool, EvenB (Group.mul b b) := by
+  trocq          -- ⊢ ∀ z : Int, EvenI (Group.mul z z)
+  intro z; show (z + z) % 2 = 0; omega
+
 end LeTrocq.Tests

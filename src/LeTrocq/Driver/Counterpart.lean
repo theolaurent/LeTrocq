@@ -191,6 +191,44 @@ def withSwappedTriples (what : String) (wit : Expr) (k : Array Expr → Array Ex
 def symPrimitive (wit : Expr) : MetaM Expr :=
   withSwappedTriples "term primitive" wit fun xs swapped => mkLambdaFVars swapped (mkAppN wit xs)
 
+/-- the REVERSE of a STRUCTURE-relation INSTANCE witness `wit : SR Θ p p'` — `SR` a structure whose fields
+    relate the projections of the two related structures `p`/`p'` (a `GroupR`-style correspondence). Rebuild
+    `SR.mk <Θ reversed> p' p <each field symmetrized>` at the reverse type `SR Θ' p' p`: the theme `Θ` is
+    type-triples `(T, T', RT)`, each reversed to `(T', T, flip RT)`, `p`/`p'` swapped, and each projection
+    `SR.fieldᵢ wit` (in abstraction-theorem triple form) reversed by `symPrimitive` (defeq to the reverse field
+    type). This is what a bespoke correspondence between two SPECIFIC instances (`intGroup ↔ boolGroup`) needs
+    to cross BACKWARD — `symPrimitive` on the whole zero-triple witness would return it unchanged (wrong
+    orientation). `none` unless `wit` is a CLOSED structure-relation instance whose theme is whole type-triples. -/
+def symStructure (wit : Expr) : MetaM (Option Expr) := do
+  forallTelescope (← inferType wit) fun bs concl => do
+    unless bs.isEmpty do return none                          -- only a closed instance (no leading binders)
+    let some srName := concl.getAppFn.constName? | return none
+    let env ← getEnv
+    unless isStructure env srName do return none
+    let srCtor := getStructureCtor env srName
+    let nP := srCtor.numParams
+    if nP < 2 || (nP - 2) % 3 != 0 then return none            -- need `p p'` + a whole number of type-triples
+    let args := concl.getAppArgs
+    unless args.size == nP do return none
+    let theme := args.extract 0 (nP - 2)
+    let p  := args[nP - 2]!
+    let p' := args[nP - 1]!
+    -- reverse the theme: each type-triple `(T, T', RT)` ↦ `(T', T, flip RT)`.
+    let mut revTheme : Array Expr := #[]
+    for i in [0 : (nP - 2) / 3] do
+      let (T, T', RT) := (theme[3*i]!, theme[3*i+1]!, theme[3*i+2]!)
+      let flipRT ← withLocalDeclD `x' T' fun x' => withLocalDeclD `x T fun x =>
+        mkLambdaFVars #[x', x] (mkApp2 RT x x')
+      revTheme := revTheme.push T' |>.push T |>.push flipRT
+    -- reverse each field via `symPrimitive` (the projection `SR.fieldᵢ wit` is in triple form). Use the raw
+    -- kernel projection `.proj` (index-based) rather than the projection function — `SR` may be a `class`,
+    -- whose field projections take the instance as `[instImplicit]`, which `mkAppM` would mis-slot.
+    let mut fields : Array Expr := #[]
+    for i in [0 : (getStructureFields env srName).size] do
+      fields := fields.push (← symPrimitive (.proj srName i wit))
+    let srMk := mkConst srCtor.name (srCtor.levelParams.map mkLevelParam)
+    return some (mkAppN srMk (revTheme ++ #[p', p] ++ fields))
+
 /-- the translation context assembled from the `@[trocq]` extension, in BOTH directions: every BASE gives a
     type relation forward (`Param.R`) and backward (`Param.R ∘ Param.sym`); every TERM primitive gives its
     `c ↦ c'` map + relatedness forward, and the swapped `c' ↦ c` map + `symPrimitive` relatedness backward.
@@ -232,8 +270,14 @@ def buildCtx : MetaM Ctx := do
         | some hB =>
             if hB != hA then
               let srcTyHead ← resultTypeHead srcTerm
+              -- backward relatedness: a STRUCTURE-relation instance (`intGroup ↔ boolGroup`) reverses FIELD-WISE
+              -- via `symStructure`; a plain primitive by `symPrimitive` (a zero-triple structure instance would
+              -- otherwise come back unchanged, wrong-oriented).
+              let bwdRel ← match ← symStructure wit with
+                | some s => pure s
+                | none   => symPrimitive wit
               terms := terms.insert hB ((NameMap.find? terms hB |>.getD (mkNameMap _)).insert srcTyHead
-                (srcTerm, ← symPrimitive wit))
+                (srcTerm, bwdRel))
               termPref := termPref.insert hB srcTyHead
         | none => pure ()
     | .typeFormer hA hB _relName =>

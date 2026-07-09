@@ -148,10 +148,20 @@ def parseEntry (w : Name) : MetaM RegKind := do
       -- not graded: only a CLOSED base (a fixed-class equivalence of two constant types) is allowed. Every
       -- parameterized relator MUST be graded now — the fixed-class relator pipeline is gone.
       if bs.isEmpty && A.isConst && B.isConst then
+        -- FORBID a DIAGONAL base `A ≃ A` (same atomic type both sides): the driver transfers a type to itself
+        -- automatically (the whole-diagonal `paramRefl`), so it is redundant. Same rule as the term diagonal.
+        if A.constName! == B.constName! then
+          throwError "trocq: refusing diagonal base {w} : {A} ≃ {A} — a type transfers to itself \
+            automatically, so a diagonal registration is redundant"
         return .base A.constName! B.constName! A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
       -- a CLOSED GROUND equivalence: `A`/`B` are closed (no free/meta vars) but at least one is APPLIED
       -- (e.g. `List Unit ≃ Nat`). Both must have a constant head, used only to index the whole-type match.
       if bs.isEmpty && !A.hasFVar && !A.hasMVar && !B.hasFVar && !B.hasMVar then
+        -- FORBID a DIAGONAL ground base `T ≃ T` (closed type ↦ itself, `isDefEq`) — redundant with the
+        -- automatic diagonal, exactly like the atomic base and the closed term above.
+        if ← withNewMCtxDepth (isDefEq A B) then
+          throwError "trocq: refusing diagonal ground base {w} : {A} ≃ {B} — a closed type transfers to \
+            itself automatically, so a diagonal registration is redundant"
         let some hA := A.getAppFn.constName? | throwError "trocq: ground base {w} A-side has no head constant"
         let some hB := B.getAppFn.constName? | throwError "trocq: ground base {w} B-side has no head constant"
         return .ground hA hB A B w (← exprToMapClass args[0]!, ← exprToMapClass args[1]!)
@@ -440,8 +450,9 @@ def symRelator (wit : Expr) : MetaM Expr := do
     mkLambdaFVars lamBinders (← mkAppM ``Param.sym #[mkAppN wit appArgs])
 
 /-- constant registry from every `@[trocq]` RELATOR. FORWARD: keyed by the A-side head, as written. REVERSE:
-    a HETEROGENEOUS relator (`P ≠ P'`) ALSO registers under its B-side head `P'`, rebuilt on the fly by
-    `symRelator` (so a goal headed by `P'` transfers back), UNLESS a forward relator already claims that head.
+    a HETEROGENEOUS relator (`P ≠ P'`) ALSO registers under its B-side head `P'`, its reverse witness built
+    HERE (at registry-build, like every other symmetrization) by `symRelator` (so a goal headed by `P'`
+    transfers back), UNLESS a forward relator already claims that head.
     A homogeneous relator (`F ↦ F`, `And ↦ And`) needs no reverse — the one head serves both directions.
     Includes the prelude `Quot` relator (`LeTrocq.Lib.paramQuot`) — not a built-in. Every relator is GRADED:
     its witness opens with `(m n : MapClass)` and the driver specializes it to the demand before applying. -/
