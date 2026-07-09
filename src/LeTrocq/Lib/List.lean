@@ -54,9 +54,8 @@ def mapListVariance : MapClass → ParamClass
   | map4  => (map4,  map0)
 
 /-- minimal element class to build `List` at output class `c`: the cov requirement joined with the negated
-    contra one. Identity (`List` is covariant), but computed through the same combinator as `arrowVariance`. -/
-def listVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapListVariance c.1) (ParamClass.negate (mapListVariance c.2))
+    contra one. Identity (`List` is covariant), but computed through the shared `ParamClass.variance`. -/
+def listVariance (c : ParamClass) : ParamClass := ParamClass.variance mapListVariance c
 
 /-- the lifted soundness proof: `ListR` from `List.map f`, written ONCE for the `map2a`/`map3`/`map4` arms.
     (`noncomputable def`, not `theorem`: `ListR` is `Type`-valued data built via `List.rec`.) -/

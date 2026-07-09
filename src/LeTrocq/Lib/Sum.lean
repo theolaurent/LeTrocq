@@ -39,8 +39,7 @@ def mapSumVariance : MapClass → ParamClass
   | map4  => (map4,  map0)
 
 /-- minimal per-summand class to build `Sum` at output class `c` (identity — both summands covariant). -/
-def sumVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapSumVariance c.1) (ParamClass.negate (mapSumVariance c.2))
+def sumVariance (c : ParamClass) : ParamClass := ParamClass.variance mapSumVariance c
 
 /-- lifted soundness/completeness for `SumR` over both summands, shared across the `sumCov`/`sumContra`
     arms (contra swaps each summand's map direction). No recursion, so computable. -/

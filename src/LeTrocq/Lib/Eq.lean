@@ -39,8 +39,7 @@ def mapEqVariance : MapClass → ParamClass
 
 /-- minimal underlying-type class to build `Eq` at output class `c`: the cov requirement joined with the
     negated contra one. Tops out at `(2b,2b)`; a one-directional demand (e.g. `(0,1)`) needs only `(0,2b)`. -/
-def eqVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapEqVariance c.1) (ParamClass.negate (mapEqVariance c.2))
+def eqVariance (c : ParamClass) : ParamClass := ParamClass.variance mapEqVariance c
 
 /-- the covariant half from the underlying type at `mapEqVariance m`: empty below class 1, the forward
     transport `eqFwd` at class ≥ 1 (every higher `Prop` field is free via `propMapHas`). The carried relation

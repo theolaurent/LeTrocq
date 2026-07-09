@@ -20,6 +20,12 @@ import Lean
 open Lean Lean.Meta
 namespace LeTrocq
 
+/-- `isDefEq a b`, but `false` (never an error) if it throws — a speculative match must tolerate a raw input
+    expr the structural path handles syntactically (e.g. `mkConst ``List` with no levels). Shared by both
+    translation halves (`Counterpart.term`'s whole-match rules and `Transfer`'s diagonal short-circuits). -/
+def diagEq? (a b : Expr) : MetaM Bool := do
+  try isDefEq a b catch _ => return false
+
 /-- install a registered witness in a NESTED map `srcHead ↦ tgtHead ↦ α` (so several registrations for one
     source no longer clobber), recording the PREFERRED (last-registered) target head in a single `pref` map
     (the synth default when no target is demanded). BOTH directions: forward `[hA][hB] := fwd` and

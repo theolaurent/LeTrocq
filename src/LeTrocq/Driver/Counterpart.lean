@@ -95,9 +95,9 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
     if let some cands := NameMap.find? ctx.ground h then
       let mut hit : Option Expr := none
       for (srcTy, tgtTy) in cands do
-        if ← (try isDefEq e srcTy catch _ => pure false) then
+        if ← diagEq? e srcTy then
           let ok ← match tgt? with
-            | some t => (try isDefEq t tgtTy catch _ => pure false)
+            | some t => diagEq? t tgtTy
             | none   => pure true
           if ok then hit := some tgtTy
       if let some tgtTy := hit then return tgtTy
@@ -107,7 +107,7 @@ partial def term (ctx : Ctx) (env : TEnv) (e : Expr) (tgt? : Option Expr) :
   if let some h := e.getAppFn.constName? then
     if let some cands := NameMap.find? ctx.groundTerms h then
       for (patSrc, tgtTerm, _wit) in cands do
-        if e.getAppNumArgs == patSrc.getAppNumArgs && (← (try isDefEq e patSrc catch _ => pure false)) then
+        if e.getAppNumArgs == patSrc.getAppNumArgs && (← diagEq? e patSrc) then
           return tgtTerm
   if let some n := natNumeral? e then
     if (← whnf (← inferType e)).isConstOf ``Nat then return ← term ctx env (natExpr n) tgt?

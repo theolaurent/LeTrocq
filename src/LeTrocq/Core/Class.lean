@@ -65,6 +65,12 @@ def le (a b : ParamClass) : Bool := MapClass.le a.1 b.1 && MapClass.le a.2 b.2
 def join (a b : ParamClass) : ParamClass := (MapClass.join a.1 b.1, MapClass.join a.2 b.2)
 /-- swap the two transport directions (relation symmetry). -/
 def negate (a : ParamClass) : ParamClass := (a.2, a.1)
+/-- invert an output demand `c` through a per-direction primitive table `f` (output class ↦ minimal part
+    class) to the minimal part class: the cov requirement joined with the negated contra one. The shared spine
+    of every former's `…Variance` (`listVariance`/`eqVariance`/…); the pair-valued formers (`arrow`/`forall`/
+    `sigma`) apply it componentwise inline. -/
+def variance (f : MapClass → ParamClass) (c : ParamClass) : ParamClass :=
+  join (f c.1) (negate (f c.2))
 def bot : ParamClass := (map0, map0)
 def top : ParamClass := (map4, map4)
 /-- needs an axiom (univalence on a sort / funext on Π) iff some component is ≥ 2b. -/

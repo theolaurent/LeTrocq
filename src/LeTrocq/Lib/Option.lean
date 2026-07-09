@@ -35,8 +35,7 @@ def mapOptionVariance : MapClass → ParamClass
   | map4  => (map4,  map0)
 
 /-- minimal element class to build `Option` at output class `c` (identity — covariant). -/
-def optionVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapOptionVariance c.1) (ParamClass.negate (mapOptionVariance c.2))
+def optionVariance (c : ParamClass) : ParamClass := ParamClass.variance mapOptionVariance c
 
 /-- lifted soundness/completeness for `OptionR`, shared across the `optionCov` arms (cov + its `contra`
     mirror, which swaps the map direction). Non-recursive, so these stay computable. -/

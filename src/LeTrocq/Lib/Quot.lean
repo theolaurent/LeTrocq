@@ -51,8 +51,7 @@ def mapQuotVariance : MapClass → ParamClass
   | map4  => (map3,  map0)
 
 /-- minimal domain class to build `Quot` at output class `c` (cov joined with negated contra). -/
-def quotVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapQuotVariance c.1) (ParamClass.negate (mapQuotVariance c.2))
+def quotVariance (c : ParamClass) : ParamClass := ParamClass.variance mapQuotVariance c
 
 /- The shared cov obligations, written ONCE via the raw `pa.cov` fields + the (ungraded) `rR`. `QuotRel` is
    a `Prop`-truncated subsingleton, so `mapInR` returns `PLift.up …` (a `def`) and coherence is `rfl`. -/

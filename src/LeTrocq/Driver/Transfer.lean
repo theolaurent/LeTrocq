@@ -98,11 +98,6 @@ def containsSortBinder (e : Expr) : Bool :=
     | .lam _ d _ _     => d.isSort
     | _ => false).isSome
 
-/-- `isDefEq a b`, but `false` (never an error) if it throws — the diagonality check is speculative and must
-    tolerate a raw input expr the structural path handles syntactically (e.g. `mkConst ``List` with no levels). -/
-def diagEq? (a b : Expr) : MetaM Bool := do
-  try isDefEq a b catch _ => return false
-
 /-- GROUND leaf: a registered closed-type equivalence (`List Unit ≃ Nat`), matched WHOLE. Scan the ground
     entries filed under `A`'s head, keeping the LAST whose source type is `isDefEq A` and whose target is
     `isDefEq B`, then weaken its witness to the demand. `none` when no ground base is registered under the head

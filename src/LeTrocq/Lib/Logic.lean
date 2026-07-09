@@ -24,8 +24,7 @@ def mapPropVariance : MapClass → ParamClass
   | map0 => (map0, map0)
   | _    => (map1, map0)
 
-def propVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapPropVariance c.1) (ParamClass.negate (mapPropVariance c.2))
+def propVariance (c : ParamClass) : ParamClass := ParamClass.variance mapPropVariance c
 
 /-- `Not` is contravariant: it needs the part in the mirror direction. -/
 def notVariance (c : ParamClass) : ParamClass := propVariance (c.2, c.1)
@@ -36,8 +35,7 @@ def mapIffVariance : MapClass → ParamClass
   | map0 => (map0, map0)
   | _    => (map1, map1)
 
-def iffVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapIffVariance c.1) (ParamClass.negate (mapIffVariance c.2))
+def iffVariance (c : ParamClass) : ParamClass := ParamClass.variance mapIffVariance c
 
 /- ===================== And ===================== -/
 def andCov {P P' Q Q' : Prop} :

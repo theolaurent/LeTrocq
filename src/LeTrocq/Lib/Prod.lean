@@ -40,8 +40,7 @@ def mapProdVariance : MapClass → ParamClass
   | map4  => (map4,  map0)
 
 /-- minimal per-parameter class to build `Prod` at output class `c` (identity — both parameters covariant). -/
-def prodVariance (c : ParamClass) : ParamClass :=
-  ParamClass.join (mapProdVariance c.1) (ParamClass.negate (mapProdVariance c.2))
+def prodVariance (c : ParamClass) : ParamClass := ParamClass.variance mapProdVariance c
 
 /-- lifted soundness/completeness for `ProdR` over both components, shared across the `prodCov`/`prodContra`
     arms (the contra arms swap each component's map direction). No recursion, so computable. -/
