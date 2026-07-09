@@ -324,7 +324,7 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
   -- triple. Before the diagonal so a ground term never collapses to `PLift.up rfl`.
   if let some h := e.getAppFn.constName? then
     if let some cands := NameMap.find? reg.ctx.groundTerms h then
-      for (patSrc, _tgt, _d, wit) in cands do
+      for (patSrc, _tgt, wit) in cands do
         if e.getAppNumArgs == patSrc.getAppNumArgs && (← diagEq? e patSrc) then
           return wit
   -- WHOLE-DIAGONAL short-circuit: a term that transfers to ITSELF has relatedness `PLift.up rfl` (`[e] : 〚T〛 e e`
@@ -355,7 +355,7 @@ partial def assembleTerm (reg : Reg) (senv : SEnv) (e : Expr) (tgt? : Option Exp
       let key? := (← whnf (tgt?.getD e)).getAppFn.constName?
       match reg.ctx.terms.find? c with
       | some tgtMap =>
-          let some h := (match tgt? with | some _ => key? | none => reg.ctx.termPref.get .fwd c)
+          let some h := (match tgt? with | some _ => key? | none => reg.ctx.termPref.find? c)
             | throwError "assemble: term {c} has no target"
           let some (_, wit) := tgtMap.find? h
             | throwError "assemble: no relatedness for term {c} at target {h}"

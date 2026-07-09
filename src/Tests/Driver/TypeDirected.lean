@@ -51,11 +51,11 @@ example : ∀ u : Unary, Pos u := by
   trocq to (∀ n : Nat, Pos' n)
   exact fun n => Nat.zero_le n
 
-/- ===================== (6) `transfer to B` — reverse (source synthesized via `.bwd`) =====================
-   `transfer to B` names the TARGET (right side) and synthesizes the SOURCE by the BACKWARD counterpart
-   translation, which prefers backward-registered bases. `Unary`/`Wrap` are each the B-side of exactly one
-   base, so their source is unambiguously `Nat` — even though `Nat` (forward) has TWO targets. This is the
-   direction-prioritized leaf selection: `.bwd` picks the source, not the (forward) preferred target. -/
+/- ===================== (6) `transfer to B` — source synthesized from the named target =====================
+   `transfer to B` names the TARGET (right side) and synthesizes the SOURCE by the counterpart translation
+   (the last-registered counterpart per head). `Unary`/`Wrap` are each the B-side of exactly one base, so
+   their preferred counterpart is unambiguously `Nat` — the source is `Nat` on the left, the named target on
+   the right. -/
 example : (transfer to (Unary → Unary)).cov.map (· + 1) Unary.z = Unary.s Unary.z := rfl
 example : (transfer to (Wrap → Wrap)).cov.map  (· + 1) (Wrap.mk 0) = Wrap.mk 1 := rfl
 -- the synthesized source is `Nat` on the left, the named target on the right:

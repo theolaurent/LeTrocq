@@ -28,7 +28,7 @@ open MapClass LeTrocq.Counterpart
     with several registered equivalences). -/
 syntax (name := transferFromStx) "transfer " "from " term (" to " term)? : term
 /-- `transfer to B` ⤳ the mirror witness `Param (4,4) ⟨B⟩ B` (`B` the TARGET; the SOURCE is synthesized by
-    the BACKWARD counterpart translation, which prefers backward-registered bases). -/
+    the counterpart translation, using the last-registered counterpart per head). -/
 syntax (name := transferToStx) "transfer " "to " term : term
 
 elab_rules : term
@@ -48,9 +48,9 @@ elab_rules : term
       let tgtE ← elabType tgt
       synthesizeSyntheticMVarsNoPostponing
       let tgtE ← instantiateMVars tgtE
-      -- synthesize the SOURCE = the BACKWARD counterpart `⟨B⟩` (prefers backward-registered bases), then
-      -- transfer forward in CHECK mode (target `B` guides selection; the witness's right side is `B`).
-      let src ← Counterpart.term (← buildCtx) [] tgtE none .bwd
+      -- synthesize the SOURCE `⟨B⟩` (the last-registered counterpart per head), then transfer forward in
+      -- CHECK mode (target `B` guides base selection; the witness's right side is `B`).
+      let src ← Counterpart.term (← buildCtx) [] tgtE none
       let wit ← Driver.Transfer.transferType (← instantiateMVars src) (map4, map4) (some tgtE)
       return (← instantiateMVars wit)
 

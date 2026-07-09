@@ -21,25 +21,24 @@ open Lean Lean.Meta
 namespace LeTrocq
 
 /-- install a registered witness in a NESTED map `srcHead ↦ tgtHead ↦ α` (so several registrations for one
-    source no longer clobber), recording the PREFERRED (last-registered) target head in TWO direction-split
-    maps `prefF`/`prefB` (the synth default when no target is demanded). BOTH directions: forward `[hA][hB] :=
-    fwd` and `prefF[hA] := hB` always; the backward `[hB][hA] := bwd`, `prefB[hB] := hA` only when `hB` is
-    present and DISTINCT from `hA` (a homogeneous head like `List.cons ↦ List.cons` needs no backward entry —
-    its forward witness already serves both directions). The backward value is a thunk, run only when
-    inserted. Splitting the pref by direction lets `Counterpart.term` prioritize the requested `Direction`
-    (fwd = target, bwd = source); `buildAtomPairs` merges the two (its `assemble` reads are direction-agnostic),
-    `buildCtx` keeps them split as a `DirPref`. -/
-def insertBidirPair {α} (m : NameMap (NameMap α)) (prefF prefB : NameMap Name)
+    source no longer clobber), recording the PREFERRED (last-registered) target head in a single `pref` map
+    (the synth default when no target is demanded). BOTH directions: forward `[hA][hB] := fwd` and
+    `pref[hA] := hB` always; the backward `[hB][hA] := bwd`, `pref[hB] := hA` only when `hB` is present and
+    DISTINCT from `hA` (a homogeneous head like `List.cons ↦ List.cons` needs no backward entry — its forward
+    witness already serves both directions). The backward value is a thunk, run only when inserted. A single
+    merged `pref` (last registration wins) serves both `assemble`'s atom selection and `⟨·⟩`'s counterpart
+    default. -/
+def insertBidirPair {α} (m : NameMap (NameMap α)) (pref : NameMap Name)
     (hA : Name) (hB? : Option Name) (fwd : α) (bwd : MetaM α) :
-    MetaM (NameMap (NameMap α) × NameMap Name × NameMap Name) := do
+    MetaM (NameMap (NameMap α) × NameMap Name) := do
   let hB := hB?.getD hA
   let innerA : NameMap α := (m.find? hA).getD (mkNameMap _)
   let m : NameMap (NameMap α) := m.insert hA (innerA.insert hB fwd)
-  let prefF : NameMap Name := prefF.insert hA hB
-  if hB == hA then return (m, prefF, prefB)
+  let pref : NameMap Name := pref.insert hA hB
+  if hB == hA then return (m, pref)
   let innerB : NameMap α := (m.find? hB).getD (mkNameMap _)
   let m : NameMap (NameMap α) := m.insert hB (innerB.insert hA (← bwd))
-  return (m, prefF, prefB.insert hB hA)
+  return (m, pref.insert hB hA)
 
 /-- the abstraction-theorem TRIPLE convention: a registered witness's binders come in groups of three,
     `(a, a', aRel)` — the A-value, the B-value, and their relatedness. Check `xs.size` is a multiple of 3
@@ -403,18 +402,13 @@ def relatorArgKinds (wit : Expr) : MetaM (Array ArgKind) := do
     diagonal base `A ≃ A` lands at `[A][A]`; its `sym` is skipped as a homogeneous head. -/
 def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × NameMap Name) := do
   let mut m : NameMap (NameMap (Expr × Expr × ParamClass)) := mkNameMap _
-  let mut prefF : NameMap Name := mkNameMap _
-  let mut prefB : NameMap Name := mkNameMap _
+  let mut pref : NameMap Name := mkNameMap _
   for e in trocqEntries (← getEnv) do
     if let .base hA hB tyA tyB witName cls := e then
       let wit ← mkConstWithFreshMVarLevels witName
-      let r ← insertBidirPair m prefF prefB hA (some hB) (tyB, wit, cls)
+      let r ← insertBidirPair m pref hA (some hB) (tyB, wit, cls)
         (return (tyA, ← mkAppM ``Param.sym #[wit], (cls.2, cls.1)))
-      m := r.1; prefF := r.2.1; prefB := r.2.2
-  -- `assemble`'s atom selection is direction-agnostic (a native-side `trocq` goal resolves in synth via the
-  -- backward entry), so MERGE both prefs — backward overrides on a clash, matching the old single merged pref.
-  let mut pref := prefF
-  for (k, v) in prefB.toList do pref := pref.insert k v
+      m := r.1; pref := r.2
   return (m, pref)
 
 /-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
