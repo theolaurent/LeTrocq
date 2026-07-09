@@ -59,6 +59,17 @@ example : ∀ u v : Unary, Pos2 u v := by
   trocq                       -- ⊢ ∀ m n : Nat, Pos2' m n   (two binders + a 2-argument `app` node)
   intro m n; exact Nat.zero_le _
 
+/- REVERSE of a HETEROGENEOUS relator: a goal headed by the relator's B-SIDE head (`Pos'`/`Pos2'`, the `Nat`
+   side) now transfers back — `buildConsts` registers the reverse of `PosR`/`Pos2R` under that head (rebuilt by
+   `symRelator` as `fun m n <swap> => Param.sym (w n m …)`). Before, this was `constant Pos' not registered`. -/
+example : ∀ n : Nat, Pos' n := by
+  trocq                       -- ⊢ ∀ u : Unary, Pos u   (reverse `PosR`, keyed under `Pos'`)
+  exact fun u => Nat.zero_le u.toNat
+
+example : ∀ m n : Nat, Pos2' m n := by
+  trocq                       -- ⊢ ∀ u v : Unary, Pos2 u v   (reverse `Pos2R`, keyed under `Pos2'`)
+  intro u v; exact Nat.zero_le _
+
 /- NESTED arguments: a relator argument is no longer restricted to a bound variable — it can be an
    ARBITRARY term over the base. `Pos (Unary.s u)` transfers: the driver rebuilds the argument `Unary.s u`
    natively as `Nat.succ n` (with relatedness) via the term translation, then applies the relator. -/

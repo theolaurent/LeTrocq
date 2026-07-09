@@ -160,6 +160,14 @@ def parseEntry (w : Name) : MetaM RegKind := do
       if args.size ≥ 2 then
         let aSide := args[args.size - 2]!
         let bSide := args[args.size - 1]!
+        -- FORBID a DIAGONAL term primitive: the two related sides are the SAME (`isDefEq`, closed term ↦
+        -- itself, e.g. `Nat.zero ↦ Nat.zero`). Such a term transfers to itself automatically (the whole-
+        -- diagonal short-circuit `[e] := PLift.up rfl`), so a diagonal registration is redundant and would only
+        -- shadow it. A PARAMETRIC homogeneous head is NOT diagonal — `List.cons ↦ List.cons` relates `a :: l`
+        -- to `a' :: l'`, whose distinct binder fvars are not `isDefEq`, so it passes.
+        if ← withNewMCtxDepth (isDefEq aSide bSide) then
+          throwError "trocq: refusing diagonal term primitive {w} — it relates {aSide} to itself; a closed \
+            term transfers to itself automatically, so a diagonal registration is redundant"
         let some hA := aSide.getAppFn.constName?
           | throwError "trocq: term primitive {w} has no A-side head constant"
         -- a GROUND TERM (partial-application pattern, e.g. `@List.cons Unit () ↦ Nat.succ`) vs a plain head
@@ -411,14 +419,40 @@ def buildAtomPairs : MetaM (NameMap (NameMap (Expr × Expr × ParamClass)) × Na
       m := r.1; pref := r.2
   return (m, pref)
 
-/-- constant registry from every `@[trocq]` RELATOR (keyed by the applied head, as written). Includes the
-    prelude `Quot` relator (`LeTrocq.Lib.paramQuot`), which registers like any other — not a built-in.
-    Every relator is GRADED: its witness opens with `(m n : MapClass)` and the driver specializes it to the
-    demand before reading argument classes / applying (the result is already at the demand, no weakening). -/
+/-- the REVERSE of a graded relator `w : ∀ (m n) …triples…, Param m n (P …) (P' …)`, keyed by its B-side head
+    `P'`: `fun m n <each triple's value-pair swapped> => Param.sym (w n m <triples>)`. Swaps the leading
+    `(m n)` (so `Param.sym` lands back at `Param m n`, now `(P' …) (P …)`) and each `(a, a')` value pair; the
+    relatedness slot `aRel` stays put — for a carrier/TERM arg `aRel : RA a a'` is defeq to the reverse's
+    `RA.sym a' a`, so the same proof serves, only the positions move (the relator analogue of `symPrimitive`).
+    This is valid for HETEROGENEOUS predicate relators, whose args are all term/carrier args; a `Param`-valued
+    TYPE arg would need its relatedness `Param.sym`'d and its class negated — no such relator exists (every
+    parameterized former is homogeneous `F ↦ F`, needing no reverse). -/
+def symRelator (wit : Expr) : MetaM Expr := do
+  forallTelescope (← inferType wit) fun bs _ => do
+    unless bs.size ≥ 2 do throwError "trocq: relator {wit} lacks the leading `(m n)` binders"
+    let m := bs[0]!; let n := bs[1]!
+    let triples ← chunkTriples "relator" wit (bs.extract 2 bs.size)
+    let mut lamBinders : Array Expr := #[m, n]              -- reverse relator's binders: m, n, then (a', a, aRel)
+    let mut appArgs    : Array Expr := #[n, m]              -- call `w` with (n, m) then (a, a', aRel)
+    for (a, a', aRel) in triples do
+      lamBinders := lamBinders.push a' |>.push a |>.push aRel
+      appArgs    := appArgs.push a |>.push a' |>.push aRel
+    mkLambdaFVars lamBinders (← mkAppM ``Param.sym #[mkAppN wit appArgs])
+
+/-- constant registry from every `@[trocq]` RELATOR. FORWARD: keyed by the A-side head, as written. REVERSE:
+    a HETEROGENEOUS relator (`P ≠ P'`) ALSO registers under its B-side head `P'`, rebuilt on the fly by
+    `symRelator` (so a goal headed by `P'` transfers back), UNLESS a forward relator already claims that head.
+    A homogeneous relator (`F ↦ F`, `And ↦ And`) needs no reverse — the one head serves both directions.
+    Includes the prelude `Quot` relator (`LeTrocq.Lib.paramQuot`) — not a built-in. Every relator is GRADED:
+    its witness opens with `(m n : MapClass)` and the driver specializes it to the demand before applying. -/
 def buildConsts : MetaM (NameMap Expr) := do
   let mut m := mkNameMap _
   for e in trocqEntries (← getEnv) do
     if let .relator hA _hB witName := e then m := m.insert hA (← mkConstWithFreshMVarLevels witName)
+  for e in trocqEntries (← getEnv) do
+    if let .relator hA (some hB) witName := e then
+      if hB != hA && !m.contains hB then
+        m := m.insert hB (← symRelator (← mkConstWithFreshMVarLevels witName))
   return m
 
 /-- ground-base registry from every `@[trocq]` GROUND equivalence, BOTH directions (the base and its

@@ -230,4 +230,11 @@ example : True := by
 /-- info: 'LeTrocq.Tests.wtreeNatLow' depends on axioms: [Quot.sound] -/
 #guard_msgs in #print axioms LeTrocq.Tests.wtreeNatLow
 
+/- a DIAGONAL term primitive (`Nat.zero ↦ Nat.zero`) is REJECTED at the `@[trocq]` tag site: a closed term
+   transfers to itself automatically (the whole-diagonal short-circuit), so a diagonal registration is
+   redundant. `parseEntry` catches it via `isDefEq` on the two related sides. -/
+def diagRel : (fun (_ : Nat) (_ : Nat) => PLift True) Nat.zero Nat.zero := PLift.up trivial
+/-- error: trocq: refusing diagonal term primitive LeTrocq.Tests.diagWit — it relates Nat.zero to itself; a closed term transfers to itself automatically, so a diagonal registration is redundant -/
+#guard_msgs in @[trocq] def diagWit := diagRel
+
 end LeTrocq.Tests
