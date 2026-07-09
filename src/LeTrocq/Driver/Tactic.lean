@@ -6,8 +6,8 @@ The USER SURFACE: the four elaborators/tactics, on top of the driver (`Transfer`
     (Unary→Unary)`). `transfer to B` is the mirror: `Param (4,4) ⟨B⟩ B` (`B` the TARGET, source synthesized).
     An optional `... to B` on the `from` form demands a specific target.
 
-  • `trocq`  transfers the current goal `G` to its counterpart `G'` (seeded at the comap class (0,1))
-    and refines `G` by the backward transport `G' → G`, leaving you to prove `G'`.
+  • `trocq`  treats the goal `G` as the TARGET and its counterpart `G'` as the SOURCE: it assembles
+    `Param (1,0) G' G` and refines `⊢ G` by the covariant map `G' → G`, leaving you to prove `G'`.
 
   • `translate t`  ⤳ the `B`-side counterpart `t'`; `relate t` ⤳ its relatedness `tR : 〚T〛 t t'`.
 
@@ -36,45 +36,44 @@ elab_rules : term
       let tE ← elabType t
       -- force pending elaboration (e.g. a type-family argument's body) so the pass sees a fully-formed type.
       synthesizeSyntheticMVarsNoPostponing
-      let target? ← match tgt? with
-        | none => pure none
+      let A ← instantiateMVars tE
+      -- the TARGET `B`: named via `to B`, else the synthesized counterpart `⟨A⟩`.
+      let B ← match tgt? with
         | some g => do
             let t' ← elabType g
             synthesizeSyntheticMVarsNoPostponing
-            pure (some (← instantiateMVars t'))
-      let wit ← Driver.Transfer.transferType (← instantiateMVars tE) (map4, map4) target?
+            instantiateMVars t'
+        | none => Driver.Transfer.counterpart A
+      let wit ← Driver.Transfer.transferType A B (map4, map4)
       return (← instantiateMVars wit)
   | `(transfer to $tgt) => do
       let tgtE ← elabType tgt
       synthesizeSyntheticMVarsNoPostponing
-      let tgtE ← instantiateMVars tgtE
-      -- synthesize the SOURCE `⟨B⟩` (the last-registered counterpart per head), then transfer forward in
-      -- CHECK mode (target `B` guides base selection; the witness's right side is `B`).
-      let src ← Counterpart.term (← buildCtx) [] tgtE none
-      let wit ← Driver.Transfer.transferType (← instantiateMVars src) (map4, map4) (some tgtE)
+      let B ← instantiateMVars tgtE
+      -- name the TARGET `B`; synthesize the SOURCE `A = ⟨B⟩`, then assemble the two-ended `Param (4,4) A B`.
+      let A ← Driver.Transfer.counterpart B
+      let wit ← Driver.Transfer.transferType A B (map4, map4)
       return (← instantiateMVars wit)
 
-/-- `trocq` transfers the goal across the registered base and leaves you the (easier) counterpart. An
-    optional `to G'` demands a specific target goal `G'` (type-directed base selection); the produced
-    counterpart must then match `G'` (checked by `isDefEq`). -/
+/-- `trocq` transfers the goal (the TARGET) across the registered base and leaves you the (easier) counterpart
+    SOURCE. An optional `to G'` names that source goal `G'` explicitly (else it is synthesized as `⟨G⟩`); the
+    two-ended assembly of `Param G' G` then fails if `G'` is not a valid counterpart of the goal. -/
 syntax (name := trocqStx) "trocq" (" to " term)? : tactic
 
 elab_rules : tactic
   | `(tactic| trocq $[to $tgt?]?) => do
       let g ← getMainGoal
       let goalTy ← g.getType
-      let target? ← match tgt? with
-        | none => pure none
-        | some tgt => pure (some (← Lean.Elab.Tactic.elabTerm tgt none))
-      let wit ← Driver.Transfer.transferType goalTy (map0, map1) target?
-      let goalTy' := (← instantiateMVars (← inferType wit)).getAppArgs[3]!
-      if let some tgtTy := target? then
-        unless ← isDefEq goalTy' (← instantiateMVars tgtTy) do
-          throwError "trocq: produced counterpart {goalTy'} does not match requested target {tgtTy}"
-      -- backward transport `G' → G` = the contra map at class (0,1) (`MapHas map1` is `Map1Has`).
-      let backMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.contra #[wit]]
+      -- the goal `G` is the TARGET; the SOURCE is the (easier) counterpart `G'` — named via `to G'`, else `⟨G⟩`.
+      let goalTy' ← match tgt? with
+        | some tgt => instantiateMVars (← Lean.Elab.Tactic.elabTerm tgt none)
+        | none => Driver.Transfer.counterpart goalTy
+      -- assemble `Param (1,0) G' G` (source `G'`, target `G`); its COVARIANT map `G' → G` refines the goal
+      -- `⊢ G` to the (easier) `⊢ G'`.
+      let wit ← Driver.Transfer.transferType goalTy' goalTy (map1, map0)
+      let fwdMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.cov #[wit]]
       let newGoal ← mkFreshExprMVar goalTy'
-      g.assign (.app backMap newGoal)
+      g.assign (.app fwdMap newGoal)
       replaceMainGoal [newGoal.mvarId!]
 
 /-- `translate t` ⤳ the `B`-side counterpart `⟨t⟩` (rebuilt over `B` leaf-by-leaf, not iso-conjugation). -/
