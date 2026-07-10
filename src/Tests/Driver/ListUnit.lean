@@ -21,6 +21,15 @@ example : RLUN (List.cons () (@List.nil Unit)) 1 := relate (List.cons () (@List.
 example : (translate ([(), ()] : List Unit)) = 2 := rfl
 example : RLUN [(), (), ()] 3 := relate ([(), (), ()] : List Unit)
 
+/- ===================== BACKWARD ground terms: `Nat ⤳ List Unit` =====================
+   The reverse of `@List.cons Unit () ↦ Nat.succ` / `@List.nil Unit ↦ Nat.zero`. A ground term has a fixed
+   prefix (here the type arg `Unit` + value `()`), just like a typeclass operation `@HAdd.hAdd _ _ _ inst`,
+   so it can only be filed as a ground term — and its reverse is what a `trocq` goal over the B-side type
+   needs. `translate` exercises the reverse counterpart; `relate` exercises the `symPrimitive`d witness. -/
+example : (translate (Nat.succ (Nat.succ Nat.zero)) : List Unit) = [(), ()] := rfl
+example : (translate (Nat.zero : Nat)) = ([] : List Unit) := rfl
+example : RLUN [()] 1 := relate (Nat.succ Nat.zero)
+
 /- ===================== axiom footprint ===================== -/
 /-- info: 'LeTrocq.Examples.RLU' depends on axioms: [propext] -/
 #guard_msgs in #print axioms RLU

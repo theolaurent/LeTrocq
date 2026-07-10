@@ -234,6 +234,14 @@ def buildCtx : MetaM Ctx := do
         let wit ← mkConstWithFreshMVarLevels witName
         groundTerms := groundTerms.insert hA
           ((NameMap.find? groundTerms hA |>.getD #[]).push (patternA, tgtB, wit))
+        -- BACKWARD `⟨tgtB⟩ = patternA`, keyed by the TARGET head, relatedness `symPrimitive`d (the spine feeds
+        -- the A-side value first, so the triples must be reordered — as for a plain `.term`). Unlike `.term`
+        -- (skipped when homogeneous), a ground term ALWAYS registers its reverse: even a homogeneous head like
+        -- `HAdd.hAdd ↦ HAdd.hAdd` has DISTINCT patterns per side (`ℕ`-prefix vs `ZMod`-prefix), and a `trocq`
+        -- goal over the B-side type reaches its operations only through this reverse (`⟨ZMod-(+)⟩ = ℕ-(+)`).
+        if let some hB := tgtB.getAppFn.constName? then
+          groundTerms := groundTerms.insert hB
+            ((NameMap.find? groundTerms hB |>.getD #[]).push (tgtB, patternA, ← symPrimitive wit))
     | .term hA bTerm witName =>
         -- forward: source head ↦ counterpart's RESULT-TYPE head ↦ (counterpart, relatedness). Backward keyed by
         -- the B-side head (so a homogeneous constructor like `List.cons` is skipped).
