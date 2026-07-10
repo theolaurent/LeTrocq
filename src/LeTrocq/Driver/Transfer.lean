@@ -137,7 +137,22 @@ partial def assemble (reg : Reg) (senv : SEnv) (A B : Expr) (dem : ParamClass) :
   | .forallE n A₁ A₂ _, _ => do
       -- destructure the TARGET Π/arrow in lockstep: `B₁` domain, `B₂` (raw) codomain.
       let (B₁, B₂) ← splitForallTgt B
-      if A₂.hasLooseBVar 0 then
+      if ← Meta.isProp A₁ then
+        -- Prop DOMAIN (`∀ h : P, B h`, incl. the non-dependent `P → Q`): `paramForallProp`, the Prop-domain
+        -- sibling of `paramForall` (`paramArrow` can't hold a Prop domain). Same build as the term-domain Π
+        -- arm; `A₂.instantiate1 x` is a no-op when non-dependent, giving a constant codomain family.
+        let (domDem, codDem) := forallVariance dem
+        let domWit ← assemble reg senv A₁ B₁ domDem
+        let domTy := (← whnf (← instantiateMVars (← inferType domWit))).getAppArgs
+        let pb ← withLocalDeclD n domTy[2]! fun x =>
+          withLocalDeclD (n.appendAfter "'") domTy[3]! fun x' => do
+            let xRTy ← mkAppM ``Param.R #[domWit, x, x']
+            withLocalDeclD (n.appendAfter "R") xRTy fun xRel => do
+              mkLambdaFVars #[x, x', xRel]
+                (← assemble reg ((x.fvarId!, x', xRel) :: senv)
+                    (A₂.instantiate1 x) (B₂.instantiate1 x') codDem)
+        mkAppM ``paramForallProp #[classToExpr dem.1, classToExpr dem.2, domWit, pb]
+      else if A₂.hasLooseBVar 0 then
         match A₁ with
         | .sort _ => do
             -- `∀ A : Type, A₂` (type-domain Π): domain via the universe combinator, codomain family under the

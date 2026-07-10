@@ -2,16 +2,19 @@
 The ARROW construction: `Param … (A→B) (A'→B')` from witnesses for the parts. `RArrow` is the respectful
 relation (= Mathlib `Relator.LiftFun`); `mapArrowVariance`/`arrowVariance` is the grading table (output class →
 minimal part classes); `paramArrow` builds the arrow at every output class incl. (4,4) (that coherence is free
-by `Map4Has.subsingleton`). Stays over `Type u`; `Prop` bodies go through `Forall`/the universe combinators.
+by `Map4Has.subsingleton`). The domain stays over `Type u` but the CODOMAIN ranges over `Sort uB`, so an
+`A → Prop` arrow (`Type` domain, `Prop` codomain) builds here — that is Tier 1. A `Prop`-DOMAIN arrow
+(`P → Q`) instead routes through `paramForallProp` (its relation isn't `Type`-expressible over a free domain
+universe, so it needs the domain pinned at `Prop`); see `Forall`.
 -/
 import LeTrocq.Core.Param
-universe u v
+universe u uB v
 namespace LeTrocq
 open MapClass
 
 /- ===================== the arrow relation (= Mathlib `Relator.LiftFun`) ===================== -/
 /-- the respectful relation: related inputs ↦ related outputs. -/
-def RArrow {A B A' B' : Type u} (RA : A → A' → Type v) (RB : B → B' → Type v) :
+def RArrow {A A' : Type u} {B B' : Sort uB} (RA : A → A' → Type v) (RB : B → B' → Type v) :
     (A → B) → (A' → B') → Type (max u v) :=
   fun f f' => ∀ a a', RA a a' → RB (f a) (f' a')
 
@@ -36,7 +39,7 @@ def arrowVariance (c : ParamClass) : ParamClass × ParamClass :=
 /- ===================== the graded arrow family (every output class, incl. (4,4)) ===================== -/
 /- Lifted arrow soundness/completeness obligations, each written once and shared across the 2a/3/4 (resp.
    2b/3/4) arms. cov and contra are mirrors (cov via `pb.cov`, contra via `pb.contra`). -/
-def arrowCovMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+def arrowCovMapInR {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (mapA : A' → A) (mapARInMap : ∀ a' a, RA a a' → mapA a' = a)
     (mapB : B → B') (mapBInR : ∀ b b', mapB b = b' → RB b b') :
     ∀ f f', (fun a' => mapB (f (mapA a'))) = f' → RArrow RA RB f f' := by
@@ -45,7 +48,7 @@ def arrowCovMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B
   have hf : f' a' = mapB (f (mapA a')) := (congrFun h a').symm
   rw [hf, ha]; exact mapBInR (f a) (mapB (f a)) rfl
 
-theorem arrowCovRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+theorem arrowCovRInMap {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (mapA : A' → A) (mapAInR : ∀ a' a, mapA a' = a → RA a a')
     (mapB : B → B') (mapBRInMap : ∀ b b', RB b b' → mapB b = b') :
     ∀ f f', RArrow RA RB f f' → (fun a' => mapB (f (mapA a'))) = f' := by
@@ -53,7 +56,7 @@ theorem arrowCovRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B �
   have hra : RA (mapA a') a' := mapAInR a' (mapA a') rfl
   exact mapBRInMap _ _ (r (mapA a') a' hra)
 
-def arrowContraMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+def arrowContraMapInR {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (mapA : A → A') (mapARInMap : ∀ a a', RA a a' → mapA a = a')
     (mapB : B' → B) (mapBInR : ∀ b' b, mapB b' = b → RB b b') :
     ∀ f' f, (fun a => mapB (f' (mapA a))) = f → RArrow RA RB f f' := by
@@ -62,7 +65,7 @@ def arrowContraMapInR {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B �
   have hf : f a = mapB (f' (mapA a)) := (congrFun h a).symm
   rw [hf, ha]; exact mapBInR (f' a') (mapB (f' a')) rfl
 
-theorem arrowContraRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+theorem arrowContraRInMap {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (mapA : A → A') (mapAInR : ∀ a a', mapA a = a' → RA a a')
     (mapB : B' → B) (mapBRInMap : ∀ b' b, RB b b' → mapB b' = b) :
     ∀ f' f, RArrow RA RB f f' → (fun a => mapB (f' (mapA a))) = f := by
@@ -71,13 +74,13 @@ theorem arrowContraRInMap {A B A' B' : Type u} {RA : A → A' → Type v} {RB : 
   exact mapBRInMap _ _ (r a (mapA a) hra)
 
 /-- the arrow relation is a subsingleton when the codomain part is (at `map4`), so the coherence is free. -/
-theorem RArrow.allEq {A B A' B' : Type u} {RA : A → A' → Type v} {RB : B → B' → Type v}
+theorem RArrow.allEq {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v} {RB : B → B' → Type v}
     (hB : ∀ b b', Subsingleton (RB b b')) {f : A → B} {f' : A' → B'} (x y : RArrow RA RB f f') : x = y :=
   funext fun a => funext fun a' => funext fun _ => @Subsingleton.elim _ (hB (f a) (f' a')) _ _
 
 /-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov. At `map4` the coherence is free:
     class-4 parts have subsingleton relations, so the arrow relation is too. -/
-def arrowCov {A B A' B' : Type u} :
+def arrowCov {A A' : Type u} {B B' : Sort uB} :
     (m : MapClass) →
     (pa : Param (mapArrowVariance m).1.1 (mapArrowVariance m).1.2 A A') →
     (pb : Param (mapArrowVariance m).2.1 (mapArrowVariance m).2.2 B B') →
@@ -98,7 +101,7 @@ def arrowCov {A B A' B' : Type u} :
                          RArrow.allEq (fun b b' => pb.cov.subsingleton b b') _ _ }
 
 /-- the contravariant half `MapHas n (sym (RArrow RA RB))` from A's cov + B's contra (the mirror). -/
-def arrowContra {A B A' B' : Type u} :
+def arrowContra {A A' : Type u} {B B' : Sort uB} :
     (n : MapClass) →
     (pa : Param (mapArrowVariance n).1.2 (mapArrowVariance n).1.1 A A') →
     (pb : Param (mapArrowVariance n).2.2 (mapArrowVariance n).2.1 B B') →
@@ -120,7 +123,7 @@ def arrowContra {A B A' B' : Type u} :
 
 /-- arrow at any output class `(m,n)`, incl. `(4,4)`, from parts at the `arrowVariance`-minimal classes.
     Each joined-class part is weakened to what its half consumes (`cases m <;> cases n <;> rfl`). -/
-def paramArrow {A B A' B' : Type u} (m n : MapClass)
+def paramArrow {A A' : Type u} {B B' : Sort uB} (m n : MapClass)
     (pa : Param (arrowVariance (m, n)).1.1 (arrowVariance (m, n)).1.2 A A')
     (pb : Param (arrowVariance (m, n)).2.1 (arrowVariance (m, n)).2.2 B B') :
     Param m n (A → B) (A' → B') where
