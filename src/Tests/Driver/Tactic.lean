@@ -18,7 +18,7 @@ example : (transfer from (Nat → Nat → Nat)).cov.map (· + ·) Unary.z (Unary
 /- `Prop` as a leaf routes through `paramProp` (not the `Type` combinator, which would stall at the `(2a,2a)`
    ceiling), reaching full `(4,4)`: a `Prop`-valued codomain transfers and the transported predicate
    COMPUTES. -/
-example : (transfer from Prop).R = fun P P' => PLift (P ↔ P') := rfl
+example : (transfer from Prop).R = fun P P' => PLift (P = P') := rfl
 example : (transfer from (Nat → Prop)).cov.map (fun n => n = 0) = fun u => Unary.toNat u = 0 := rfl
 
 /- `trocq` proves a `Unary`-side goal by transferring it to the (easier) `Nat`-side counterpart. -/

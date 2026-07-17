@@ -55,7 +55,7 @@ theorem listRInMap {A B : Type} {R : A → B → Type} (f : A → B) (fRInMap : 
 /-- the covariant half from the element at `mapListVariance m`; the `map4` coherence is free (subsingleton). -/
 noncomputable def listCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapListVariance m).1 (mapListVariance m).2 A B) →
-    MapHas m (ListR A B pa.R)
+    Map m (ListR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := List.map pa.cov.map }
   | map2a, pa => { map := List.map pa.cov.map, mapInR := listMapInR pa.cov.map pa.cov.mapInR }
@@ -85,7 +85,7 @@ theorem listContraRInMap {A B : Type} {R : A → B → Type} (g : B → A) (gRIn
 /-- the contravariant half, the mirror of `listCov`. -/
 noncomputable def listContra {A B : Type} :
     (n : MapClass) → (pa : Param (mapListVariance n).2 (mapListVariance n).1 A B) →
-    MapHas n (fun (lb : List B) (la : List A) => ListR A B pa.R la lb)
+    Map n (fun (lb : List B) (la : List A) => ListR A B pa.R la lb)
   | map0,  _  => {}
   | map1,  pa => { map := List.map pa.contra.map }
   | map2a, pa => { map := List.map pa.contra.map, mapInR := listContraMapInR pa.contra.map pa.contra.mapInR }

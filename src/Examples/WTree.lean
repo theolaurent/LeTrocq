@@ -121,7 +121,7 @@ noncomputable def wtreeCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
     (pa : Param (mapWTreeVariance m).1.1 (mapWTreeVariance m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapWTreeVariance m).2.1 (mapWTreeVariance m).2.2 (B a) (B' a')) →
-    MapHas m (WTreeR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R))
+    Map m (WTreeR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R))
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).contra.map) }
   | map2a, pa, pb => { map := wtreeCovMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).contra.map),
@@ -192,7 +192,7 @@ noncomputable def wtreeContra {A A' : Type} {B : A → Type} {B' : A' → Type} 
     (pa : Param (mapWTreeVariance n).1.2 (mapWTreeVariance n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapWTreeVariance n).2.2 (mapWTreeVariance n).2.1 (B a) (B' a')) →
-    MapHas n (fun (t : WTree A' B') (s : WTree A B) =>
+    Map n (fun (t : WTree A' B') (s : WTree A B) =>
       WTreeR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R) s t)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := wtreeContraMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).cov.map) }

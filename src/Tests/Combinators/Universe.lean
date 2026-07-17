@@ -31,7 +31,7 @@ example : (paramTypeAt map1 map0 map4 map4 rfl rfl).cov.map = id := rfl
 example : paramProp.cov.map = id := rfl
 example : ∀ P P' r, paramProp.cov.mapInR P P' (paramProp.cov.rInMap P P' r) = r := paramProp.cov.rInMapK
 example : (paramPropAt map2a map0).cov.map = id := rfl
-/-- info: 'LeTrocq.paramProp' depends on axioms: [propext] -/
+/-- info: 'LeTrocq.paramProp' does not depend on any axioms -/
 #guard_msgs in #print axioms paramProp
 
 end LeTrocq.Tests

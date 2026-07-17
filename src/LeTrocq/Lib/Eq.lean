@@ -14,12 +14,12 @@ open LeTrocq MapClass
 
 /-- forward transport `a = b → a' = b'`, from the type's covariant completeness (`rInMap`, 2b): each
     endpoint's relatedness pins `map · = ·`, so the source equality carries over. -/
-theorem eqFwd {A A' : Type} {R : A → A' → Type} (cov : Map2bHas R)
+theorem eqFwd {A A' : Type} {R : A → A' → Type} (cov : Map2b R)
     {a b : A} {a' b' : A'} (aRel : R a a') (bRel : R b b') : a = b → a' = b' :=
   fun h => by rw [← cov.rInMap a a' aRel, ← cov.rInMap b b' bRel, h]
 
 /-- backward transport `a' = b' → a = b`, the mirror, from the type's CONTRAVARIANT completeness. -/
-theorem eqBwd {A A' : Type} {R : A → A' → Type} (contra : Map2bHas (fun (b : A') (a : A) => R a b))
+theorem eqBwd {A A' : Type} {R : A → A' → Type} (contra : Map2b (fun (b : A') (a : A) => R a b))
     {a b : A} {a' b' : A'} (aRel : R a a') (bRel : R b b') : a' = b' → a = b :=
   fun h => by rw [← contra.rInMap a' a aRel, ← contra.rInMap b' b bRel, h]
 
@@ -34,29 +34,29 @@ def mapEqVariance : MapClass → ParamClass
 def eqVariance (c : ParamClass) : ParamClass := ParamClass.variance mapEqVariance c
 
 /-- the covariant half from the type at `mapEqVariance m`: empty below class 1, the forward transport `eqFwd`
-    at class ≥ 1 (higher `Prop` fields free via `propMapHas`). Carried relation is the trivial `PLift True`. -/
+    at class ≥ 1 (higher `Prop` fields free via `propMap`). Carried relation is the trivial `PLift True`. -/
 def eqCov {A A' : Type} {a b : A} {a' b' : A'} :
     (m : MapClass) →
     (pa : Param (mapEqVariance m).1 (mapEqVariance m).2 A A') →
-    pa.R a a' → pa.R b b' → MapHas m (fun (_ : a = b) (_ : a' = b') => PLift True)
+    pa.R a a' → pa.R b b' → Map m (fun (_ : a = b) (_ : a' = b') => PLift True)
   | map0,  _,  _,    _    => {}
-  | map1,  pa, aRel, bRel => propMapHas (eqFwd pa.cov aRel bRel) map1
-  | map2a, pa, aRel, bRel => propMapHas (eqFwd pa.cov aRel bRel) map2a
-  | map2b, pa, aRel, bRel => propMapHas (eqFwd pa.cov aRel bRel) map2b
-  | map3,  pa, aRel, bRel => propMapHas (eqFwd pa.cov aRel bRel) map3
-  | map4,  pa, aRel, bRel => propMapHas (eqFwd pa.cov aRel bRel) map4
+  | map1,  pa, aRel, bRel => propMap (eqFwd pa.cov aRel bRel) map1
+  | map2a, pa, aRel, bRel => propMap (eqFwd pa.cov aRel bRel) map2a
+  | map2b, pa, aRel, bRel => propMap (eqFwd pa.cov aRel bRel) map2b
+  | map3,  pa, aRel, bRel => propMap (eqFwd pa.cov aRel bRel) map3
+  | map4,  pa, aRel, bRel => propMap (eqFwd pa.cov aRel bRel) map4
 
 /-- the contravariant half from the type's contra at `mapEqVariance n` — the mirror (backward transport). -/
 def eqContra {A A' : Type} {a b : A} {a' b' : A'} :
     (n : MapClass) →
     (pa : Param (mapEqVariance n).2 (mapEqVariance n).1 A A') →
-    pa.R a a' → pa.R b b' → MapHas n (fun (_ : a' = b') (_ : a = b) => PLift True)
+    pa.R a a' → pa.R b b' → Map n (fun (_ : a' = b') (_ : a = b) => PLift True)
   | map0,  _,  _,    _    => {}
-  | map1,  pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map1
-  | map2a, pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map2a
-  | map2b, pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map2b
-  | map3,  pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map3
-  | map4,  pa, aRel, bRel => propMapHas (eqBwd pa.contra aRel bRel) map4
+  | map1,  pa, aRel, bRel => propMap (eqBwd pa.contra aRel bRel) map1
+  | map2a, pa, aRel, bRel => propMap (eqBwd pa.contra aRel bRel) map2a
+  | map2b, pa, aRel, bRel => propMap (eqBwd pa.contra aRel bRel) map2b
+  | map3,  pa, aRel, bRel => propMap (eqBwd pa.contra aRel bRel) map3
+  | map4,  pa, aRel, bRel => propMap (eqBwd pa.contra aRel bRel) map4
 
 /-- `a = b ≃ a' = b'` at any output class `(m,n)`, from the type at the `eqVariance`-minimal class and the two
     endpoints related. A relator keyed by `Eq`: first triple the type argument, next two the endpoint terms. -/

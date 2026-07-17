@@ -2,7 +2,7 @@
 The ARROW construction: `Param … (A→B) (A'→B')` from witnesses for the parts. `RArrow` is the respectful
 relation (= Mathlib `Relator.LiftFun`); `mapArrowVariance`/`arrowVariance` is the grading table (output class →
 minimal part classes); `paramArrow` builds the arrow at every output class incl. (4,4) (that coherence is free
-by `Map4Has.subsingleton`). The domain stays over `Type u` but the CODOMAIN ranges over `Sort uB`, so an
+by `Map4.subsingleton`). The domain stays over `Type u` but the CODOMAIN ranges over `Sort uB`, so an
 `A → Prop` arrow (`Type` domain, `Prop` codomain) builds here — that is Tier 1. A `Prop`-DOMAIN arrow
 (`P → Q`) instead routes through `paramForallProp` (its relation isn't `Type`-expressible over a free domain
 universe, so it needs the domain pinned at `Prop`); see `Forall`.
@@ -78,13 +78,13 @@ theorem RArrow.allEq {A A' : Type u} {B B' : Sort uB} {RA : A → A' → Type v}
     (hB : ∀ b b', Subsingleton (RB b b')) {f : A → B} {f' : A' → B'} (x y : RArrow RA RB f f') : x = y :=
   funext fun a => funext fun a' => funext fun _ => @Subsingleton.elim _ (hB (f a) (f' a')) _ _
 
-/-- the covariant half `MapHas m (RArrow RA RB)` from A's contra + B's cov. At `map4` the coherence is free:
+/-- the covariant half `Map m (RArrow RA RB)` from A's contra + B's cov. At `map4` the coherence is free:
     class-4 parts have subsingleton relations, so the arrow relation is too. -/
 def arrowCov {A A' : Type u} {B B' : Sort uB} :
     (m : MapClass) →
     (pa : Param (mapArrowVariance m).1.1 (mapArrowVariance m).1.2 A A') →
     (pb : Param (mapArrowVariance m).2.1 (mapArrowVariance m).2.2 B B') →
-    MapHas m (RArrow pa.R pb.R)
+    Map m (RArrow pa.R pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')) }
   | map2a, pa, pb => { map := fun f a' => pb.cov.map (f (pa.contra.map a')),
@@ -100,12 +100,12 @@ def arrowCov {A A' : Type u} {B B' : Sort uB} :
                        rInMapK := fun _ _ _ =>
                          RArrow.allEq (fun b b' => pb.cov.subsingleton b b') _ _ }
 
-/-- the contravariant half `MapHas n (sym (RArrow RA RB))` from A's cov + B's contra (the mirror). -/
+/-- the contravariant half `Map n (sym (RArrow RA RB))` from A's cov + B's contra (the mirror). -/
 def arrowContra {A A' : Type u} {B B' : Sort uB} :
     (n : MapClass) →
     (pa : Param (mapArrowVariance n).1.2 (mapArrowVariance n).1.1 A A') →
     (pb : Param (mapArrowVariance n).2.2 (mapArrowVariance n).2.1 B B') →
-    MapHas n (fun (f' : A' → B') (f : A → B) => RArrow pa.R pb.R f f')
+    Map n (fun (f' : A' → B') (f : A → B) => RArrow pa.R pb.R f f')
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)) }
   | map2a, pa, pb => { map := fun f' a => pb.contra.map (f' (pa.cov.map a)),

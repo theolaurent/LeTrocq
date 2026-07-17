@@ -7,7 +7,7 @@ and this transfers `∀ x, P x` (`Prop` subsingletons make the `(4,4)` coherence
 THE WRINKLE (why Π ≠ arrow): to land in `RB a a' aRel` the forward map must produce a relatedness proof for
 the backward map, so the domain's backward map must be related. `mapForallVariance` encodes this: at output
 cov `2a`+ the domain is needed at `map4`, where `rInMap` gives `bwd a' = a` (to `subst` the codomain fiber)
-and `Map4Has.subsingleton` identifies the two relatedness proofs.
+and `Map4.subsingleton` identifies the two relatedness proofs.
 -/
 import LeTrocq.Core.Param
 universe u uA w v vb
@@ -84,7 +84,7 @@ def forallCov {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
     (pa : Param (mapForallVariance m).1.1 (mapForallVariance m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapForallVariance m).2.1 (mapForallVariance m).2.2 (B a) (B' a')) →
-    MapHas m (RForall pa.R (fun a a' aRel => (pb a a' aRel).R))
+    Map m (RForall pa.R (fun a a' aRel => (pb a a' aRel).R))
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := forallCovMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).cov.map) }
   | map2a, pa, pb => { map := forallCovMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).cov.map),
@@ -147,7 +147,7 @@ def forallContra {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} :
     (pa : Param (mapForallVariance n).1.2 (mapForallVariance n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapForallVariance n).2.2 (mapForallVariance n).2.1 (B a) (B' a')) →
-    MapHas n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
+    Map n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
       RForall pa.R (fun a a' aRel => (pb a a' aRel).R) f f')
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := forallContraMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).contra.map) }
@@ -200,7 +200,7 @@ def paramForall {A A' : Type u} {B : A → Sort w} {B' : A' → Sort w} (m n : M
    `forallCov`/`forallContra`/`paramForall` with the domain pinned to `Prop` (`{A A' : Prop}`) instead of
    `Type u`: only the domain sort differs, so every arm reuses the SAME Sort-generalized leaf helpers
    (`forallCovMap`, `forallCovMapInR`, …). The pin is FORCED — over a free domain universe the relation
-   `RForall` is `Sort (max uA …)`, not `Type _`-expressible, so `MapHas`/`Param.R` reject it; at `Prop`
+   `RForall` is `Sort (max uA …)`, not `Type _`-expressible, so `Map`/`Param.R` reject it; at `Prop`
    (`uA = 0`) it collapses to `Type _`. A `Prop` domain satisfies the forall wrinkle's `map4` demand for free
    (`paramPropAt` reaches `(4,4)`), so no grading is lost by routing here. -/
 def forallCovProp {A A' : Prop} {B : A → Sort w} {B' : A' → Sort w} :
@@ -208,7 +208,7 @@ def forallCovProp {A A' : Prop} {B : A → Sort w} {B' : A' → Sort w} :
     (pa : Param (mapForallVariance m).1.1 (mapForallVariance m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapForallVariance m).2.1 (mapForallVariance m).2.2 (B a) (B' a')) →
-    MapHas m (RForall pa.R (fun a a' aRel => (pb a a' aRel).R))
+    Map m (RForall pa.R (fun a a' aRel => (pb a a' aRel).R))
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := forallCovMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).cov.map) }
   | map2a, pa, pb => { map := forallCovMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).cov.map),
@@ -238,7 +238,7 @@ def forallContraProp {A A' : Prop} {B : A → Sort w} {B' : A' → Sort w} :
     (pa : Param (mapForallVariance n).1.2 (mapForallVariance n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapForallVariance n).2.2 (mapForallVariance n).2.1 (B a) (B' a')) →
-    MapHas n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
+    Map n (fun (f' : ∀ a', B' a') (f : ∀ a, B a) =>
       RForall pa.R (fun a a' aRel => (pb a a' aRel).R) f f')
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := forallContraMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).contra.map) }

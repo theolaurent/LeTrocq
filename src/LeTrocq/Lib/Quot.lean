@@ -73,7 +73,7 @@ noncomputable def quotCov {A A' : Type} (r : A → A → Prop) (r' : A' → A' �
     (m : MapClass) →
     (pa : Param (mapQuotVariance m).1 (mapQuotVariance m).2 A A') →
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b')) →
-    MapHas m (QuotRel A A' pa.R r r' rR)
+    Map m (QuotRel A A' pa.R r r' rR)
   | map0,  _,  _  => {}
   | map1,  pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.mapInR rR }
   | map2a, pa, rR => { map := quotFwdMap r r' pa.cov.map pa.cov.mapInR rR,
@@ -118,7 +118,7 @@ noncomputable def quotContra {A A' : Type} (r : A → A → Prop) (r' : A' → A
     (n : MapClass) →
     (pa : Param (mapQuotVariance n).2 (mapQuotVariance n).1 A A') →
     (rR : (a : A) → (a' : A') → pa.R a a' → (b : A) → (b' : A') → pa.R b b' → PLift (r a b ↔ r' a' b')) →
-    MapHas n (fun (q' : Quot r') (q : Quot r) => QuotRel A A' pa.R r r' rR q q')
+    Map n (fun (q' : Quot r') (q : Quot r) => QuotRel A A' pa.R r r' rR q q')
   | map0,  _,  _  => {}
   | map1,  pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.mapInR rR }
   | map2a, pa, rR => { map := quotBwdMap r r' pa.contra.map pa.contra.mapInR rR,

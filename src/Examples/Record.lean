@@ -67,10 +67,10 @@ def mapPtVariance : MapClass → ParamClass
 def ptVariance (c : ParamClass) : ParamClass :=
   ParamClass.join (mapPtVariance c.1) (ParamClass.negate (mapPtVariance c.2))
 
-/-- the covariant half `MapHas m (PtR R)` from the element at `mapPtVariance m`. -/
+/-- the covariant half `Map m (PtR R)` from the element at `mapPtVariance m`. -/
 def ptCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapPtVariance m).1 (mapPtVariance m).2 A B) →
-    MapHas m (PtR A B pa.R)
+    Map m (PtR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := ptMap pa.cov.map }
   | map2a, pa => { map := ptMap pa.cov.map, mapInR := ptMapInR pa.cov.map pa.cov.mapInR }
@@ -81,10 +81,10 @@ def ptCov {A B : Type} :
                    rInMap := ptRInMap pa.cov.map pa.cov.rInMap,
                    rInMapK := fun _ _ _ => PtR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-/-- the contravariant half `MapHas n (flip (PtR R))` from the element's contra at `mapPtVariance n`. -/
+/-- the contravariant half `Map n (flip (PtR R))` from the element's contra at `mapPtVariance n`. -/
 def ptContra {A B : Type} :
     (n : MapClass) → (pa : Param (mapPtVariance n).2 (mapPtVariance n).1 A B) →
-    MapHas n (fun (q : Pt B) (p : Pt A) => PtR A B pa.R p q)
+    Map n (fun (q : Pt B) (p : Pt A) => PtR A B pa.R p q)
   | map0,  _  => {}
   | map1,  pa => { map := ptMap pa.contra.map }
   | map2a, pa => { map := ptMap pa.contra.map, mapInR := ptContraMapInR pa.contra.map pa.contra.mapInR }

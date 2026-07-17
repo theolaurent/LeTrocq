@@ -75,7 +75,7 @@ def sumCov {A A' B B' : Type} :
     (m : MapClass) →
     (pa : Param (mapSumVariance m).1 (mapSumVariance m).2 A A') →
     (pb : Param (mapSumVariance m).1 (mapSumVariance m).2 B B') →
-    MapHas m (SumR A A' pa.R B B' pb.R)
+    Map m (SumR A A' pa.R B B' pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := Sum.map pa.cov.map pb.cov.map }
   | map2a, pa, pb => { map := Sum.map pa.cov.map pb.cov.map,
@@ -96,7 +96,7 @@ def sumContra {A A' B B' : Type} :
     (n : MapClass) →
     (pa : Param (mapSumVariance n).2 (mapSumVariance n).1 A A') →
     (pb : Param (mapSumVariance n).2 (mapSumVariance n).1 B B') →
-    MapHas n (fun (t : A' ⊕ B') (s : A ⊕ B) => SumR A A' pa.R B B' pb.R s t)
+    Map n (fun (t : A' ⊕ B') (s : A ⊕ B) => SumR A A' pa.R B B' pb.R s t)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := Sum.map pa.contra.map pb.contra.map }
   | map2a, pa, pb => { map := Sum.map pa.contra.map pb.contra.map,

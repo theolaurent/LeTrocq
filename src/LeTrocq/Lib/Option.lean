@@ -66,7 +66,7 @@ theorem optionContraRInMap {A B : Type} {R : A → B → Type} (g : B → A) (gR
 /-- the covariant half from the element at `mapOptionVariance m`; the `map4` coherence is free (subsingleton). -/
 def optionCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapOptionVariance m).1 (mapOptionVariance m).2 A B) →
-    MapHas m (OptionR A B pa.R)
+    Map m (OptionR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.cov.map }
   | map2a, pa => { map := Option.map pa.cov.map, mapInR := optionMapInR pa.cov.map pa.cov.mapInR }
@@ -80,7 +80,7 @@ def optionCov {A B : Type} :
 /-- the contravariant half, the mirror of `optionCov`. -/
 def optionContra {A B : Type} :
     (n : MapClass) → (pa : Param (mapOptionVariance n).2 (mapOptionVariance n).1 A B) →
-    MapHas n (fun (ob : Option B) (oa : Option A) => OptionR A B pa.R oa ob)
+    Map n (fun (ob : Option B) (oa : Option A) => OptionR A B pa.R oa ob)
   | map0,  _  => {}
   | map1,  pa => { map := Option.map pa.contra.map }
   | map2a, pa => { map := Option.map pa.contra.map, mapInR := optionContraMapInR pa.contra.map pa.contra.mapInR }

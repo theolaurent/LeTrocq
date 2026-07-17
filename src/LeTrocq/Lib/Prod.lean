@@ -67,7 +67,7 @@ def prodCov {A A' B B' : Type} :
     (m : MapClass) →
     (pa : Param (mapProdVariance m).1 (mapProdVariance m).2 A A') →
     (pb : Param (mapProdVariance m).1 (mapProdVariance m).2 B B') →
-    MapHas m (ProdR A A' pa.R B B' pb.R)
+    Map m (ProdR A A' pa.R B B' pb.R)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2) }
   | map2a, pa, pb => { map := fun p => (pa.cov.map p.1, pb.cov.map p.2),
@@ -88,7 +88,7 @@ def prodContra {A A' B B' : Type} :
     (n : MapClass) →
     (pa : Param (mapProdVariance n).2 (mapProdVariance n).1 A A') →
     (pb : Param (mapProdVariance n).2 (mapProdVariance n).1 B B') →
-    MapHas n (fun (q : A' × B') (p : A × B) => ProdR A A' pa.R B B' pb.R p q)
+    Map n (fun (q : A' × B') (p : A × B) => ProdR A A' pa.R B B' pb.R p q)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2) }
   | map2a, pa, pb => { map := fun q => (pa.contra.map q.1, pb.contra.map q.2),

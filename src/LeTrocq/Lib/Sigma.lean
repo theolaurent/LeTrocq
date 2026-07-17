@@ -85,7 +85,7 @@ noncomputable def sigmaCov {A A' : Type} {B : A → Type} {B' : A' → Type} :
     (pa : Param (mapSigmaVariance m).1.1 (mapSigmaVariance m).1.2 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapSigmaVariance m).2.1 (mapSigmaVariance m).2.2 (B a) (B' a')) →
-    MapHas m (SigmaR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R))
+    Map m (SigmaR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R))
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := sigmaCovMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).cov.map) }
   | map2a, pa, pb => { map := sigmaCovMap pa.cov.map pa.cov.mapInR (fun a a' aRel => (pb a a' aRel).cov.map),
@@ -144,7 +144,7 @@ noncomputable def sigmaContra {A A' : Type} {B : A → Type} {B' : A' → Type} 
     (pa : Param (mapSigmaVariance n).1.2 (mapSigmaVariance n).1.1 A A') →
     (pb : (a : A) → (a' : A') → pa.R a a' →
           Param (mapSigmaVariance n).2.2 (mapSigmaVariance n).2.1 (B a) (B' a')) →
-    MapHas n (fun (t : Sigma B') (s : Sigma B) =>
+    Map n (fun (t : Sigma B') (s : Sigma B) =>
       SigmaR A A' pa.R B B' (fun a a' aRel => (pb a a' aRel).R) s t)
   | map0,  _,  _  => {}
   | map1,  pa, pb => { map := sigmaContraMap pa.contra.map pa.contra.mapInR (fun a a' aRel => (pb a a' aRel).contra.map) }

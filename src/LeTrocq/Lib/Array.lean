@@ -22,10 +22,10 @@ open LeTrocq MapClass
    `Array` is `List` through `toList`, so it reuses `mapListVariance`/`listVariance` and each graded half
    delegates to `listCov`/`listContra` (`rInMap` re-wraps through structure eta with `congrArg Array.mk`). -/
 
-/-- the covariant half `MapHas m (ArrayR R)`, delegating to `listCov m` on `toList`. -/
+/-- the covariant half `Map m (ArrayR R)`, delegating to `listCov m` on `toList`. -/
 noncomputable def arrayCov {A B : Type} :
     (m : MapClass) → (pa : Param (mapListVariance m).1 (mapListVariance m).2 A B) →
-    MapHas m (ArrayR A B pa.R)
+    Map m (ArrayR A B pa.R)
   | map0,  _  => {}
   | map1,  pa => { map := fun a => ⟨a.toList.map pa.cov.map⟩ }
   | map2a, pa =>
@@ -44,10 +44,10 @@ noncomputable def arrayCov {A B : Type} :
         rInMap := fun a b r => congrArg Array.mk ((listCov map4 pa).rInMap a.toList b.toList r)
         rInMapK := fun _ _ _ => ListR.allEq (fun a a' => (pa.cov.subsingleton a a').allEq) _ _ }
 
-/-- the contravariant half `MapHas n (flip (ArrayR R))`, delegating to `listContra n` on `toList`. -/
+/-- the contravariant half `Map n (flip (ArrayR R))`, delegating to `listContra n` on `toList`. -/
 noncomputable def arrayContra {A B : Type} :
     (n : MapClass) → (pa : Param (mapListVariance n).2 (mapListVariance n).1 A B) →
-    MapHas n (fun (b : Array B) (a : Array A) => ArrayR A B pa.R a b)
+    Map n (fun (b : Array B) (a : Array A) => ArrayR A B pa.R a b)
   | map0,  _  => {}
   | map1,  pa => { map := fun b => ⟨b.toList.map pa.contra.map⟩ }
   | map2a, pa =>

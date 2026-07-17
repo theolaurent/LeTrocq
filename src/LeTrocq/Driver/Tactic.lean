@@ -60,7 +60,7 @@ elab_rules : tactic
         | none => Driver.Transfer.counterpart goalTy
       -- `Param (1,0) G' G`; its COVARIANT map `G' → G` refines `⊢ G` to the easier `⊢ G'`.
       let wit ← Driver.Transfer.transferType goalTy' goalTy (map1, map0)
-      let fwdMap ← mkAppM ``Map1Has.map #[← mkAppM ``Param.cov #[wit]]
+      let fwdMap ← mkAppM ``Map1.map #[← mkAppM ``Param.cov #[wit]]
       let newGoal ← mkFreshExprMVar goalTy'
       g.assign (.app fwdMap newGoal)
       replaceMainGoal [newGoal.mvarId!]
