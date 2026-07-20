@@ -18,9 +18,8 @@ def RArrow {A A' : Type u} {B B' : Sort uB} (RA : A → A' → Type v) (RB : B �
     (A → B) → (A' → B') → Type (max u v) :=
   fun f f' => ∀ a a', RA a a' → RB (f a) (f' a')
 
-/- ===================== the arrow grading table (output class → minimal part classes) ===================== -/
-/-- per-map-class minimal (domain, codomain) classes for a non-dependent arrow (verbatim from Trocq's
-    `class.elpi`). -/
+-- the arrow variance table: output (covariant) MapClass ↝ parameter ParamClasses
+-- (faithful w.r.t. Trocq's `class.elpi`)
 def mapArrowVariance : MapClass → (ParamClass × ParamClass)
   | map0  => ((map0,map0), (map0,map0))
   | map1  => ((map0,map1), (map1,map0))
@@ -29,6 +28,7 @@ def mapArrowVariance : MapClass → (ParamClass × ParamClass)
   | map3  => ((map0,map3), (map3,map0))
   | map4  => ((map0,map4), (map4,map0))
 
+-- TODO: should use Param.lean variance?
 /-- minimal (domain-class, codomain-class) to build the arrow at output class `c`: cov requirement joined with
     negated contra. `Transfer.assemble` inverts a demand through this to grade the parts. -/
 def arrowVariance (c : ParamClass) : ParamClass × ParamClass :=

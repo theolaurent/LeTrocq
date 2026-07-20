@@ -1,10 +1,11 @@
 /-
-The USER SURFACE: four elaborators/tactics over the driver (`Transfer` + `Counterpart`).
-  • `transfer from A` / `transfer to B` ⤳ the witness `Param (4,4) A ⟨A⟩` / `Param (4,4) ⟨B⟩ B`,
-    exposing the transport maps; `... to B` on the `from` form demands a specific target.
-  • `trocq` treats the goal `G` as the TARGET, assembles `Param (1,0) ⟨G⟩ G`, and refines `⊢ G` by the
-    covariant map `⟨G⟩ → G`, leaving you the (easier) `⟨G⟩`.
-  • `translate t` ⤳ the counterpart `⟨t⟩`; `relate t` ⤳ its relatedness `[t] : 〚T〛 t ⟨t⟩`.
+The user surface: four elaborators/tactics over the driver (`Transfer` + `Counterpart`).
+  • `transfer from A` / `transfer to B` / `transfer from A to B`
+    build the witness `Param (4,4) A ⟨A⟩` / `Param (4,4) ⟨B⟩ B` / `Param (4,4) A B`.
+  • `trocq` treats the goal `G` as the target, assembles `Param (1,0) ⟨G⟩ G`, and refines `⊢ G` by the
+    (covariant) map `⟨G⟩ → G`, leaving the (easier?) `⊢ ⟨G⟩`.
+  • `translate t` builds counterpart `⟨t⟩`; `relate t` builds relatedness `[t] : 〚T〛 t ⟨t⟩`.
+
 All registries come from the `@[trocq]` extension; every base is available both directions (via `Param.sym`),
 so either side of an equivalence resolves by head match.
 -/

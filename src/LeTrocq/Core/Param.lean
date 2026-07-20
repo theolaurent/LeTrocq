@@ -4,26 +4,17 @@ universe u v
 namespace LeTrocq
 
 -- the six graded records (over `Sort u`, so `Prop` fits too)
-structure Map0 {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
-structure Map1 {A B : Sort u} (_R : A → B → Type v) : Sort (max u (v+1)) where
+structure Map0 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
+structure Map1 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) extends Map0 R where
   map : A → B
-structure Map2a {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
-  map : A → B
+structure Map2a {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) extends Map1 R where
   mapInR : ∀ a b, map a = b → R a b
-structure Map2b {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
-  map : A → B
+structure Map2b {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) extends Map1 R where
   rInMap : ∀ a b, R a b → map a = b
-structure Map3 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
-  map : A → B
-  mapInR : ∀ a b, map a = b → R a b
-  rInMap : ∀ a b, R a b → map a = b
-structure Map4 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) where
-  map : A → B
-  mapInR : ∀ a b, map a = b → R a b
-  rInMap : ∀ a b, R a b → map a = b
+structure Map3 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) extends Map2a R, Map2b R where
+structure Map4 {A B : Sort u} (R : A → B → Type v) : Sort (max u (v+1)) extends Map3 R where
   rInMapK : ∀ a b r, mapInR a b (rInMap a b r) = r
 
-/-- the structure a relation carries at a given map-class — all at the uniform `Sort (max u (v+1))`. -/
 def Map : MapClass → {A B : Sort u} → (A → B → Type v) → Sort (max u (v+1))
   | .map0,  _, _, R => Map0 R
   | .map1,  _, _, R => Map1 R
@@ -32,25 +23,28 @@ def Map : MapClass → {A B : Sort u} → (A → B → Type v) → Sort (max u (
   | .map3,  _, _, R => Map3 R
   | .map4,  _, _, R => Map4 R
 
+-- TODO: maybe should take a tuple (n, m), in order to leverage abbrevs for section/retraction/etc.
 structure Param (m n : MapClass) (A B : Sort u) where
   R      : A → B → Type v
   cov    : Map m R
   contra : Map n (fun b a => R a b)
 
 /-- A class-4 relation is necessarily a subsingleton: `rInMap` sends related elements to proofs of
-    `map a = b`, equal by proof irrelevance, so `rInMapK` forces them equal. Makes the `(4,4)` coherence
-    free on any relation reachable from class-4 data. -/
-theorem Map4.subsingleton {A B : Sort u} {R : A → B → Type v} (m : Map4 R) (a : A) (b : B) :
-    Subsingleton (R a b) :=
-  ⟨fun r₁ r₂ => by rw [← m.rInMapK a b r₁, ← m.rInMapK a b r₂]⟩
+    `map a = b`, equal by proof irrelevance, so `rInMapK` forces them equal.
+    Makes the `(4,4)` coherence free on any relation reachable from class-4 data. -/
+-- TODO: some day depart from original Trocq and remove map4 entirely
+theorem Map4.subsingleton {A B : Sort u} {R : A → B → Type v} (m : Map4 R) :
+    ∀ a b, Subsingleton (R a b) :=
+    fun a b => ⟨fun r₁ r₂ => by rw [← m.rInMapK a b r₁, ← m.rInMapK a b r₂]⟩
 
-/-- symmetry: a `Param m n A B` is a `Param n m B A` on the reversed relation (swap cov/contra). -/
+-- symmetry: a `Param m n A B` is a `Param n m B A` on the reversed relation (swap cov/contra)
 def Param.sym {A B : Sort u} {m n : MapClass} (p : Param.{u,v} m n A B) : Param.{u,v} n m B A where
   R := fun b a => p.R a b
   cov := p.contra
   contra := p.cov
 
-/- ===================== the six covering-edge forgets (bare records) ===================== -/
+-- namespace MapClass because weakening are on map structure only, not Param
+-- TODO: reorganize files into MapClass and ParamClass?
 namespace MapClass
 variable {A B : Sort u} {R : A → B → Type v}
 
@@ -106,7 +100,7 @@ def weaken : (src tgt : MapClass) → MapClass.le tgt src → Map src R → Map 
   | .map0, .map1, h, _ => nomatch h
 end MapClass
 
-/- ===================== weakening lifted to `Param` (componentwise) ===================== -/
+-- weakening lifted to `Param`
 namespace Param
 variable {A B : Sort u}
 
@@ -118,6 +112,7 @@ def weaken {sm sn tm tn : MapClass}
   cov    := MapClass.weaken sm tm hm p.cov
   contra := MapClass.weaken sn tn hn p.contra
 
+-- TODO: are those really useful?
 /-- the named downgrades a user gets from an equivalence `(4,4)` for free. -/
 def toRetraction (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map4 .map2a A B := p.weaken rfl rfl
 def toSection    (p : Param.{u,v} .map4 .map4 A B) : Param.{u,v} .map4 .map2b A B := p.weaken rfl rfl

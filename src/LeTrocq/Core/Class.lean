@@ -1,16 +1,16 @@
 /-
-The lattice algebra: the MapClass/ParamClass diamond with its order/join/meet, and the axiom boundary.
-Pure and finite (the port of Trocq's `elpi/class.elpi`); the combinators and driver build on top.
+The lattice algebra: MapClass/ParamClass diamonds with their order/join/meet
+(faithful w.r.t. Trocq's `class.elpi`)
 -/
 namespace LeTrocq
 
-/- ===================== map-class lattice  (0 < 1 < {2a,2b} < 3 < 4) ===================== -/
+-- map-class lattice  (0 < 1 < {2a,2b} < 3 < 4)
 inductive MapClass | map0 | map1 | map2a | map2b | map3 | map4
 deriving DecidableEq, Repr, Inhabited
 
 namespace MapClass
 
-/-- partial order `a ≤ b` on the diamond. -/
+-- partial order `a ≤ b` on the diamond
 def le (a b: MapClass) : Bool :=
   match a, b with
   | map0, _ => true
@@ -27,7 +27,7 @@ def le (a b: MapClass) : Bool :=
   | _, map3 => false
   | map4, map4 => true
 
-/-- least upper bound (join). -/
+-- least upper bound (join)
 def join (a b : MapClass) : MapClass :=
   match a, b with
   | map0, x | x, map0 => x
@@ -38,7 +38,7 @@ def join (a b : MapClass) : MapClass :=
   | map3, x | x, map3 => x
   | map4, map4 => map4
 
-/-- greatest lower bound (meet). -/
+-- greatest lower bound (meet)
 def meet (a b : MapClass) : MapClass :=
   match a, b with
   | map0, _ | _, map0 => map0
@@ -51,14 +51,15 @@ def meet (a b : MapClass) : MapClass :=
 
 end MapClass
 
-/- ===================== parametricity classes (pairs) ===================== -/
+-- parametricity classes (pairs)
 abbrev ParamClass := MapClass × MapClass
 
 namespace ParamClass
 open MapClass
 def le (a b : ParamClass) : Bool := MapClass.le a.1 b.1 && MapClass.le a.2 b.2
 def join (a b : ParamClass) : ParamClass := (MapClass.join a.1 b.1, MapClass.join a.2 b.2)
-/-- swap the two transport directions (relation symmetry). -/
+-- swap the two transport directions (relation symmetry)
+-- TODO: maybe rename to `conjugate`?
 def negate (a : ParamClass) : ParamClass := (a.2, a.1)
 /-- invert an output demand `c` through a per-direction table `f` to the minimal part class: cov requirement
     joined with the negated contra one. Shared spine of every former's `…Variance`. -/
@@ -66,10 +67,11 @@ def variance (f : MapClass → ParamClass) (c : ParamClass) : ParamClass :=
   join (f c.1) (negate (f c.2))
 def bot : ParamClass := (map0, map0)
 def top : ParamClass := (map4, map4)
-/-- needs an axiom (univalence on a sort / funext on Π) iff some component is ≥ 2b. -/
-def requiresAxiom (a : ParamClass) : Bool := !MapClass.le a.1 map2a || !MapClass.le a.2 map2a
-end ParamClass
 
-/- The per-former grading tables (`arrowVariance`/`forallVariance`) live with their combinators. -/
+-- TODO: assess usefulness
+-- needs an axiom (univalence on a sort / funext on Π) iff some component is ≥ 2b
+def requiresAxiom (a : ParamClass) : Bool := !MapClass.le a.1 map2a || !MapClass.le a.2 map2a
+
+end ParamClass
 
 end LeTrocq
